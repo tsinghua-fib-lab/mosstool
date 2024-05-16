@@ -1,0 +1,14 @@
+<additional>
+    <tlLogic id="6052445879" type="static" programID="0" offset="0">
+        <phase duration="37" state="GG"/> <!--绿灯-->
+        <phase duration="8"  state="yy"/> <!--黄灯-->
+        <phase duration="37" state="rr"/> <!--红灯-->
+        <phase duration="8"  state="rr"/> <!--黄灯-->
+    </tlLogic>
+    <tlLogic id="6055902262" type="static" programID="0" offset="0">
+        <phase duration="37" state="GGGg"/> <!--绿灯-->
+        <phase duration="8"  state="yyyr"/> <!--黄灯-->
+        <phase duration="37" state="rrrr"/> <!--红灯-->
+        <phase duration="8"  state="rrrr"/> <!--黄灯-->
+    </tlLogic>
+</additional>

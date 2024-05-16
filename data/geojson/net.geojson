@@ -1,0 +1,4567 @@
+{
+    "type": "FeatureCollection",
+    "name": "net",
+    "crs": {
+        "type": "name",
+        "properties": {
+            "name": "urn:ogc:def:crs:OGC:1.3:CRS84"
+        }
+    },
+    "features": [
+        {
+            "type": "Feature",
+            "properties": {
+                "lanes": 3,
+                "highway": "tertiary",
+                "max_speed": 16.67,
+                "name": "光谷六路",
+                "lanewidth": 3.0,
+                "turn": [
+                    "S",
+                    "S",
+                    "S"
+                ],
+                "id": 81
+            },
+            "geometry": {
+                "type": "LineString",
+                "coordinates": [
+                    [
+                        114.5077729,
+                        30.4909107
+                    ],
+                    [
+                        114.5077688,
+                        30.4907152
+                    ]
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "lanes": 2,
+                "highway": "tertiary",
+                "max_speed": 16.67,
+                "name": "光谷六路",
+                "lanewidth": 3.0,
+                "turn": [
+                    "S",
+                    "S"
+                ],
+                "id": 82
+            },
+            "geometry": {
+                "type": "LineString",
+                "coordinates": [
+                    [
+                        114.5076184,
+                        30.4910415
+                    ],
+                    [
+                        114.5076261,
+                        30.4910045
+                    ],
+                    [
+                        114.5076211,
+                        30.4907181
+                    ]
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "lanes": 1,
+                "highway": "tertiary_link",
+                "max_speed": 11.11,
+                "name": "光谷六路",
+                "lanewidth": 7.6,
+                "turn": [
+                    "L"
+                ],
+                "id": 83
+            },
+            "geometry": {
+                "type": "LineString",
+                "coordinates": [
+                    [
+                        114.5076184,
+                        30.4910415
+                    ],
+                    [
+                        114.5077729,
+                        30.4909107
+                    ]
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "lanes": 1,
+                "highway": "tertiary_link",
+                "max_speed": 11.11,
+                "name": "光谷六路",
+                "lanewidth": 3.0,
+                "turn": [
+                    "R"
+                ],
+                "id": 84
+            },
+            "geometry": {
+                "type": "LineString",
+                "coordinates": [
+                    [
+                        114.5079468,
+                        30.4908132
+                    ],
+                    [
+                        114.5081245,
+                        30.4910865
+                    ]
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "lanes": 2,
+                "highway": "tertiary",
+                "max_speed": 16.67,
+                "name": "光谷六路",
+                "lanewidth": 3.0,
+                "turn": [
+                    "R",
+                    "R"
+                ],
+                "id": 85
+            },
+            "geometry": {
+                "type": "LineString",
+                "coordinates": [
+                    [
+                        114.5081216,
+                        30.4907231
+                    ],
+                    [
+                        114.5081245,
+                        30.4910865
+                    ]
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "lanes": 1,
+                "highway": "tertiary_link",
+                "max_speed": 11.11,
+                "name": "光谷六路",
+                "lanewidth": 5.0,
+                "turn": [
+                    "R"
+                ],
+                "id": 86
+            },
+            "geometry": {
+                "type": "LineString",
+                "coordinates": [
+                    [
+                        114.5081245,
+                        30.4910865
+                    ],
+                    [
+                        114.5081886,
+                        30.4911851
+                    ],
+                    [
+                        114.50828,
+                        30.4912427
+                    ],
+                    [
+                        114.5084121,
+                        30.4912786
+                    ]
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "lanes": 3,
+                "highway": "trunk",
+                "max_speed": 11.11,
+                "name": "高新大道",
+                "lanewidth": 3.0,
+                "turn": [
+                    "S",
+                    "S",
+                    "SR"
+                ],
+                "id": 89
+            },
+            "geometry": {
+                "type": "LineString",
+                "coordinates": [
+                    [
+                        114.5079556,
+                        30.4912901
+                    ],
+                    [
+                        114.5084121,
+                        30.4912786
+                    ]
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "lanes": 3,
+                "highway": "trunk",
+                "max_speed": 11.11,
+                "name": "高新大道",
+                "lanewidth": 3.0,
+                "turn": [
+                    "S",
+                    "S",
+                    "SR"
+                ],
+                "id": 92
+            },
+            "geometry": {
+                "type": "LineString",
+                "coordinates": [
+                    [
+                        114.506544,
+                        30.4913251
+                    ],
+                    [
+                        114.5074669,
+                        30.4913026
+                    ]
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "lanes": 3,
+                "highway": "trunk",
+                "max_speed": 11.11,
+                "name": "高新大道",
+                "lanewidth": 3.0,
+                "turn": [
+                    "S",
+                    "S",
+                    "SR"
+                ],
+                "id": 98
+            },
+            "geometry": {
+                "type": "LineString",
+                "coordinates": [
+                    [
+                        114.5052441,
+                        30.4913572
+                    ],
+                    [
+                        114.506544,
+                        30.4913251
+                    ]
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "lanes": 2,
+                "highway": "residential",
+                "max_speed": 16.67,
+                "name": "松涛路",
+                "lanewidth": 3.7,
+                "turn": [
+                    "R",
+                    "R"
+                ],
+                "id": 101
+            },
+            "geometry": {
+                "type": "LineString",
+                "coordinates": [
+                    [
+                        114.5027,
+                        30.490932
+                    ],
+                    [
+                        114.5027027,
+                        30.4912165
+                    ]
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "lanes": 3,
+                "highway": "trunk",
+                "max_speed": 11.11,
+                "name": "高新大道",
+                "lanewidth": 3.0,
+                "turn": [
+                    "SL",
+                    "S",
+                    "S"
+                ],
+                "id": 102
+            },
+            "geometry": {
+                "type": "LineString",
+                "coordinates": [
+                    [
+                        114.5029127,
+                        30.4914145
+                    ],
+                    [
+                        114.5039109,
+                        30.4913916
+                    ]
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "lanes": 4,
+                "highway": "tertiary",
+                "max_speed": 16.67,
+                "name": "光谷六路",
+                "lanewidth": 3.0,
+                "turn": [
+                    "S",
+                    "S",
+                    "S",
+                    "S"
+                ],
+                "id": 104
+            },
+            "geometry": {
+                "type": "LineString",
+                "coordinates": [
+                    [
+                        114.5079556,
+                        30.4912901
+                    ],
+                    [
+                        114.5079516,
+                        30.4914198
+                    ]
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "lanes": 4,
+                "highway": "trunk",
+                "max_speed": 19.44,
+                "name": "高新大道",
+                "lanewidth": 3.0,
+                "turn": [
+                    "S",
+                    "S",
+                    "S",
+                    "S"
+                ],
+                "id": 105
+            },
+            "geometry": {
+                "type": "LineString",
+                "coordinates": [
+                    [
+                        114.5079516,
+                        30.4914198
+                    ],
+                    [
+                        114.5087068,
+                        30.4914073
+                    ]
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "lanes": 2,
+                "highway": "residential",
+                "max_speed": 16.67,
+                "name": "松涛路",
+                "lanewidth": 3.7,
+                "turn": [
+                    "SL",
+                    "SR"
+                ],
+                "id": 106
+            },
+            "geometry": {
+                "type": "LineString",
+                "coordinates": [
+                    [
+                        114.5026049,
+                        30.4912187
+                    ],
+                    [
+                        114.5026029,
+                        30.4909187
+                    ]
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "lanes": 2,
+                "highway": "trunk",
+                "max_speed": 11.11,
+                "name": "高新大道",
+                "lanewidth": 3.0,
+                "turn": [
+                    "S",
+                    "S"
+                ],
+                "id": 107
+            },
+            "geometry": {
+                "type": "LineString",
+                "coordinates": [
+                    [
+                        114.5023622,
+                        30.4914272
+                    ],
+                    [
+                        114.5029127,
+                        30.4914145
+                    ]
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "lanes": 3,
+                "highway": "tertiary",
+                "max_speed": 16.67,
+                "name": "光谷六路",
+                "lanewidth": 3.0,
+                "turn": [
+                    "S",
+                    "S",
+                    "S"
+                ],
+                "id": 108
+            },
+            "geometry": {
+                "type": "LineString",
+                "coordinates": [
+                    [
+                        114.5077849,
+                        30.491433
+                    ],
+                    [
+                        114.5077851,
+                        30.4912936
+                    ]
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "lanes": 5,
+                "highway": "trunk",
+                "max_speed": 19.44,
+                "name": "高新大道",
+                "lanewidth": 3.0,
+                "turn": [
+                    "L",
+                    "L",
+                    "S",
+                    "S",
+                    "S"
+                ],
+                "id": 109
+            },
+            "geometry": {
+                "type": "LineString",
+                "coordinates": [
+                    [
+                        114.5070465,
+                        30.4914495
+                    ],
+                    [
+                        114.5077849,
+                        30.491433
+                    ]
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "lanes": 3,
+                "highway": "trunk",
+                "max_speed": 11.11,
+                "name": "高新大道",
+                "lanewidth": 3.0,
+                "turn": [
+                    "S",
+                    "S",
+                    "R"
+                ],
+                "id": 110
+            },
+            "geometry": {
+                "type": "LineString",
+                "coordinates": [
+                    [
+                        114.5012988,
+                        30.4914538
+                    ],
+                    [
+                        114.5023622,
+                        30.4914272
+                    ]
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "lanes": 1,
+                "highway": "trunk_link",
+                "max_speed": 11.11,
+                "name": "高新大道",
+                "lanewidth": 3.5,
+                "turn": [
+                    "R"
+                ],
+                "id": 111
+            },
+            "geometry": {
+                "type": "LineString",
+                "coordinates": [
+                    [
+                        114.5062154,
+                        30.4914661
+                    ],
+                    [
+                        114.506544,
+                        30.4913251
+                    ]
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "lanes": 5,
+                "highway": "trunk",
+                "max_speed": 19.44,
+                "name": "高新大道",
+                "lanewidth": 3.0,
+                "turn": [
+                    "LA",
+                    "L",
+                    "S",
+                    "S",
+                    "S"
+                ],
+                "id": 112
+            },
+            "geometry": {
+                "type": "LineString",
+                "coordinates": [
+                    [
+                        114.5062154,
+                        30.4914661
+                    ],
+                    [
+                        114.5070465,
+                        30.4914495
+                    ]
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "lanes": 2,
+                "highway": "residential",
+                "max_speed": 8.33,
+                "name": "枫杨路",
+                "lanewidth": 2.5,
+                "turn": [
+                    "R",
+                    "R"
+                ],
+                "id": 113
+            },
+            "geometry": {
+                "type": "LineString",
+                "coordinates": [
+                    [
+                        114.5001944,
+                        30.4909591
+                    ],
+                    [
+                        114.5001845,
+                        30.4914817
+                    ]
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "lanes": 3,
+                "highway": "trunk",
+                "max_speed": 11.11,
+                "name": "高新大道",
+                "lanewidth": 3.0,
+                "turn": [
+                    "SL",
+                    "S",
+                    "S"
+                ],
+                "id": 114
+            },
+            "geometry": {
+                "type": "LineString",
+                "coordinates": [
+                    [
+                        114.5001845,
+                        30.4914817
+                    ],
+                    [
+                        114.5012988,
+                        30.4914538
+                    ]
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "lanes": 1,
+                "highway": "trunk_link",
+                "max_speed": 11.11,
+                "name": "高新大道",
+                "lanewidth": 3.5,
+                "turn": [
+                    "L"
+                ],
+                "id": 115
+            },
+            "geometry": {
+                "type": "LineString",
+                "coordinates": [
+                    [
+                        114.5043267,
+                        30.4913817
+                    ],
+                    [
+                        114.504817,
+                        30.4915004
+                    ]
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "lanes": 4,
+                "highway": "trunk",
+                "max_speed": 19.44,
+                "name": "高新大道",
+                "lanewidth": 3.0,
+                "turn": [
+                    "S",
+                    "S",
+                    "S",
+                    "SR"
+                ],
+                "id": 116
+            },
+            "geometry": {
+                "type": "LineString",
+                "coordinates": [
+                    [
+                        114.504817,
+                        30.4915004
+                    ],
+                    [
+                        114.5062154,
+                        30.4914661
+                    ]
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "lanes": 3,
+                "highway": "trunk",
+                "max_speed": 11.11,
+                "name": "高新大道",
+                "lanewidth": 3.0,
+                "turn": [
+                    "S",
+                    "S",
+                    "S"
+                ],
+                "id": 117
+            },
+            "geometry": {
+                "type": "LineString",
+                "coordinates": [
+                    [
+                        114.4990319,
+                        30.4915169
+                    ],
+                    [
+                        114.4990334,
+                        30.4915169
+                    ],
+                    [
+                        114.5001792,
+                        30.4914817
+                    ],
+                    [
+                        114.5001845,
+                        30.4914817
+                    ]
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "lanes": 2,
+                "highway": "residential",
+                "max_speed": 8.33,
+                "name": "棠浦路",
+                "lanewidth": 3.0,
+                "turn": [
+                    "S",
+                    "SR"
+                ],
+                "id": 118
+            },
+            "geometry": {
+                "type": "LineString",
+                "coordinates": [
+                    [
+                        114.4990319,
+                        30.4915169
+                    ],
+                    [
+                        114.4990369,
+                        30.4909701
+                    ]
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "lanes": 3,
+                "highway": "trunk",
+                "max_speed": 11.11,
+                "name": "高新大道",
+                "lanewidth": 3.0,
+                "turn": [
+                    "S",
+                    "S",
+                    "S"
+                ],
+                "id": 120
+            },
+            "geometry": {
+                "type": "LineString",
+                "coordinates": [
+                    [
+                        114.4986515,
+                        30.4915258
+                    ],
+                    [
+                        114.4990319,
+                        30.4915169
+                    ]
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "lanes": 4,
+                "highway": "primary",
+                "max_speed": 16.67,
+                "name": "光谷五路",
+                "lanewidth": 3.0,
+                "turn": [
+                    "L",
+                    "S",
+                    "S",
+                    "R"
+                ],
+                "id": 121
+            },
+            "geometry": {
+                "type": "LineString",
+                "coordinates": [
+                    [
+                        114.4977068,
+                        30.4910148
+                    ],
+                    [
+                        114.4977036,
+                        30.4915511
+                    ]
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "lanes": 3,
+                "highway": "trunk",
+                "max_speed": 11.11,
+                "name": "高新大道",
+                "lanewidth": 3.0,
+                "turn": [
+                    "S",
+                    "S",
+                    "S"
+                ],
+                "id": 122
+            },
+            "geometry": {
+                "type": "LineString",
+                "coordinates": [
+                    [
+                        114.4977036,
+                        30.4915511
+                    ],
+                    [
+                        114.4986515,
+                        30.4915258
+                    ]
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "lanes": 4,
+                "highway": "primary",
+                "max_speed": 16.67,
+                "name": "光谷五路",
+                "lanewidth": 3.0,
+                "turn": [
+                    "S",
+                    "S",
+                    "S",
+                    "S"
+                ],
+                "id": 124
+            },
+            "geometry": {
+                "type": "LineString",
+                "coordinates": [
+                    [
+                        114.4974948,
+                        30.4915538
+                    ],
+                    [
+                        114.4974887,
+                        30.491014
+                    ]
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "lanes": 1,
+                "highway": "trunk_link",
+                "max_speed": 11.11,
+                "name": "高新大道",
+                "lanewidth": 3.5,
+                "turn": [
+                    "L"
+                ],
+                "id": 125
+            },
+            "geometry": {
+                "type": "LineString",
+                "coordinates": [
+                    [
+                        114.5012988,
+                        30.4914538
+                    ],
+                    [
+                        114.5017381,
+                        30.4915756
+                    ]
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "lanes": 4,
+                "highway": "trunk",
+                "max_speed": 19.44,
+                "name": "高新大道",
+                "lanewidth": 3.0,
+                "turn": [
+                    "S",
+                    "S",
+                    "S",
+                    "S"
+                ],
+                "id": 126
+            },
+            "geometry": {
+                "type": "LineString",
+                "coordinates": [
+                    [
+                        114.5017381,
+                        30.4915756
+                    ],
+                    [
+                        114.504817,
+                        30.4915004
+                    ]
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "lanes": 3,
+                "highway": "trunk",
+                "max_speed": 11.11,
+                "name": "高新大道",
+                "lanewidth": 3.0,
+                "turn": [
+                    "S",
+                    "S",
+                    "S"
+                ],
+                "id": 127
+            },
+            "geometry": {
+                "type": "LineString",
+                "coordinates": [
+                    [
+                        114.4960613,
+                        30.491588
+                    ],
+                    [
+                        114.4974948,
+                        30.4915538
+                    ]
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "lanes": 1,
+                "highway": "trunk_link",
+                "max_speed": 11.11,
+                "name": "高新大道",
+                "lanewidth": 7.0,
+                "turn": [
+                    "A"
+                ],
+                "id": 128
+            },
+            "geometry": {
+                "type": "LineString",
+                "coordinates": [
+                    [
+                        114.5087162,
+                        30.4916187
+                    ],
+                    [
+                        114.5087068,
+                        30.4914073
+                    ]
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "lanes": 1,
+                "highway": "trunk_link",
+                "max_speed": 11.11,
+                "name": "高新大道",
+                "lanewidth": 3.5,
+                "turn": [
+                    "R"
+                ],
+                "id": 130
+            },
+            "geometry": {
+                "type": "LineString",
+                "coordinates": [
+                    [
+                        114.4982615,
+                        30.491666
+                    ],
+                    [
+                        114.4986515,
+                        30.4915258
+                    ]
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "lanes": 4,
+                "highway": "trunk",
+                "max_speed": 19.44,
+                "name": "高新大道",
+                "lanewidth": 3.0,
+                "turn": [
+                    "S",
+                    "S",
+                    "S",
+                    "S"
+                ],
+                "id": 131
+            },
+            "geometry": {
+                "type": "LineString",
+                "coordinates": [
+                    [
+                        114.4984813,
+                        30.4916609
+                    ],
+                    [
+                        114.5017381,
+                        30.4915756
+                    ]
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "lanes": 5,
+                "highway": "trunk",
+                "max_speed": 19.44,
+                "name": "高新大道",
+                "lanewidth": 3.0,
+                "turn": [
+                    "L",
+                    "L",
+                    "S",
+                    "S",
+                    "S"
+                ],
+                "id": 132
+            },
+            "geometry": {
+                "type": "LineString",
+                "coordinates": [
+                    [
+                        114.5087162,
+                        30.4916187
+                    ],
+                    [
+                        114.5079445,
+                        30.4916381
+                    ]
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "lanes": 4,
+                "highway": "primary",
+                "max_speed": 16.67,
+                "name": "光谷五路",
+                "lanewidth": 3.0,
+                "turn": [
+                    "L",
+                    "S",
+                    "S",
+                    "R"
+                ],
+                "id": 133
+            },
+            "geometry": {
+                "type": "LineString",
+                "coordinates": [
+                    [
+                        114.4977036,
+                        30.4915511
+                    ],
+                    [
+                        114.4976993,
+                        30.4916782
+                    ]
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "lanes": 4,
+                "highway": "trunk",
+                "max_speed": 19.44,
+                "name": "高新大道",
+                "lanewidth": 3.0,
+                "turn": [
+                    "S",
+                    "S",
+                    "S",
+                    "SR"
+                ],
+                "id": 134
+            },
+            "geometry": {
+                "type": "LineString",
+                "coordinates": [
+                    [
+                        114.4976993,
+                        30.4916782
+                    ],
+                    [
+                        114.4982615,
+                        30.491666
+                    ]
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "lanes": 1,
+                "highway": "trunk_link",
+                "max_speed": 11.11,
+                "name": "高新大道",
+                "lanewidth": 7.0,
+                "turn": [
+                    "A"
+                ],
+                "id": 135
+            },
+            "geometry": {
+                "type": "LineString",
+                "coordinates": [
+                    [
+                        114.5070465,
+                        30.4914495
+                    ],
+                    [
+                        114.507047,
+                        30.4916574
+                    ]
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "lanes": 4,
+                "highway": "trunk",
+                "max_speed": 19.44,
+                "name": "高新大道",
+                "lanewidth": 3.0,
+                "turn": [
+                    "S",
+                    "S",
+                    "S",
+                    "SR"
+                ],
+                "id": 136
+            },
+            "geometry": {
+                "type": "LineString",
+                "coordinates": [
+                    [
+                        114.5077975,
+                        30.491639
+                    ],
+                    [
+                        114.507047,
+                        30.4916574
+                    ]
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "lanes": 4,
+                "highway": "trunk",
+                "max_speed": 19.44,
+                "name": "高新大道",
+                "lanewidth": 3.0,
+                "turn": [
+                    "S",
+                    "S",
+                    "S",
+                    "SR"
+                ],
+                "id": 137
+            },
+            "geometry": {
+                "type": "LineString",
+                "coordinates": [
+                    [
+                        114.507047,
+                        30.4916574
+                    ],
+                    [
+                        114.5067638,
+                        30.4916644
+                    ]
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "lanes": 4,
+                "highway": "primary",
+                "max_speed": 16.67,
+                "name": "光谷五路",
+                "lanewidth": 3.0,
+                "turn": [
+                    "S",
+                    "S",
+                    "S",
+                    "S"
+                ],
+                "id": 138
+            },
+            "geometry": {
+                "type": "LineString",
+                "coordinates": [
+                    [
+                        114.4974978,
+                        30.4916874
+                    ],
+                    [
+                        114.4974948,
+                        30.4915538
+                    ]
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "lanes": 5,
+                "highway": "trunk",
+                "max_speed": 19.44,
+                "name": "高新大道",
+                "lanewidth": 3.0,
+                "turn": [
+                    "L",
+                    "L",
+                    "S",
+                    "S",
+                    "S"
+                ],
+                "id": 139
+            },
+            "geometry": {
+                "type": "LineString",
+                "coordinates": [
+                    [
+                        114.4967489,
+                        30.491703
+                    ],
+                    [
+                        114.4974978,
+                        30.4916874
+                    ]
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "lanes": 4,
+                "highway": "trunk",
+                "max_speed": 19.44,
+                "name": "高新大道",
+                "lanewidth": 3.0,
+                "turn": [
+                    "S",
+                    "S",
+                    "S",
+                    "S"
+                ],
+                "id": 140
+            },
+            "geometry": {
+                "type": "LineString",
+                "coordinates": [
+                    [
+                        114.4960549,
+                        30.4917178
+                    ],
+                    [
+                        114.4965529,
+                        30.4917071
+                    ]
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "lanes": 4,
+                "highway": "trunk",
+                "max_speed": 19.44,
+                "name": "高新大道",
+                "lanewidth": 3.0,
+                "turn": [
+                    "S",
+                    "S",
+                    "S",
+                    "S"
+                ],
+                "id": 141
+            },
+            "geometry": {
+                "type": "LineString",
+                "coordinates": [
+                    [
+                        114.5067638,
+                        30.4916644
+                    ],
+                    [
+                        114.5048037,
+                        30.4917126
+                    ]
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "lanes": 4,
+                "highway": "trunk",
+                "max_speed": 19.44,
+                "name": "高新大道",
+                "lanewidth": 3.0,
+                "turn": [
+                    "S",
+                    "S",
+                    "S",
+                    "SR"
+                ],
+                "id": 142
+            },
+            "geometry": {
+                "type": "LineString",
+                "coordinates": [
+                    [
+                        114.5048037,
+                        30.4917126
+                    ],
+                    [
+                        114.5036742,
+                        30.4917404
+                    ]
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "lanes": 4,
+                "highway": "trunk",
+                "max_speed": 19.44,
+                "name": "高新大道",
+                "lanewidth": 3.0,
+                "turn": [
+                    "S",
+                    "S",
+                    "S",
+                    "S"
+                ],
+                "id": 144
+            },
+            "geometry": {
+                "type": "LineString",
+                "coordinates": [
+                    [
+                        114.5036742,
+                        30.4917404
+                    ],
+                    [
+                        114.5026138,
+                        30.4917665
+                    ],
+                    [
+                        114.5004455,
+                        30.4918251
+                    ]
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "lanes": 4,
+                "highway": "tertiary",
+                "max_speed": 16.67,
+                "name": "光谷六路",
+                "lanewidth": 3.0,
+                "turn": [
+                    "S",
+                    "S",
+                    "S",
+                    "S"
+                ],
+                "id": 145
+            },
+            "geometry": {
+                "type": "LineString",
+                "coordinates": [
+                    [
+                        114.5079445,
+                        30.4916381
+                    ],
+                    [
+                        114.5079452,
+                        30.4917682
+                    ]
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "lanes": 3,
+                "highway": "trunk",
+                "max_speed": 11.11,
+                "name": "高新大道",
+                "lanewidth": 3.0,
+                "turn": [
+                    "S",
+                    "S",
+                    "SR"
+                ],
+                "id": 146
+            },
+            "geometry": {
+                "type": "LineString",
+                "coordinates": [
+                    [
+                        114.5083807,
+                        30.4917582
+                    ],
+                    [
+                        114.5079452,
+                        30.4917682
+                    ]
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "lanes": 3,
+                "highway": "tertiary",
+                "max_speed": 16.67,
+                "name": "光谷六路",
+                "lanewidth": 3.0,
+                "turn": [
+                    "L",
+                    "SL",
+                    "S"
+                ],
+                "id": 147
+            },
+            "geometry": {
+                "type": "LineString",
+                "coordinates": [
+                    [
+                        114.5078034,
+                        30.4917758
+                    ],
+                    [
+                        114.5077975,
+                        30.491639
+                    ]
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "lanes": 3,
+                "highway": "trunk",
+                "max_speed": 11.11,
+                "name": "高新大道",
+                "lanewidth": 3.0,
+                "turn": [
+                    "S",
+                    "S",
+                    "S"
+                ],
+                "id": 148
+            },
+            "geometry": {
+                "type": "LineString",
+                "coordinates": [
+                    [
+                        114.5078034,
+                        30.4917758
+                    ],
+                    [
+                        114.5073997,
+                        30.4917836
+                    ]
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "lanes": 1,
+                "highway": "trunk_link",
+                "max_speed": 11.11,
+                "name": "高新大道",
+                "lanewidth": 3.5,
+                "turn": [
+                    "R"
+                ],
+                "id": 149
+            },
+            "geometry": {
+                "type": "LineString",
+                "coordinates": [
+                    [
+                        114.5067638,
+                        30.4916644
+                    ],
+                    [
+                        114.5064438,
+                        30.491811
+                    ]
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "lanes": 3,
+                "highway": "trunk",
+                "max_speed": 11.11,
+                "name": "高新大道",
+                "lanewidth": 3.0,
+                "turn": [
+                    "S",
+                    "S",
+                    "S"
+                ],
+                "id": 150
+            },
+            "geometry": {
+                "type": "LineString",
+                "coordinates": [
+                    [
+                        114.5073997,
+                        30.4917836
+                    ],
+                    [
+                        114.5064438,
+                        30.491811
+                    ]
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "lanes": 1,
+                "highway": "trunk_link",
+                "max_speed": 11.11,
+                "name": "高新大道",
+                "lanewidth": 3.5,
+                "turn": [
+                    "L"
+                ],
+                "id": 152
+            },
+            "geometry": {
+                "type": "LineString",
+                "coordinates": [
+                    [
+                        114.5051862,
+                        30.4918402
+                    ],
+                    [
+                        114.5048037,
+                        30.4917126
+                    ]
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "lanes": 3,
+                "highway": "trunk",
+                "max_speed": 11.11,
+                "name": "高新大道",
+                "lanewidth": 3.0,
+                "turn": [
+                    "S",
+                    "S",
+                    "S"
+                ],
+                "id": 153
+            },
+            "geometry": {
+                "type": "LineString",
+                "coordinates": [
+                    [
+                        114.5064438,
+                        30.491811
+                    ],
+                    [
+                        114.5051862,
+                        30.4918402
+                    ]
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "lanes": 4,
+                "highway": "trunk",
+                "max_speed": 19.44,
+                "name": "高新大道",
+                "lanewidth": 3.0,
+                "turn": [
+                    "S",
+                    "S",
+                    "S",
+                    "SR"
+                ],
+                "id": 154
+            },
+            "geometry": {
+                "type": "LineString",
+                "coordinates": [
+                    [
+                        114.5004455,
+                        30.4918251
+                    ],
+                    [
+                        114.4990268,
+                        30.4918635
+                    ]
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "lanes": 5,
+                "highway": "trunk",
+                "max_speed": 19.44,
+                "name": "高新大道",
+                "lanewidth": 3.0,
+                "turn": [
+                    "A",
+                    "S",
+                    "S",
+                    "S",
+                    "S"
+                ],
+                "id": 155
+            },
+            "geometry": {
+                "type": "LineString",
+                "coordinates": [
+                    [
+                        114.4984854,
+                        30.4918719
+                    ],
+                    [
+                        114.4977133,
+                        30.4918859
+                    ]
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "lanes": 1,
+                "highway": "trunk_link",
+                "max_speed": 11.11,
+                "name": "高新大道",
+                "lanewidth": 3.5,
+                "turn": [
+                    "R"
+                ],
+                "id": 156
+            },
+            "geometry": {
+                "type": "LineString",
+                "coordinates": [
+                    [
+                        114.5036742,
+                        30.4917404
+                    ],
+                    [
+                        114.5033922,
+                        30.4918849
+                    ]
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "lanes": 3,
+                "highway": "trunk",
+                "max_speed": 11.11,
+                "name": "高新大道",
+                "lanewidth": 3.0,
+                "turn": [
+                    "S",
+                    "S",
+                    "S"
+                ],
+                "id": 157
+            },
+            "geometry": {
+                "type": "LineString",
+                "coordinates": [
+                    [
+                        114.5051862,
+                        30.4918402
+                    ],
+                    [
+                        114.5033922,
+                        30.4918849
+                    ]
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "lanes": 3,
+                "highway": "trunk",
+                "max_speed": 11.11,
+                "name": "高新大道",
+                "lanewidth": 3.0,
+                "turn": [
+                    "S",
+                    "S",
+                    "R"
+                ],
+                "id": 158
+            },
+            "geometry": {
+                "type": "LineString",
+                "coordinates": [
+                    [
+                        114.5033922,
+                        30.4918849
+                    ],
+                    [
+                        114.5029196,
+                        30.4918959
+                    ]
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "lanes": 2,
+                "highway": "trunk",
+                "max_speed": 11.11,
+                "name": "高新大道",
+                "lanewidth": 3.0,
+                "turn": [
+                    "S",
+                    "S"
+                ],
+                "id": 159
+            },
+            "geometry": {
+                "type": "LineString",
+                "coordinates": [
+                    [
+                        114.5029196,
+                        30.4918959
+                    ],
+                    [
+                        114.5024058,
+                        30.4919093
+                    ]
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "lanes": 4,
+                "highway": "trunk",
+                "max_speed": 19.44,
+                "name": "高新大道",
+                "lanewidth": 3.0,
+                "turn": [
+                    "S",
+                    "S",
+                    "S",
+                    "S"
+                ],
+                "id": 160
+            },
+            "geometry": {
+                "type": "LineString",
+                "coordinates": [
+                    [
+                        114.497484,
+                        30.4918951
+                    ],
+                    [
+                        114.4967563,
+                        30.4919157
+                    ]
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "lanes": 1,
+                "highway": "trunk_link",
+                "max_speed": 11.11,
+                "name": "高新大道",
+                "lanewidth": 3.5,
+                "turn": [
+                    "L"
+                ],
+                "id": 161
+            },
+            "geometry": {
+                "type": "LineString",
+                "coordinates": [
+                    [
+                        114.5007895,
+                        30.4919493
+                    ],
+                    [
+                        114.5004455,
+                        30.4918251
+                    ]
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "lanes": 3,
+                "highway": "trunk",
+                "max_speed": 11.11,
+                "name": "高新大道",
+                "lanewidth": 3.0,
+                "turn": [
+                    "SL",
+                    "S",
+                    "S"
+                ],
+                "id": 162
+            },
+            "geometry": {
+                "type": "LineString",
+                "coordinates": [
+                    [
+                        114.5024058,
+                        30.4919093
+                    ],
+                    [
+                        114.5007895,
+                        30.4919493
+                    ]
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "lanes": 1,
+                "highway": "trunk_link",
+                "max_speed": 11.11,
+                "name": "高新大道",
+                "lanewidth": 3.5,
+                "turn": [
+                    "R"
+                ],
+                "id": 163
+            },
+            "geometry": {
+                "type": "LineString",
+                "coordinates": [
+                    [
+                        114.4990268,
+                        30.4918635
+                    ],
+                    [
+                        114.4986325,
+                        30.4920046
+                    ]
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "lanes": 3,
+                "highway": "trunk",
+                "max_speed": 11.11,
+                "name": "高新大道",
+                "lanewidth": 3.0,
+                "turn": [
+                    "S",
+                    "S",
+                    "S"
+                ],
+                "id": 164
+            },
+            "geometry": {
+                "type": "LineString",
+                "coordinates": [
+                    [
+                        114.5007895,
+                        30.4919493
+                    ],
+                    [
+                        114.4986325,
+                        30.4920046
+                    ]
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "lanes": 4,
+                "highway": "primary",
+                "max_speed": 16.67,
+                "name": "花山大道",
+                "lanewidth": 3.0,
+                "turn": [
+                    "S",
+                    "S",
+                    "S",
+                    "S"
+                ],
+                "id": 165
+            },
+            "geometry": {
+                "type": "LineString",
+                "coordinates": [
+                    [
+                        114.4977133,
+                        30.4918859
+                    ],
+                    [
+                        114.4977181,
+                        30.4920244
+                    ]
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "lanes": 3,
+                "highway": "trunk",
+                "max_speed": 11.11,
+                "name": "高新大道",
+                "lanewidth": 3.0,
+                "turn": [
+                    "S",
+                    "S",
+                    "SR"
+                ],
+                "id": 166
+            },
+            "geometry": {
+                "type": "LineString",
+                "coordinates": [
+                    [
+                        114.4986325,
+                        30.4920046
+                    ],
+                    [
+                        114.4981178,
+                        30.4920148
+                    ],
+                    [
+                        114.4977181,
+                        30.4920244
+                    ]
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "lanes": 5,
+                "highway": "primary",
+                "max_speed": 16.67,
+                "name": "花山大道",
+                "lanewidth": 3.0,
+                "turn": [
+                    "AL",
+                    "L",
+                    "L",
+                    "R",
+                    "R"
+                ],
+                "id": 167
+            },
+            "geometry": {
+                "type": "LineString",
+                "coordinates": [
+                    [
+                        114.4974891,
+                        30.4920287
+                    ],
+                    [
+                        114.497484,
+                        30.4918951
+                    ]
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "lanes": 3,
+                "highway": "trunk",
+                "max_speed": 11.11,
+                "name": "高新大道",
+                "lanewidth": 3.0,
+                "turn": [
+                    "S",
+                    "S",
+                    "S"
+                ],
+                "id": 169
+            },
+            "geometry": {
+                "type": "LineString",
+                "coordinates": [
+                    [
+                        114.4974891,
+                        30.4920287
+                    ],
+                    [
+                        114.4960533,
+                        30.4920692
+                    ]
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "lanes": 3,
+                "highway": "tertiary",
+                "max_speed": 16.67,
+                "name": "光谷六路",
+                "lanewidth": 3.0,
+                "turn": [
+                    "S",
+                    "S",
+                    "S"
+                ],
+                "id": 170
+            },
+            "geometry": {
+                "type": "LineString",
+                "coordinates": [
+                    [
+                        114.5079452,
+                        30.4917682
+                    ],
+                    [
+                        114.5079381,
+                        30.4918655
+                    ],
+                    [
+                        114.50793,
+                        30.4921968
+                    ]
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "lanes": 1,
+                "highway": "trunk_link",
+                "max_speed": 11.11,
+                "name": "高新大道",
+                "lanewidth": 5.0,
+                "turn": [
+                    "R"
+                ],
+                "id": 171
+            },
+            "geometry": {
+                "type": "LineString",
+                "coordinates": [
+                    [
+                        114.5083807,
+                        30.4917582
+                    ],
+                    [
+                        114.5081231,
+                        30.4918225
+                    ],
+                    [
+                        114.5080285,
+                        30.4919104
+                    ],
+                    [
+                        114.5079692,
+                        30.4920804
+                    ],
+                    [
+                        114.50793,
+                        30.4921968
+                    ]
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "lanes": 1,
+                "highway": "tertiary_link",
+                "max_speed": 11.11,
+                "name": "光谷六路",
+                "lanewidth": 5.0,
+                "turn": [
+                    "R"
+                ],
+                "id": 172
+            },
+            "geometry": {
+                "type": "LineString",
+                "coordinates": [
+                    [
+                        114.5078036,
+                        30.4922048
+                    ],
+                    [
+                        114.5077442,
+                        30.4919834
+                    ],
+                    [
+                        114.5076757,
+                        30.4918899
+                    ],
+                    [
+                        114.5075609,
+                        30.4918251
+                    ],
+                    [
+                        114.5073997,
+                        30.4917836
+                    ]
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "lanes": 3,
+                "highway": "tertiary",
+                "max_speed": 16.67,
+                "name": "光谷六路",
+                "lanewidth": 3.0,
+                "turn": [
+                    "L",
+                    "SL",
+                    "S"
+                ],
+                "id": 173
+            },
+            "geometry": {
+                "type": "LineString",
+                "coordinates": [
+                    [
+                        114.5078036,
+                        30.4922048
+                    ],
+                    [
+                        114.5078034,
+                        30.4917758
+                    ]
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "lanes": 3,
+                "highway": "tertiary",
+                "max_speed": 16.67,
+                "name": "光谷六路",
+                "lanewidth": 3.0,
+                "turn": [
+                    "S",
+                    "S",
+                    "S"
+                ],
+                "id": 174
+            },
+            "geometry": {
+                "type": "LineString",
+                "coordinates": [
+                    [
+                        114.50793,
+                        30.4921968
+                    ],
+                    [
+                        114.5079243,
+                        30.4924354
+                    ],
+                    [
+                        114.5079248,
+                        30.4929501
+                    ]
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "lanes": 4,
+                "highway": "tertiary",
+                "max_speed": 16.67,
+                "name": "光谷六路",
+                "lanewidth": 3.0,
+                "turn": [
+                    "L",
+                    "SL",
+                    "S",
+                    "R"
+                ],
+                "id": 177
+            },
+            "geometry": {
+                "type": "LineString",
+                "coordinates": [
+                    [
+                        114.5078313,
+                        30.4927912
+                    ],
+                    [
+                        114.5078329,
+                        30.4925991
+                    ],
+                    [
+                        114.5078038,
+                        30.4924344
+                    ],
+                    [
+                        114.5078036,
+                        30.4922048
+                    ]
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "lanes": 2,
+                "highway": "residential",
+                "max_speed": 16.67,
+                "name": "松涛路",
+                "lanewidth": 3.5,
+                "turn": [
+                    "R",
+                    "R"
+                ],
+                "id": 178
+            },
+            "geometry": {
+                "type": "LineString",
+                "coordinates": [
+                    [
+                        114.5026187,
+                        30.4933978
+                    ],
+                    [
+                        114.5026177,
+                        30.4933091
+                    ],
+                    [
+                        114.5026182,
+                        30.4926914
+                    ],
+                    [
+                        114.5026039,
+                        30.49211
+                    ]
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "lanes": 2,
+                "highway": "residential",
+                "max_speed": 16.67,
+                "name": "松涛路",
+                "lanewidth": 3.5,
+                "turn": [
+                    "S",
+                    "S"
+                ],
+                "id": 179
+            },
+            "geometry": {
+                "type": "LineString",
+                "coordinates": [
+                    [
+                        114.5027042,
+                        30.492104
+                    ],
+                    [
+                        114.5026975,
+                        30.4926942
+                    ],
+                    [
+                        114.5027049,
+                        30.4930555
+                    ],
+                    [
+                        114.5027038,
+                        30.4934164
+                    ],
+                    [
+                        114.5027045,
+                        30.4938016
+                    ],
+                    [
+                        114.5027068,
+                        30.4941596
+                    ],
+                    [
+                        114.502709,
+                        30.4942938
+                    ]
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "lanes": 5,
+                "highway": "primary",
+                "max_speed": 16.67,
+                "name": "花山大道",
+                "lanewidth": 3.0,
+                "turn": [
+                    "AL",
+                    "L",
+                    "L",
+                    "R",
+                    "R"
+                ],
+                "id": 180
+            },
+            "geometry": {
+                "type": "LineString",
+                "coordinates": [
+                    [
+                        114.4974791,
+                        30.4949508
+                    ],
+                    [
+                        114.4974834,
+                        30.4949101
+                    ],
+                    [
+                        114.4974965,
+                        30.494533
+                    ],
+                    [
+                        114.4974926,
+                        30.4938027
+                    ],
+                    [
+                        114.4974885,
+                        30.493001
+                    ],
+                    [
+                        114.4975008,
+                        30.492885
+                    ],
+                    [
+                        114.4974891,
+                        30.4920287
+                    ]
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "lanes": 4,
+                "highway": "primary",
+                "max_speed": 16.67,
+                "name": "花山大道",
+                "lanewidth": 3.0,
+                "turn": [
+                    "S",
+                    "S",
+                    "S",
+                    "S"
+                ],
+                "id": 181
+            },
+            "geometry": {
+                "type": "LineString",
+                "coordinates": [
+                    [
+                        114.4977181,
+                        30.4920244
+                    ],
+                    [
+                        114.49772,
+                        30.4920445
+                    ],
+                    [
+                        114.4977245,
+                        30.4928665
+                    ],
+                    [
+                        114.4977341,
+                        30.4939006
+                    ],
+                    [
+                        114.4977196,
+                        30.4945195
+                    ]
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "lanes": 4,
+                "highway": "tertiary",
+                "max_speed": 16.67,
+                "name": "光谷六路",
+                "lanewidth": 3.0,
+                "turn": [
+                    "S",
+                    "S",
+                    "S",
+                    "S"
+                ],
+                "id": 183
+            },
+            "geometry": {
+                "type": "LineString",
+                "coordinates": [
+                    [
+                        114.5079468,
+                        30.4908132
+                    ],
+                    [
+                        114.5079518,
+                        30.491085
+                    ]
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "lanes": 3,
+                "highway": "tertiary",
+                "max_speed": 16.67,
+                "name": "光谷六路",
+                "lanewidth": 3.0,
+                "turn": [
+                    "S",
+                    "S",
+                    "S"
+                ],
+                "id": 184
+            },
+            "geometry": {
+                "type": "LineString",
+                "coordinates": [
+                    [
+                        114.5077766,
+                        30.4910854
+                    ],
+                    [
+                        114.5077729,
+                        30.4909107
+                    ]
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "lanes": 1,
+                "highway": "tertiary_link",
+                "max_speed": 11.11,
+                "name": "光谷六路",
+                "lanewidth": 6.5,
+                "turn": [
+                    "A"
+                ],
+                "id": 185
+            },
+            "geometry": {
+                "type": "LineString",
+                "coordinates": [
+                    [
+                        114.5079518,
+                        30.491085
+                    ],
+                    [
+                        114.5077766,
+                        30.4910854
+                    ]
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "lanes": 4,
+                "highway": "tertiary",
+                "max_speed": 16.67,
+                "name": "光谷六路",
+                "lanewidth": 3.0,
+                "turn": [
+                    "S",
+                    "S",
+                    "S",
+                    "S"
+                ],
+                "id": 186
+            },
+            "geometry": {
+                "type": "LineString",
+                "coordinates": [
+                    [
+                        114.5079518,
+                        30.491085
+                    ],
+                    [
+                        114.5079556,
+                        30.4912901
+                    ]
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "lanes": 3,
+                "highway": "tertiary",
+                "max_speed": 16.67,
+                "name": "光谷六路",
+                "lanewidth": 3.0,
+                "turn": [
+                    "S",
+                    "S",
+                    "S"
+                ],
+                "id": 187
+            },
+            "geometry": {
+                "type": "LineString",
+                "coordinates": [
+                    [
+                        114.5077851,
+                        30.4912936
+                    ],
+                    [
+                        114.507779,
+                        30.4911975
+                    ],
+                    [
+                        114.5077766,
+                        30.4910854
+                    ]
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "lanes": 1,
+                "highway": "tertiary_link",
+                "max_speed": 11.11,
+                "name": "高新大道",
+                "lanewidth": 5.0,
+                "turn": [
+                    "R"
+                ],
+                "id": 189
+            },
+            "geometry": {
+                "type": "LineString",
+                "coordinates": [
+                    [
+                        114.5074669,
+                        30.4913026
+                    ],
+                    [
+                        114.5075752,
+                        30.4911813
+                    ],
+                    [
+                        114.5076184,
+                        30.4910415
+                    ]
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "lanes": 3,
+                "highway": "trunk",
+                "max_speed": 11.11,
+                "name": "高新大道",
+                "lanewidth": 3.0,
+                "turn": [
+                    "S",
+                    "S",
+                    "S"
+                ],
+                "id": 190
+            },
+            "geometry": {
+                "type": "LineString",
+                "coordinates": [
+                    [
+                        114.5074669,
+                        30.4913026
+                    ],
+                    [
+                        114.5077851,
+                        30.4912936
+                    ]
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "lanes": 1,
+                "highway": "residential",
+                "max_speed": 11.11,
+                "name": "松涛路",
+                "lanewidth": 7.0,
+                "turn": [
+                    "R"
+                ],
+                "id": 191
+            },
+            "geometry": {
+                "type": "LineString",
+                "coordinates": [
+                    [
+                        114.5027027,
+                        30.4912165
+                    ],
+                    [
+                        114.5027385,
+                        30.4912758
+                    ],
+                    [
+                        114.5027932,
+                        30.4913301
+                    ],
+                    [
+                        114.5028462,
+                        30.491373
+                    ],
+                    [
+                        114.5029127,
+                        30.4914145
+                    ]
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "lanes": 1,
+                "highway": "trunk_link",
+                "max_speed": 11.11,
+                "name": "高新大道",
+                "lanewidth": 7.0,
+                "turn": [
+                    "R"
+                ],
+                "id": 192
+            },
+            "geometry": {
+                "type": "LineString",
+                "coordinates": [
+                    [
+                        114.5023622,
+                        30.4914272
+                    ],
+                    [
+                        114.5024593,
+                        30.4913836
+                    ],
+                    [
+                        114.5025286,
+                        30.4913233
+                    ],
+                    [
+                        114.5025699,
+                        30.4912803
+                    ],
+                    [
+                        114.5026049,
+                        30.4912187
+                    ]
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "lanes": 1,
+                "highway": "trunk_link",
+                "max_speed": 11.11,
+                "name": "高新大道",
+                "lanewidth": 6.5,
+                "turn": [
+                    "S"
+                ],
+                "id": 194
+            },
+            "geometry": {
+                "type": "LineString",
+                "coordinates": [
+                    [
+                        114.5029196,
+                        30.4918959
+                    ],
+                    [
+                        114.5027781,
+                        30.4919826
+                    ],
+                    [
+                        114.5027042,
+                        30.492104
+                    ]
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "lanes": 1,
+                "highway": "residential",
+                "max_speed": 11.11,
+                "name": "松涛路",
+                "lanewidth": 6.5,
+                "turn": [
+                    "R"
+                ],
+                "id": 195
+            },
+            "geometry": {
+                "type": "LineString",
+                "coordinates": [
+                    [
+                        114.5026039,
+                        30.49211
+                    ],
+                    [
+                        114.5025274,
+                        30.4919949
+                    ],
+                    [
+                        114.5024058,
+                        30.4919093
+                    ]
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "lanes": 1,
+                "highway": "residential",
+                "max_speed": 8.33,
+                "name": "枫扬路",
+                "lanewidth": 3.0,
+                "turn": [
+                    "R"
+                ],
+                "id": 196
+            },
+            "geometry": {
+                "type": "LineString",
+                "coordinates": [
+                    [
+                        114.5052401,
+                        30.4909501
+                    ],
+                    [
+                        114.5052441,
+                        30.4913572
+                    ]
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "lanes": 1,
+                "highway": "residential",
+                "max_speed": 8.33,
+                "name": "枫扬路",
+                "lanewidth": 3.0,
+                "turn": [
+                    "SR"
+                ],
+                "id": 197
+            },
+            "geometry": {
+                "type": "LineString",
+                "coordinates": [
+                    [
+                        114.5051997,
+                        30.4913577
+                    ],
+                    [
+                        114.5052005,
+                        30.4909494
+                    ]
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "lanes": 3,
+                "highway": "trunk",
+                "max_speed": 11.11,
+                "name": "高新大道",
+                "lanewidth": 3.0,
+                "turn": [
+                    "S",
+                    "S",
+                    "SR"
+                ],
+                "id": 198
+            },
+            "geometry": {
+                "type": "LineString",
+                "coordinates": [
+                    [
+                        114.5043267,
+                        30.4913817
+                    ],
+                    [
+                        114.5051997,
+                        30.4913577
+                    ]
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "lanes": 3,
+                "highway": "trunk",
+                "max_speed": 11.11,
+                "name": "高新大道",
+                "lanewidth": 3.0,
+                "turn": [
+                    "S",
+                    "S",
+                    "SR"
+                ],
+                "id": 199
+            },
+            "geometry": {
+                "type": "LineString",
+                "coordinates": [
+                    [
+                        114.5051997,
+                        30.4913577
+                    ],
+                    [
+                        114.5052441,
+                        30.4913572
+                    ]
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "lanes": 2,
+                "highway": "residential",
+                "max_speed": 8.33,
+                "name": "飞霞路",
+                "lanewidth": 3.0,
+                "turn": [
+                    "R",
+                    "R"
+                ],
+                "id": 200
+            },
+            "geometry": {
+                "type": "LineString",
+                "coordinates": [
+                    [
+                        114.503908,
+                        30.4908415
+                    ],
+                    [
+                        114.5039109,
+                        30.4913916
+                    ]
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "lanes": 3,
+                "highway": "trunk",
+                "max_speed": 11.11,
+                "name": "高新大道",
+                "lanewidth": 3.0,
+                "turn": [
+                    "SL",
+                    "S",
+                    "SR"
+                ],
+                "id": 201
+            },
+            "geometry": {
+                "type": "LineString",
+                "coordinates": [
+                    [
+                        114.5039109,
+                        30.4913916
+                    ],
+                    [
+                        114.5039306,
+                        30.4913911
+                    ],
+                    [
+                        114.5043267,
+                        30.4913817
+                    ]
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "lanes": 1,
+                "highway": "trunk_link",
+                "max_speed": 11.11,
+                "name": "高新大道",
+                "lanewidth": 6.5,
+                "turn": [
+                    "L"
+                ],
+                "id": 202
+            },
+            "geometry": {
+                "type": "LineString",
+                "coordinates": [
+                    [
+                        114.4967489,
+                        30.491703
+                    ],
+                    [
+                        114.4967563,
+                        30.4919157
+                    ]
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "lanes": 4,
+                "highway": "trunk",
+                "max_speed": 19.44,
+                "name": "高新大道",
+                "lanewidth": 3.0,
+                "turn": [
+                    "S",
+                    "S",
+                    "S",
+                    "S"
+                ],
+                "id": 203
+            },
+            "geometry": {
+                "type": "LineString",
+                "coordinates": [
+                    [
+                        114.4967563,
+                        30.4919157
+                    ],
+                    [
+                        114.4960553,
+                        30.4919355
+                    ]
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "lanes": 5,
+                "highway": "trunk",
+                "max_speed": 19.44,
+                "name": "高新大道",
+                "lanewidth": 3.0,
+                "turn": [
+                    "L",
+                    "L",
+                    "S",
+                    "S",
+                    "S"
+                ],
+                "id": 204
+            },
+            "geometry": {
+                "type": "LineString",
+                "coordinates": [
+                    [
+                        114.4965529,
+                        30.4917071
+                    ],
+                    [
+                        114.4967489,
+                        30.491703
+                    ]
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "lanes": 1,
+                "highway": "trunku001fu001f_link",
+                "max_speed": 11.11,
+                "name": "高新大道",
+                "lanewidth": 7.0,
+                "turn": [
+                    "A"
+                ],
+                "id": 205
+            },
+            "geometry": {
+                "type": "LineString",
+                "coordinates": [
+                    [
+                        114.4984854,
+                        30.4918719
+                    ],
+                    [
+                        114.4984813,
+                        30.4916609
+                    ]
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "lanes": 5,
+                "highway": "trunk",
+                "max_speed": 19.44,
+                "name": "高新大道",
+                "lanewidth": 3.0,
+                "turn": [
+                    "A",
+                    "S",
+                    "S",
+                    "S",
+                    "S"
+                ],
+                "id": 206
+            },
+            "geometry": {
+                "type": "LineString",
+                "coordinates": [
+                    [
+                        114.4990268,
+                        30.4918635
+                    ],
+                    [
+                        114.4984854,
+                        30.4918719
+                    ]
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "lanes": 4,
+                "highway": "trunk",
+                "max_speed": 19.44,
+                "name": "高新大道",
+                "lanewidth": 3.0,
+                "turn": [
+                    "S",
+                    "S",
+                    "S",
+                    "S"
+                ],
+                "id": 207
+            },
+            "geometry": {
+                "type": "LineString",
+                "coordinates": [
+                    [
+                        114.4982615,
+                        30.491666
+                    ],
+                    [
+                        114.4984813,
+                        30.4916609
+                    ]
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "lanes": 3,
+                "highway": "trunk",
+                "max_speed": 11.11,
+                "name": "高新大道",
+                "lanewidth": 3.0,
+                "turn": [
+                    "S",
+                    "S",
+                    "SR"
+                ],
+                "id": 143
+            },
+            "geometry": {
+                "type": "LineString",
+                "coordinates": [
+                    [
+                        114.5101016,
+                        30.4917168
+                    ],
+                    [
+                        114.5091,
+                        30.4917416
+                    ],
+                    [
+                        114.5089899,
+                        30.4917443
+                    ],
+                    [
+                        114.5083807,
+                        30.4917582
+                    ]
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "lanes": 5,
+                "highway": "trunk",
+                "max_speed": 19.44,
+                "name": "高新大道",
+                "lanewidth": 3.0,
+                "turn": [
+                    "LA",
+                    "L",
+                    "S",
+                    "S",
+                    "S"
+                ],
+                "id": 129
+            },
+            "geometry": {
+                "type": "LineString",
+                "coordinates": [
+                    [
+                        114.5103842,
+                        30.4915776
+                    ],
+                    [
+                        114.5091252,
+                        30.4916085
+                    ],
+                    [
+                        114.5089701,
+                        30.4916123
+                    ],
+                    [
+                        114.5087162,
+                        30.4916187
+                    ]
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "lanes": 4,
+                "highway": "trunk",
+                "max_speed": 19.44,
+                "name": "高新大道",
+                "lanewidth": 3.0,
+                "turn": [
+                    "S",
+                    "S",
+                    "S",
+                    "S"
+                ],
+                "id": 103
+            },
+            "geometry": {
+                "type": "LineString",
+                "coordinates": [
+                    [
+                        114.5087068,
+                        30.4914073
+                    ],
+                    [
+                        114.5089591,
+                        30.4914031
+                    ],
+                    [
+                        114.509146,
+                        30.4913982
+                    ],
+                    [
+                        114.5096507,
+                        30.4913847
+                    ]
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "lanes": 3,
+                "highway": "trunk",
+                "max_speed": 11.11,
+                "name": "高新大道",
+                "lanewidth": 3.0,
+                "turn": [
+                    "S",
+                    "S",
+                    "SR"
+                ],
+                "id": 87
+            },
+            "geometry": {
+                "type": "LineString",
+                "coordinates": [
+                    [
+                        114.5084121,
+                        30.4912786
+                    ],
+                    [
+                        114.5091393,
+                        30.4912665
+                    ],
+                    [
+                        114.5093046,
+                        30.4912619
+                    ]
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "lanes": 4,
+                "highway": "tertiary",
+                "max_speed": 16.67,
+                "name": "光谷六路",
+                "lanewidth": 3.0,
+                "turn": [
+                    "AL",
+                    "L",
+                    "S",
+                    "S"
+                ],
+                "id": 80
+            },
+            "geometry": {
+                "type": "LineString",
+                "coordinates": [
+                    [
+                        114.5079451,
+                        30.4907209
+                    ],
+                    [
+                        114.5079468,
+                        30.4908132
+                    ]
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "id": 2,
+                "in_ways": [
+                    80
+                ],
+                "out_ways": [
+                    84,
+                    183
+                ]
+            },
+            "geometry": {
+                "type": "MultiPoint",
+                "coordinates": [
+                    [
+                        114.5079468,
+                        30.4908132
+                    ]
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "id": 3,
+                "in_ways": [
+                    83,
+                    184
+                ],
+                "out_ways": [
+                    81
+                ]
+            },
+            "geometry": {
+                "type": "MultiPoint",
+                "coordinates": [
+                    [
+                        114.5077729,
+                        30.4909107
+                    ]
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "id": 5,
+                "in_ways": [
+                    189
+                ],
+                "out_ways": [
+                    82,
+                    83
+                ]
+            },
+            "geometry": {
+                "type": "MultiPoint",
+                "coordinates": [
+                    [
+                        114.5076184,
+                        30.4910415
+                    ]
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "id": 7,
+                "in_ways": [
+                    84,
+                    85
+                ],
+                "out_ways": [
+                    86
+                ]
+            },
+            "geometry": {
+                "type": "MultiPoint",
+                "coordinates": [
+                    [
+                        114.5081245,
+                        30.4910865
+                    ]
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "id": 9,
+                "in_ways": [
+                    86,
+                    89
+                ],
+                "out_ways": [
+                    87
+                ]
+            },
+            "geometry": {
+                "type": "MultiPoint",
+                "coordinates": [
+                    [
+                        114.5084121,
+                        30.4912786
+                    ]
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "id": 12,
+                "in_ways": [
+                    98,
+                    111
+                ],
+                "out_ways": [
+                    92
+                ]
+            },
+            "geometry": {
+                "type": "MultiPoint",
+                "coordinates": [
+                    [
+                        114.506544,
+                        30.4913251
+                    ]
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "id": 13,
+                "in_ways": [
+                    92
+                ],
+                "out_ways": [
+                    189,
+                    190
+                ]
+            },
+            "geometry": {
+                "type": "MultiPoint",
+                "coordinates": [
+                    [
+                        114.5074669,
+                        30.4913026
+                    ]
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "id": 18,
+                "in_ways": [
+                    201
+                ],
+                "out_ways": [
+                    198,
+                    115
+                ]
+            },
+            "geometry": {
+                "type": "MultiPoint",
+                "coordinates": [
+                    [
+                        114.5043267,
+                        30.4913817
+                    ]
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "id": 20,
+                "in_ways": [
+                    101
+                ],
+                "out_ways": [
+                    191
+                ]
+            },
+            "geometry": {
+                "type": "MultiPoint",
+                "coordinates": [
+                    [
+                        114.5027027,
+                        30.4912165
+                    ]
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "id": 21,
+                "in_ways": [
+                    107,
+                    191
+                ],
+                "out_ways": [
+                    102
+                ]
+            },
+            "geometry": {
+                "type": "MultiPoint",
+                "coordinates": [
+                    [
+                        114.5029127,
+                        30.4914145
+                    ]
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "id": 22,
+                "in_ways": [
+                    105,
+                    128
+                ],
+                "out_ways": [
+                    103
+                ]
+            },
+            "geometry": {
+                "type": "MultiPoint",
+                "coordinates": [
+                    [
+                        114.5087068,
+                        30.4914073
+                    ]
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "id": 25,
+                "in_ways": [
+                    192
+                ],
+                "out_ways": [
+                    106
+                ]
+            },
+            "geometry": {
+                "type": "MultiPoint",
+                "coordinates": [
+                    [
+                        114.5026049,
+                        30.4912187
+                    ]
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "id": 27,
+                "in_ways": [
+                    110
+                ],
+                "out_ways": [
+                    107,
+                    192
+                ]
+            },
+            "geometry": {
+                "type": "MultiPoint",
+                "coordinates": [
+                    [
+                        114.5023622,
+                        30.4914272
+                    ]
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "id": 30,
+                "in_ways": [
+                    112
+                ],
+                "out_ways": [
+                    109,
+                    135
+                ]
+            },
+            "geometry": {
+                "type": "MultiPoint",
+                "coordinates": [
+                    [
+                        114.5070465,
+                        30.4914495
+                    ]
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "id": 31,
+                "in_ways": [
+                    114
+                ],
+                "out_ways": [
+                    110,
+                    125
+                ]
+            },
+            "geometry": {
+                "type": "MultiPoint",
+                "coordinates": [
+                    [
+                        114.5012988,
+                        30.4914538
+                    ]
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "id": 32,
+                "in_ways": [
+                    116
+                ],
+                "out_ways": [
+                    111,
+                    112
+                ]
+            },
+            "geometry": {
+                "type": "MultiPoint",
+                "coordinates": [
+                    [
+                        114.5062154,
+                        30.4914661
+                    ]
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "id": 34,
+                "in_ways": [
+                    113,
+                    117
+                ],
+                "out_ways": [
+                    114
+                ]
+            },
+            "geometry": {
+                "type": "MultiPoint",
+                "coordinates": [
+                    [
+                        114.5001845,
+                        30.4914817
+                    ]
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "id": 35,
+                "in_ways": [
+                    115,
+                    126
+                ],
+                "out_ways": [
+                    116
+                ]
+            },
+            "geometry": {
+                "type": "MultiPoint",
+                "coordinates": [
+                    [
+                        114.504817,
+                        30.4915004
+                    ]
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "id": 36,
+                "in_ways": [
+                    120
+                ],
+                "out_ways": [
+                    117,
+                    118
+                ]
+            },
+            "geometry": {
+                "type": "MultiPoint",
+                "coordinates": [
+                    [
+                        114.4990319,
+                        30.4915169
+                    ]
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "id": 38,
+                "in_ways": [
+                    122,
+                    130
+                ],
+                "out_ways": [
+                    120
+                ]
+            },
+            "geometry": {
+                "type": "MultiPoint",
+                "coordinates": [
+                    [
+                        114.4986515,
+                        30.4915258
+                    ]
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "id": 43,
+                "in_ways": [
+                    125,
+                    131
+                ],
+                "out_ways": [
+                    126
+                ]
+            },
+            "geometry": {
+                "type": "MultiPoint",
+                "coordinates": [
+                    [
+                        114.5017381,
+                        30.4915756
+                    ]
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "id": 45,
+                "in_ways": [
+                    129
+                ],
+                "out_ways": [
+                    128,
+                    132
+                ]
+            },
+            "geometry": {
+                "type": "MultiPoint",
+                "coordinates": [
+                    [
+                        114.5087162,
+                        30.4916187
+                    ]
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "id": 47,
+                "in_ways": [
+                    134
+                ],
+                "out_ways": [
+                    130,
+                    207
+                ]
+            },
+            "geometry": {
+                "type": "MultiPoint",
+                "coordinates": [
+                    [
+                        114.4982615,
+                        30.491666
+                    ]
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "id": 50,
+                "in_ways": [
+                    135,
+                    136
+                ],
+                "out_ways": [
+                    137
+                ]
+            },
+            "geometry": {
+                "type": "MultiPoint",
+                "coordinates": [
+                    [
+                        114.507047,
+                        30.4916574
+                    ]
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "id": 52,
+                "in_ways": [
+                    137
+                ],
+                "out_ways": [
+                    141,
+                    149
+                ]
+            },
+            "geometry": {
+                "type": "MultiPoint",
+                "coordinates": [
+                    [
+                        114.5067638,
+                        30.4916644
+                    ]
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "id": 54,
+                "in_ways": [
+                    140
+                ],
+                "out_ways": [
+                    139
+                ]
+            },
+            "geometry": {
+                "type": "MultiPoint",
+                "coordinates": [
+                    [
+                        114.4965529,
+                        30.4917071
+                    ]
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "id": 56,
+                "in_ways": [
+                    141,
+                    152
+                ],
+                "out_ways": [
+                    142
+                ]
+            },
+            "geometry": {
+                "type": "MultiPoint",
+                "coordinates": [
+                    [
+                        114.5048037,
+                        30.4917126
+                    ]
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "id": 57,
+                "in_ways": [
+                    142
+                ],
+                "out_ways": [
+                    144,
+                    156
+                ]
+            },
+            "geometry": {
+                "type": "MultiPoint",
+                "coordinates": [
+                    [
+                        114.5036742,
+                        30.4917404
+                    ]
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "id": 59,
+                "in_ways": [
+                    143
+                ],
+                "out_ways": [
+                    146,
+                    171
+                ]
+            },
+            "geometry": {
+                "type": "MultiPoint",
+                "coordinates": [
+                    [
+                        114.5083807,
+                        30.4917582
+                    ]
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "id": 60,
+                "in_ways": [
+                    144,
+                    161
+                ],
+                "out_ways": [
+                    154
+                ]
+            },
+            "geometry": {
+                "type": "MultiPoint",
+                "coordinates": [
+                    [
+                        114.5004455,
+                        30.4918251
+                    ]
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "id": 63,
+                "in_ways": [
+                    148,
+                    172
+                ],
+                "out_ways": [
+                    150
+                ]
+            },
+            "geometry": {
+                "type": "MultiPoint",
+                "coordinates": [
+                    [
+                        114.5073997,
+                        30.4917836
+                    ]
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "id": 64,
+                "in_ways": [
+                    149,
+                    150
+                ],
+                "out_ways": [
+                    153
+                ]
+            },
+            "geometry": {
+                "type": "MultiPoint",
+                "coordinates": [
+                    [
+                        114.5064438,
+                        30.491811
+                    ]
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "id": 65,
+                "in_ways": [
+                    153
+                ],
+                "out_ways": [
+                    152,
+                    157
+                ]
+            },
+            "geometry": {
+                "type": "MultiPoint",
+                "coordinates": [
+                    [
+                        114.5051862,
+                        30.4918402
+                    ]
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "id": 66,
+                "in_ways": [
+                    154
+                ],
+                "out_ways": [
+                    206,
+                    163
+                ]
+            },
+            "geometry": {
+                "type": "MultiPoint",
+                "coordinates": [
+                    [
+                        114.4990268,
+                        30.4918635
+                    ]
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "id": 68,
+                "in_ways": [
+                    156,
+                    157
+                ],
+                "out_ways": [
+                    158
+                ]
+            },
+            "geometry": {
+                "type": "MultiPoint",
+                "coordinates": [
+                    [
+                        114.5033922,
+                        30.4918849
+                    ]
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "id": 69,
+                "in_ways": [
+                    158
+                ],
+                "out_ways": [
+                    159,
+                    194
+                ]
+            },
+            "geometry": {
+                "type": "MultiPoint",
+                "coordinates": [
+                    [
+                        114.5029196,
+                        30.4918959
+                    ]
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "id": 70,
+                "in_ways": [
+                    159,
+                    195
+                ],
+                "out_ways": [
+                    162
+                ]
+            },
+            "geometry": {
+                "type": "MultiPoint",
+                "coordinates": [
+                    [
+                        114.5024058,
+                        30.4919093
+                    ]
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "id": 73,
+                "in_ways": [
+                    162
+                ],
+                "out_ways": [
+                    161,
+                    164
+                ]
+            },
+            "geometry": {
+                "type": "MultiPoint",
+                "coordinates": [
+                    [
+                        114.5007895,
+                        30.4919493
+                    ]
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "id": 74,
+                "in_ways": [
+                    163,
+                    164
+                ],
+                "out_ways": [
+                    166
+                ]
+            },
+            "geometry": {
+                "type": "MultiPoint",
+                "coordinates": [
+                    [
+                        114.4986325,
+                        30.4920046
+                    ]
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "id": 78,
+                "in_ways": [
+                    170,
+                    171
+                ],
+                "out_ways": [
+                    174
+                ]
+            },
+            "geometry": {
+                "type": "MultiPoint",
+                "coordinates": [
+                    [
+                        114.50793,
+                        30.4921968
+                    ]
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "id": 79,
+                "in_ways": [
+                    177
+                ],
+                "out_ways": [
+                    172,
+                    173
+                ]
+            },
+            "geometry": {
+                "type": "MultiPoint",
+                "coordinates": [
+                    [
+                        114.5078036,
+                        30.4922048
+                    ]
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "id": 83,
+                "in_ways": [
+                    178
+                ],
+                "out_ways": [
+                    195
+                ]
+            },
+            "geometry": {
+                "type": "MultiPoint",
+                "coordinates": [
+                    [
+                        114.5026039,
+                        30.49211
+                    ]
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "id": 84,
+                "in_ways": [
+                    194
+                ],
+                "out_ways": [
+                    179
+                ]
+            },
+            "geometry": {
+                "type": "MultiPoint",
+                "coordinates": [
+                    [
+                        114.5027042,
+                        30.492104
+                    ]
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "id": 88,
+                "in_ways": [
+                    183
+                ],
+                "out_ways": [
+                    185,
+                    186
+                ]
+            },
+            "geometry": {
+                "type": "MultiPoint",
+                "coordinates": [
+                    [
+                        114.5079518,
+                        30.491085
+                    ]
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "id": 89,
+                "in_ways": [
+                    185,
+                    187
+                ],
+                "out_ways": [
+                    184
+                ]
+            },
+            "geometry": {
+                "type": "MultiPoint",
+                "coordinates": [
+                    [
+                        114.5077766,
+                        30.4910854
+                    ]
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "id": 90,
+                "in_ways": [
+                    127,
+                    139,
+                    155,
+                    166,
+                    121,
+                    180,
+                    133,
+                    167
+                ],
+                "out_ways": [
+                    122,
+                    134,
+                    160,
+                    169,
+                    124,
+                    181,
+                    138,
+                    165
+                ]
+            },
+            "geometry": {
+                "type": "MultiPoint",
+                "coordinates": [
+                    [
+                        114.4976114,
+                        30.491795
+                    ]
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "id": 91,
+                "in_ways": [
+                    104,
+                    109,
+                    132,
+                    146,
+                    147,
+                    173,
+                    186,
+                    190
+                ],
+                "out_ways": [
+                    89,
+                    105,
+                    108,
+                    136,
+                    145,
+                    148,
+                    170,
+                    187
+                ]
+            },
+            "geometry": {
+                "type": "MultiPoint",
+                "coordinates": [
+                    [
+                        114.5078793,
+                        30.4915287
+                    ]
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "id": 92,
+                "in_ways": [
+                    199
+                ],
+                "out_ways": [
+                    98,
+                    196
+                ]
+            },
+            "geometry": {
+                "type": "MultiPoint",
+                "coordinates": [
+                    [
+                        114.5052441,
+                        30.4913572
+                    ]
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "id": 93,
+                "in_ways": [
+                    198
+                ],
+                "out_ways": [
+                    197,
+                    199
+                ]
+            },
+            "geometry": {
+                "type": "MultiPoint",
+                "coordinates": [
+                    [
+                        114.5051997,
+                        30.4913577
+                    ]
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "id": 94,
+                "in_ways": [
+                    102,
+                    200
+                ],
+                "out_ways": [
+                    201
+                ]
+            },
+            "geometry": {
+                "type": "MultiPoint",
+                "coordinates": [
+                    [
+                        114.5039109,
+                        30.4913916
+                    ]
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "id": 95,
+                "in_ways": [
+                    204
+                ],
+                "out_ways": [
+                    139,
+                    202
+                ]
+            },
+            "geometry": {
+                "type": "MultiPoint",
+                "coordinates": [
+                    [
+                        114.4967489,
+                        30.491703
+                    ]
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "id": 96,
+                "in_ways": [
+                    160,
+                    202
+                ],
+                "out_ways": [
+                    203
+                ]
+            },
+            "geometry": {
+                "type": "MultiPoint",
+                "coordinates": [
+                    [
+                        114.4967563,
+                        30.4919157
+                    ]
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "id": 97,
+                "in_ways": [
+                    206
+                ],
+                "out_ways": [
+                    155,
+                    205
+                ]
+            },
+            "geometry": {
+                "type": "MultiPoint",
+                "coordinates": [
+                    [
+                        114.4984854,
+                        30.4918719
+                    ]
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "id": 98,
+                "in_ways": [
+                    207,
+                    205
+                ],
+                "out_ways": [
+                    131
+                ]
+            },
+            "geometry": {
+                "type": "MultiPoint",
+                "coordinates": [
+                    [
+                        114.4984813,
+                        30.4916609
+                    ]
+                ]
+            }
+        }
+    ]
+}
