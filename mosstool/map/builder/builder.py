@@ -29,6 +29,7 @@ from .._map_util.convert_aoi import convert_aoi, convert_poi
 from .._map_util.format_checker import (geojson_format_check,
                                         output_format_check)
 from .._map_util.gen_traffic_light import generate_traffic_light
+from .._map_util.map_aois_matchers import match_map_aois
 from .._util.angle import abs_delta_angle, delta_angle
 from .._util.line import (align_line, connect_line_string, get_line_angle,
                           get_start_vector, line_extend, line_max_curvature,
@@ -48,6 +49,7 @@ class Builder:
         proj_str: str,
         aois: Optional[FeatureCollection] = None,
         pois: Optional[FeatureCollection] = None,
+        reuse_map: Optional[Map] = None,
         public_transport: Optional[Dict[str, List]] = None,
         pop_tif_path: Optional[str] = None,
         landuse_shp_path: Optional[str] = None,
@@ -67,6 +69,7 @@ class Builder:
         - proj_str (str): projection string
         - aois (FeatureCollection): area of interest
         - pois (FeatureCollection): point of interest
+        - reuse_map (Map): aoi and poi of this Map will be reused
         - public_transport (Dict[str, List]): public transports in json format
         - pop_tif_path (str): path to population tif file
         - landuse_shp_path (str): path to landuse shape file
@@ -100,6 +103,7 @@ class Builder:
         self.landuse_shp_path = landuse_shp_path
         self.traffic_light_min_direction_group = traffic_light_min_direction_group
         self.strict_mode = strict_mode
+        self.reuse_map = reuse_map
         self.workers = workers
         # id mapping relationship
         self.uid_mapping = {}
@@ -182,6 +186,7 @@ class Builder:
             self.junction_types = defaultdict(list)
         elif net_type == Map:
             logging.info("Reading from pb files")
+            self.net = net
             self.from_pb = True
             # map_lanes & lane2data
             for l in net.lanes:
@@ -3920,6 +3925,49 @@ class Builder:
             "stations": stations,
         }
         return public_road_uids
+    def _reuse_aoi(self):
+        """Match aoi to road network"""
+        d_right_lanes = [
+            w["lanes"][-1]
+            for w in self.map_roads.values()
+            if w["lanes"]
+        ]
+        d_matcher = [
+            {
+                "id": self.lane2data[geo]["uid"],
+                "geo": geo,
+                # middle point
+                "point": geo.interpolate(0.5, normalized=True).coords[:][0],
+                "length": geo.length,
+            }
+            for geo in d_right_lanes
+        ]
+        w_lanes = [
+            l
+            for l, d in self.lane2data.items()
+            if d["type"] == mapv2.LANE_TYPE_WALKING
+        ]
+        w_matcher = [
+            {
+                "id": self.lane2data[geo]["uid"],
+                "geo": geo,
+                "point": geo.interpolate(0.5, normalized=True).coords[:][0],
+                "length": geo.length,
+            }
+            for geo in w_lanes
+        ]
+        logging.info("Reusing AOIs")
+        matchers = {
+            "drive": d_matcher,
+            "walk": w_matcher,
+        }
+        reuse_map = cast(Map,self.reuse_map)
+        (self.map_aois, self.map_pois) = match_map_aois(
+            net = reuse_map,
+            matchers=matchers,
+            workers=self.workers
+        )
+        
 
     def _add_aoi(self):
         """Match aoi to road network"""
@@ -4056,7 +4104,7 @@ class Builder:
         self.output_aois = {}
         for uid, d in self.map_aois.items():
             # d["name"] = "" # The specific name of the AOI needs to be obtained by running patcher. The default is an empty string.
-            external = d["external"]
+            external = d.get("external",{})
             if "stop_id" in external:
                 station_type = external["station_type"]
                 stop_id = external["stop_id"]
@@ -4258,7 +4306,10 @@ class Builder:
             self._create_walking_lanes()
             self._expand_remain_roads()
             self._post_process()
-        self._add_aoi()
+        if self.reuse_map is not None:
+            self._reuse_aoi()
+        else:
+            self._add_aoi()
         output_map = self.get_output_map(name)
         output_format_check(output_map)
         return output_map

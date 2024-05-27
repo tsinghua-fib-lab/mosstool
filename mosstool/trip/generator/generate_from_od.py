@@ -477,8 +477,8 @@ class TripGenerator:
         od_matrix: np.ndarray,
         areas: GeoDataFrame,
         departure_time_curve: Optional[list[float]] = None,
-        agent_num: int = 10000,
         seed: int = 0,
+        agent_num: Optional[int] = None,
     ) -> List[Person]:
         """
         Args:
@@ -506,5 +506,10 @@ class TripGenerator:
         self._read_regions()
         self._read_od_matrix()
         self._match_aoi2region()
+        if agent_num is None:
+            agent_num = int(np.sum(self.od) / self.LEN_OD_TIMES)
+        if agent_num <= 0:
+            logging.warning("agent_num should >=1")
+            return []
         self._generate_mobi(agent_num, seed)
         return self.persons

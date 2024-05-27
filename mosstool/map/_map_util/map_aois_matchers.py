@@ -1,0 +1,67 @@
+"""
+match aois from map.pb
+"""
+
+from math import ceil
+from multiprocessing import Pool
+
+from shapely.geometry import Polygon
+
+from ...type import Map
+from ...util.format_converter import pb2dict
+from .aoi_matcher import _matcher_unit, _process_matched_result
+from .const import *
+
+
+def _map_aoi2geo(aoi: dict) -> Polygon:
+    coords = [(c["x"], c["y"]) for c in aoi["positions"]]
+    return Polygon(coords)
+
+
+def _add_aoi_unit(aoi):
+    global d_matcher, w_matcher
+    global D_DIS_GATE, D_HUGE_GATE
+    global W_DIS_GATE, W_HUGE_GATE
+    geo = _map_aoi2geo(aoi)
+    d_matched = _matcher_unit(geo, d_matcher, D_DIS_GATE, D_HUGE_GATE)
+    w_matched = _matcher_unit(geo, w_matcher, W_DIS_GATE, W_HUGE_GATE)
+    aoi["external"] = {}
+    if d_matched or w_matched:
+        return _process_matched_result(
+            aoi=aoi, d_matched=d_matched, w_matched=w_matched
+        )
+
+
+def match_map_aois(net: Map, matchers: dict, workers: int):
+    global d_matcher, w_matcher
+    net_dict = pb2dict(net)
+    orig_aois = net_dict["aois"]
+    orig_pois = net_dict["pois"]
+    d_matcher, w_matcher = (
+        matchers["drive"],
+        matchers["walk"],
+    )
+    results_aoi = []
+    for i in range(0, len(orig_aois), MAX_BATCH_SIZE):
+        args_batch = orig_aois[i : i + MAX_BATCH_SIZE]
+        with Pool(processes=workers) as pool:
+            results_aoi += pool.map(
+                _add_aoi_unit,
+                args_batch,
+                chunksize=min(ceil(len(args_batch) / workers), 500),
+            )
+    aois = [r for r in results_aoi if r]
+    # filter pois
+    all_poi_ids = set(pid for a in aois for pid in a["poi_ids"])
+    pois = [p for p in orig_pois if p["id"] in all_poi_ids]
+    # rearrange aoi id
+    aois_dict = {}
+    for aoi_id, aoi in enumerate(aois, start=AOI_START_ID):
+        aoi["id"] = aoi_id
+        aois_dict[aoi_id] = aoi
+    # rearrange poi id
+    pois_dict = {}
+    for poi_id, poi in enumerate(pois, start=POI_START_ID):
+        poi["id"] = poi_id
+        pois_dict[poi_id] = poi
+    return (aois_dict, pois_dict)
