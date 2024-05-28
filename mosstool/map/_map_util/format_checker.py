@@ -22,7 +22,7 @@ class _FormatCheckHandler(logging.Handler):
 
     def trigger_warnings(self):
         if self.messages:
-            sys.exit("Mapbuilder terminated due to warning messages above.")
+            raise ValueError("Mapbuilder terminated due to warning messages above.")
         else:
             pass
 
