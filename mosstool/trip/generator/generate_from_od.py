@@ -33,6 +33,56 @@ def _coords(geo):
         return list(geo.coords)
 
 
+# determine trip mode
+def _get_mode(p1, p2):
+    (x1, y1), (x2, y2) = p1, p2
+    dis = ((x2 - x1) ** 2 + (y2 - y1) ** 2) ** 0.5
+    if dis > DIS_CAR:
+        return CAR
+    elif dis > DIS_BIKE:
+        return BIKE
+    else:
+        return WALK
+
+
+def _get_mode_with_distribution(p1, p2):
+    (x1, y1), (x2, y2) = p1, p2
+    distance = ((x2 - x1) ** 2 + (y2 - y1) ** 2) ** 0.5
+    subway_expense = 10
+    bus_expense = 5
+    driving_duration = distance / (30 / 3.6)
+    subway_duration = distance / (35 / 3.6) + 10 * 60
+    bus_duration = distance / (15 / 3.6) + 10 * 60
+    bicycle_duration = distance / (10 / 3.6)
+    parking_fee = 20  # 停车费
+    age = 0.384  # 18到35岁人口占比
+    income = 0.395  # 低收入人群占比
+    if bus_expense > 0:
+        V_bus = -0.0516 * bus_duration / 60 - 0.4810 * bus_expense
+    else:
+        V_bus = -np.inf
+    if subway_expense > 0:
+        V_subway = -0.0512 * subway_duration / 60 - 0.0833 * subway_expense
+    else:
+        V_subway = -np.inf
+    V_fuel = (
+        -0.0705 * driving_duration / 60
+        + 0.5680 * age
+        - 0.8233 * income
+        - 0.0941 * parking_fee
+    )
+    V_elec = -0.0339 * driving_duration / 60 - 0.1735 * parking_fee
+    if distance > 15000:
+        V_bicycle = -np.inf
+    else:
+        V_bicycle = -0.1185 * bicycle_duration / 60
+    V = np.array([V_bus, V_subway, V_fuel, V_elec, V_bicycle])
+    V = np.exp(V)
+    V = V / sum(V)
+    choice_index = np.random.choice(len(V), p=V)
+    return ALL_TRIP_MODES[choice_index]
+
+
 def _match_aoi_unit(projector, aoi):
     global shapes
     x, y = projector(aoi["geo"][0][0], aoi["geo"][0][1])
@@ -168,25 +218,13 @@ def _generate_unit(H, W, O, seed, args):
             a = choose_aoi_from_region(other_region)
             aoi_list.append(a)
             now_region = other_region
-
-    # determine trip mode
-    def get_mode(p1, p2):
-        (x1, y1), (x2, y2) = p1, p2
-        dis = ((x2 - x1) ** 2 + (y2 - y1) ** 2) ** 0.5
-        if dis > DIS_CAR:
-            return CAR
-        elif dis > DIS_BIKE:
-            return BIKE
-        else:
-            return WALK
-
     trip_mode = []
     for i in range(len(aoi_list) - 1):
         lon1, lat1 = aoi_map[aoi_list[i]]["geo"][0][:2]
         lon2, lat2 = aoi_map[aoi_list[i + 1]]["geo"][0][:2]
         p1 = projector(longitude=lon1, latitude=lat1)
         p2 = projector(longitude=lon2, latitude=lat2)
-        trip_mode.append(get_mode(p1, p2))
+        trip_mode.append(_get_mode_with_distribution(p1, p2))
 
     # determine activity
     activity = []
