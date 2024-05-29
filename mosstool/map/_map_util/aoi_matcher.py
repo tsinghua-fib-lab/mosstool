@@ -145,7 +145,7 @@ def _find_aoi_parent_unit(i_aoi):
     if not aoi["valid"]:
         return aoi
     for j, aoi2 in enumerate(aois_to_merge):
-        if j != i:
+        if j != i and aoi["grid_idx"]==aoi2["grid_idx"]:
             if (
                 aoi2["area"] > area and aoi2["valid"]
             ):  # Avoid two aoi whose overlap ratio exceeds their respective area thresholds from including each other.
@@ -177,7 +177,7 @@ def _find_aoi_overlap_unit(i_aoi):
     if not aoi["valid"]:
         return aoi
     for j, aoi2 in enumerate(aois_with_overlap):
-        if j != i:
+        if j != i and aoi["grid_idx"]==aoi2["grid_idx"]:
             if (
                 aoi2["area"] > area and aoi2["valid"]
             ):  # Avoid two aoi whose overlap ratio exceeds their respective area thresholds from including each other.
@@ -1499,6 +1499,7 @@ def _merge_covered_aoi(aois, workers):
         aoi["length"] = geo.length  # Perimeter
         aoi["area"] = geo.area  # area
         aoi["valid"] = geo.is_valid
+        aoi["grid_idx"] = tuple(x//AOI_MERGE_GRID for x in aoi["point"])
     aois_to_merge = aois
     aois = [(i, a) for i, a in enumerate(aois)]
     aois_result = []

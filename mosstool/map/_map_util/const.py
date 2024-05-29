@@ -59,6 +59,7 @@ AOI_GATE_OFFSET = 10
 SQRT2 = 2**0.5
 COVER_GATE = 0.8  # aoi whose area is covered beyond this portion is covered
 SMALL_GATE = 400  # aoi whose area less than this is small
+AOI_MERGE_GRID = 3000
 DIS_GATE = 18  # match poi to nearest aoi within distance gate
 DOUBLE_DIS_GATE = 2 * DIS_GATE
 SCALE = 1.3  # small aois are scaled up to see whether they can be connected
