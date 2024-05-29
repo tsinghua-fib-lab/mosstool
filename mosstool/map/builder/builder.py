@@ -2302,7 +2302,7 @@ class Builder:
                                 else DEFAULT_TURN_NUM["MAIN_SMALL_LEFT"]
                             )
                             # There is a shared road here that turns left and goes straight
-                            default_main_count -= default_left_count - 1
+                            default_main_count -= default_left_count #- 1
                             if (
                                 len(in_main_lanes) <= SMALL_LANE_NUM_THRESHOLD
                                 and out_main_group
@@ -2448,7 +2448,7 @@ class Builder:
                                 else DEFAULT_TURN_NUM["MAIN_SMALL_LEFT"]
                             )
                             # There is a shared road that turns left and goes straight.
-                            default_main_count -= default_left_count - 1
+                            default_main_count -= default_left_count #- 1
                             if (
                                 len(in_main_lanes) <= SMALL_LANE_NUM_THRESHOLD
                                 and out_main_group
@@ -2562,7 +2562,7 @@ class Builder:
                             )
                             # There is a shared road that turns left and goes straight.
                             default_auxiliary_main_count -= (
-                                default_auxiliary_left_count - 1
+                                default_auxiliary_left_count #- 1
                             )
                             if (
                                 len(in_auxiliary_lanes) <= SMALL_LANE_NUM_THRESHOLD
