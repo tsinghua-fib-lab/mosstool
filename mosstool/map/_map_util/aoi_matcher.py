@@ -13,6 +13,7 @@ from scipy.spatial import KDTree
 from shapely.affinity import scale
 from shapely.geometry import (LineString, MultiLineString, MultiPoint,
                               MultiPolygon, Point, Polygon)
+from shapely.strtree import STRtree
 
 from ...type import AoiType
 from .._util.angle import abs_delta_angle, delta_angle
@@ -145,7 +146,7 @@ def _find_aoi_parent_unit(i_aoi):
     if not aoi["valid"]:
         return aoi
     for j, aoi2 in enumerate(aois_to_merge):
-        if j != i and aoi["grid_idx"]==aoi2["grid_idx"]:
+        if j != i and aoi["grid_idx"] == aoi2["grid_idx"]:
             if (
                 aoi2["area"] > area and aoi2["valid"]
             ):  # Avoid two aoi whose overlap ratio exceeds their respective area thresholds from including each other.
@@ -177,7 +178,7 @@ def _find_aoi_overlap_unit(i_aoi):
     if not aoi["valid"]:
         return aoi
     for j, aoi2 in enumerate(aois_with_overlap):
-        if j != i and aoi["grid_idx"]==aoi2["grid_idx"]:
+        if j != i and aoi["grid_idx"] == aoi2["grid_idx"]:
             if (
                 aoi2["area"] > area and aoi2["valid"]
             ):  # Avoid two aoi whose overlap ratio exceeds their respective area thresholds from including each other.
@@ -302,99 +303,223 @@ def _process_matched_result(aoi, d_matched, w_matched):
     return aoi
 
 
-def _matcher_unit(
+# def _matcher_unit(
+#     geo,
+#     matcher,
+#     dis_gate,
+#     huge_gate,
+#     direction_geos: Optional[Dict[int, List[LineString]]] = None,
+# ):
+#     global LENGTH_PER_DOOR, MAX_DOOR_NUM, AOI_GATE_OFFSET
+#     double_dis_gate = 2 * dis_gate
+#     double_huge_gate = 2 * huge_gate
+#     stop_lane_angles = (
+#         [[get_line_angle(l) for l in lanes] for lanes in direction_geos.values()]
+#         if direction_geos is not None
+#         else None
+#     )
+
+#     matched = []
+#     huge_candidate = []
+#     (x, y) = geo.centroid.coords[:][0][:2]
+#     length = geo.length
+#     bound_poss = [c[:2] for c in geo.exterior.coords[:-1]]
+#     for lane in matcher:  # {'id', 'geo', 'point', 'length'}
+#         mid_x, mid_y = lane["point"][:2]
+#         dis_upper_bound = (
+#             np.sqrt(2) * (abs(x - mid_x) + abs(y - mid_y)) - length - lane["length"]
+#         )
+#         if dis_upper_bound < double_huge_gate:
+#             huge_candidate.append(lane)
+#             if dis_upper_bound < double_dis_gate:
+#                 # p_aoi: The point on the polygon closest to the lane
+#                 # p_lane: The point closest to the polygon on the lane
+#                 p_aoi, p_lane = ops.nearest_points(
+#                     geo, lane["geo"]
+#                 )  # Returns the calculated nearest points in the input geometries
+#                 distance = p_aoi.distance(p_lane)
+#                 lane_angle = get_line_angle(lane["geo"])
+#                 if distance < dis_gate and (
+#                     stop_lane_angles is None
+#                     or any(
+#                         np.mean(
+#                             [abs_delta_angle(lane_angle, angle) for angle in angles]
+#                         )
+#                         < np.pi / 4
+#                         for angles in stop_lane_angles
+#                     )
+#                 ):
+#                     # Project the point on the lane closest to the poly to the lane and return s
+#                     s = lane["geo"].project(p_lane)
+#                     if (
+#                         0 < s < lane["length"]
+#                     ):  # Remove results matching the starting point or end point
+#                         # If the door is on the poly vertex, move it appropriately so that it is on the edge
+#                         p_aoi_pos = (p_aoi.x, p_aoi.y)
+#                         for i, p in enumerate(bound_poss):
+#                             if p == p_aoi_pos:
+#                                 l_suc = LineString(
+#                                     [p, bound_poss[(i + 1) % len(bound_poss)]]
+#                                 )
+#                                 l_pre = LineString(
+#                                     [p, bound_poss[(i - 1) % len(bound_poss)]]
+#                                 )
+#                                 p_aoi_suc = l_suc.interpolate(
+#                                     min(AOI_GATE_OFFSET, l_suc.length / 2)
+#                                 )  # Move a certain distance clockwise/counterclockwise respectively, but not more than half the side length
+#                                 p_aoi_pre = l_pre.interpolate(
+#                                     min(AOI_GATE_OFFSET, l_pre.length / 2)
+#                                 )
+#                                 dis_suc, dis_pre = p_aoi_suc.distance(
+#                                     lane["geo"]
+#                                 ), p_aoi_pre.distance(lane["geo"])
+#                                 p_aoi, distance = (
+#                                     (p_aoi_suc, dis_suc)
+#                                     if dis_suc < dis_pre
+#                                     else (p_aoi_pre, dis_pre)
+#                                 )  # Select the point closest to the lane after movement
+#                                 s = lane["geo"].project(p_aoi)
+#                                 p_lane = Point(lane["geo"].interpolate(s))
+#                                 break
+#                         # Avoid matching to the start or end point.
+#                         if s < 1:
+#                             s = min(1, lane["length"] / 2)
+#                         if s > lane["length"] - 1:
+#                             s = max(lane["length"] - 1, lane["length"] / 2)
+
+#                         matched.append(
+#                             (
+#                                 lane["id"],
+#                                 s,
+#                                 (p_aoi.x, p_aoi.y),
+#                                 (p_lane.x, p_lane.y),
+#                                 distance,
+#                             )
+#                         )
+#     if not matched:
+#         """
+#         No lane can match aoi, indicating that aoi may be located in the center of the road grid
+#         At this time, select the nearest lanes, relax the distance threshold, and match
+#         The number of lanes (number of gates in an aoi) depends on the size of the aoi: proportional to the perimeter, not proportional to the area
+#         (Imagine a square requires 4 gates. When the side length is doubled, it should require 8 gates instead of 16 gates)
+#         (Since the perimeter of a very flat building is deceptive, it should be converted into the perimeter of a square with the same area)
+#         """
+#         huge_match = []
+#         for lane in huge_candidate:
+#             p_aoi, p_lane = ops.nearest_points(geo, lane["geo"])
+#             dis = p_aoi.distance(p_lane)
+#             if dis < huge_gate:
+#                 huge_match.append((dis, p_aoi, p_lane, lane))
+#         huge_match.sort(key=lambda x: x[0])  # Sort by dis from small to large
+#         door_num = min(1 + np.sqrt(geo.area) // LENGTH_PER_DOOR, MAX_DOOR_NUM)
+#         for dis, p_aoi, p_lane, lane in huge_match:
+#             s = lane["geo"].project(p_lane)
+#             if 0 < s < lane["length"]:
+#                 # If the door is on the poly vertex, move it appropriately so that it is on the edge
+#                 p_aoi_pos = (p_aoi.x, p_aoi.y)
+#                 for i, p in enumerate(bound_poss):
+#                     if p == p_aoi_pos:
+#                         l_suc = LineString([p, bound_poss[(i + 1) % len(bound_poss)]])
+#                         l_pre = LineString([p, bound_poss[(i - 1) % len(bound_poss)]])
+#                         p_aoi_suc = l_suc.interpolate(
+#                             min(AOI_GATE_OFFSET, l_suc.length / 2)
+#                         )  # Move a certain distance clockwise/counterclockwise respectively, but not more than half the side length
+#                         p_aoi_pre = l_pre.interpolate(
+#                             min(AOI_GATE_OFFSET, l_pre.length / 2)
+#                         )
+#                         dis_suc, dis_pre = p_aoi_suc.distance(
+#                             lane["geo"]
+#                         ), p_aoi_pre.distance(lane["geo"])
+#                         p_aoi, dis = (
+#                             (p_aoi_suc, dis_suc)
+#                             if dis_suc < dis_pre
+#                             else (p_aoi_pre, dis_pre)
+#                         )  # Select the point closest to the lane after movement
+#                         s = lane["geo"].project(p_aoi)
+#                         p_lane = Point(lane["geo"].interpolate(s))
+#                         break
+
+#                 if s < 1:
+#                     s = min(1, lane["length"] / 2)
+#                 if s > lane["length"] - 1:
+#                     s = max(lane["length"] - 1, lane["length"] / 2)
+
+#                 matched.append(
+#                     (
+#                         lane["id"],
+#                         s,
+#                         (p_aoi.x, p_aoi.y),
+#                         (p_lane.x, p_lane.y),
+#                         dis,
+#                     )
+#                 )
+#                 if len(matched) == door_num:
+#                     break
+#     return matched
+
+
+def _str_tree_matcher_unit(
     geo,
     matcher,
+    matcher_lane_tree,
     dis_gate,
     huge_gate,
-    direction_geos: Optional[Dict[int, List[LineString]]] = None,
 ):
     global LENGTH_PER_DOOR, MAX_DOOR_NUM, AOI_GATE_OFFSET
-    double_dis_gate = 2 * dis_gate
-    double_huge_gate = 2 * huge_gate
-    stop_lane_angles = (
-        [[get_line_angle(l) for l in lanes] for lanes in direction_geos.values()]
-        if direction_geos is not None
-        else None
-    )
-
     matched = []
-    huge_candidate = []
-    (x, y) = geo.centroid.coords[:][0][:2]
-    length = geo.length
     bound_poss = [c[:2] for c in geo.exterior.coords[:-1]]
-    for lane in matcher:  # {'id', 'geo', 'point', 'length'}
-        mid_x, mid_y = lane["point"][:2]
-        dis_upper_bound = (
-            np.sqrt(2) * (abs(x - mid_x) + abs(y - mid_y)) - length - lane["length"]
-        )
-        if dis_upper_bound < double_huge_gate:
-            huge_candidate.append(lane)
-            if dis_upper_bound < double_dis_gate:
-                # p_aoi: The point on the polygon closest to the lane
-                # p_lane: The point closest to the polygon on the lane
-                p_aoi, p_lane = ops.nearest_points(
-                    geo, lane["geo"]
-                )  # Returns the calculated nearest points in the input geometries
-                distance = p_aoi.distance(p_lane)
-                lane_angle = get_line_angle(lane["geo"])
-                if distance < dis_gate and (
-                    stop_lane_angles is None
-                    or any(
-                        np.mean(
-                            [abs_delta_angle(lane_angle, angle) for angle in angles]
+    small_tree_ids = matcher_lane_tree.query(geo.buffer(dis_gate))
+    for tid in small_tree_ids:
+        lane = matcher[tid]  # {'id', 'geo', 'point', 'length'}
+        p_aoi, p_lane = ops.nearest_points(
+            geo, lane["geo"]
+        )  # Returns the calculated nearest points in the input geometries
+        distance = p_aoi.distance(p_lane)
+        # if distance < dis_gate:
+        if True:
+            # Project the point on the lane closest to the poly to the lane and return s
+            s = lane["geo"].project(p_lane)
+            if (
+                0 < s < lane["length"]
+            ):  # Remove results matching the starting point or end point
+                # If the door is on the poly vertex, move it appropriately so that it is on the edge
+                p_aoi_pos = (p_aoi.x, p_aoi.y)
+                for i, p in enumerate(bound_poss):
+                    if p == p_aoi_pos:
+                        l_suc = LineString([p, bound_poss[(i + 1) % len(bound_poss)]])
+                        l_pre = LineString([p, bound_poss[(i - 1) % len(bound_poss)]])
+                        p_aoi_suc = l_suc.interpolate(
+                            min(AOI_GATE_OFFSET, l_suc.length / 2)
+                        )  # Move a certain distance clockwise/counterclockwise respectively, but not more than half the side length
+                        p_aoi_pre = l_pre.interpolate(
+                            min(AOI_GATE_OFFSET, l_pre.length / 2)
                         )
-                        < np.pi / 4
-                        for angles in stop_lane_angles
-                    )
-                ):
-                    # Project the point on the lane closest to the poly to the lane and return s
-                    s = lane["geo"].project(p_lane)
-                    if (
-                        0 < s < lane["length"]
-                    ):  # Remove results matching the starting point or end point
-                        # If the door is on the poly vertex, move it appropriately so that it is on the edge
-                        p_aoi_pos = (p_aoi.x, p_aoi.y)
-                        for i, p in enumerate(bound_poss):
-                            if p == p_aoi_pos:
-                                l_suc = LineString(
-                                    [p, bound_poss[(i + 1) % len(bound_poss)]]
-                                )
-                                l_pre = LineString(
-                                    [p, bound_poss[(i - 1) % len(bound_poss)]]
-                                )
-                                p_aoi_suc = l_suc.interpolate(
-                                    min(AOI_GATE_OFFSET, l_suc.length / 2)
-                                )  # Move a certain distance clockwise/counterclockwise respectively, but not more than half the side length
-                                p_aoi_pre = l_pre.interpolate(
-                                    min(AOI_GATE_OFFSET, l_pre.length / 2)
-                                )
-                                dis_suc, dis_pre = p_aoi_suc.distance(
-                                    lane["geo"]
-                                ), p_aoi_pre.distance(lane["geo"])
-                                p_aoi, distance = (
-                                    (p_aoi_suc, dis_suc)
-                                    if dis_suc < dis_pre
-                                    else (p_aoi_pre, dis_pre)
-                                )  # Select the point closest to the lane after movement
-                                s = lane["geo"].project(p_aoi)
-                                p_lane = Point(lane["geo"].interpolate(s))
-                                break
-                        # Avoid matching to the start or end point.
-                        if s < 1:
-                            s = min(1, lane["length"] / 2)
-                        if s > lane["length"] - 1:
-                            s = max(lane["length"] - 1, lane["length"] / 2)
+                        dis_suc, dis_pre = p_aoi_suc.distance(
+                            lane["geo"]
+                        ), p_aoi_pre.distance(lane["geo"])
+                        p_aoi, distance = (
+                            (p_aoi_suc, dis_suc)
+                            if dis_suc < dis_pre
+                            else (p_aoi_pre, dis_pre)
+                        )  # Select the point closest to the lane after movement
+                        s = lane["geo"].project(p_aoi)
+                        p_lane = Point(lane["geo"].interpolate(s))
+                        break
+                # Avoid matching to the start or end point.
+                if s < 1:
+                    s = min(1, lane["length"] / 2)
+                if s > lane["length"] - 1:
+                    s = max(lane["length"] - 1, lane["length"] / 2)
 
-                        matched.append(
-                            (
-                                lane["id"],
-                                s,
-                                (p_aoi.x, p_aoi.y),
-                                (p_lane.x, p_lane.y),
-                                distance,
-                            )
-                        )
+                matched.append(
+                    (
+                        lane["id"],
+                        s,
+                        (p_aoi.x, p_aoi.y),
+                        (p_lane.x, p_lane.y),
+                        distance,
+                    )
+                )
     if not matched:
         """
         No lane can match aoi, indicating that aoi may be located in the center of the road grid
@@ -403,11 +528,14 @@ def _matcher_unit(
         (Imagine a square requires 4 gates. When the side length is doubled, it should require 8 gates instead of 16 gates)
         (Since the perimeter of a very flat building is deceptive, it should be converted into the perimeter of a square with the same area)
         """
+        huge_tree_ids = matcher_lane_tree.query(geo.buffer(huge_gate))
         huge_match = []
-        for lane in huge_candidate:
+        for tid in huge_tree_ids:
+            lane = matcher[tid]
             p_aoi, p_lane = ops.nearest_points(geo, lane["geo"])
             dis = p_aoi.distance(p_lane)
-            if dis < huge_gate:
+            # if dis < huge_gate:
+            if True:
                 huge_match.append((dis, p_aoi, p_lane, lane))
         huge_match.sort(key=lambda x: x[0])  # Sort by dis from small to large
         door_num = min(1 + np.sqrt(geo.area) // LENGTH_PER_DOOR, MAX_DOOR_NUM)
@@ -578,12 +706,13 @@ def _add_poly_aoi_unit(arg):
     Then use shapely.ops.nearest_points to find the two points closest to each other, which is the matching result.
     """
     global d_matcher, w_matcher
+    global d_tree, w_tree
     global D_DIS_GATE, D_HUGE_GATE
     global W_DIS_GATE, W_HUGE_GATE
     aoi, aoi_type = arg
     geo = aoi["geo"]
-    d_matched = _matcher_unit(geo, d_matcher, D_DIS_GATE, D_HUGE_GATE)
-    w_matched = _matcher_unit(geo, w_matcher, W_DIS_GATE, W_HUGE_GATE)
+    d_matched = _str_tree_matcher_unit(geo, d_matcher, d_tree, D_DIS_GATE, D_HUGE_GATE)
+    w_matched = _str_tree_matcher_unit(geo, w_matcher, w_tree, W_DIS_GATE, W_HUGE_GATE)
     if d_matched or w_matched:
         base_aoi = {
             "id": 0,  # It is difficult to deal with the problem of uid += 1 during parallelization, so assign the id after parallelization is completed.
@@ -613,6 +742,7 @@ def _add_aoi_stop_unit(arg):
     Matching of station aoi and lane
     """
     global d_matcher, w_matcher
+    global d_tree, w_tree
     global D_DIS_GATE, D_HUGE_GATE
     global STOP_DIS_GATE, STOP_HUGE_GATE
     global W_DIS_GATE, W_HUGE_GATE
@@ -674,16 +804,21 @@ def _add_aoi_stop_unit(arg):
                     distance,
                 )
             )
-        w_matched = _matcher_unit(geo, w_matcher, W_DIS_GATE, W_HUGE_GATE)
+        w_matched = _str_tree_matcher_unit(
+            geo, w_matcher, w_tree, W_DIS_GATE, W_HUGE_GATE
+        )
     elif station_type == "BUS":
-        d_matched = _matcher_unit(
+        d_matched = _str_tree_matcher_unit(
             geo,
             d_matcher,
+            d_tree,
             STOP_DIS_GATE,
             STOP_HUGE_GATE,
             aoi["external"]["subline_geos"],
         )
-        w_matched = _matcher_unit(geo, w_matcher, W_DIS_GATE, W_HUGE_GATE)
+        w_matched = _str_tree_matcher_unit(
+            geo, w_matcher, w_tree, W_DIS_GATE, W_HUGE_GATE
+        )
     if d_matched and w_matched:  # The station must connect both roadways and sidewalks
         base_aoi = {
             "id": 0,  # It is difficult to deal with the problem of uid += 1 during parallelization, so assign the id after parallelization is completed.
@@ -1499,7 +1634,7 @@ def _merge_covered_aoi(aois, workers):
         aoi["length"] = geo.length  # Perimeter
         aoi["area"] = geo.area  # area
         aoi["valid"] = geo.is_valid
-        aoi["grid_idx"] = tuple(x//AOI_MERGE_GRID for x in aoi["point"])
+        aoi["grid_idx"] = tuple(x // AOI_MERGE_GRID for x in aoi["point"])
     aois_to_merge = aois
     aois = [(i, a) for i, a in enumerate(aois)]
     aois_result = []
@@ -1594,7 +1729,10 @@ def _add_aoi(aois, stops, workers, merge_aoi: bool = False):
     aois matches the rightmost lane
     """
     global aoi_uid, d_matcher, w_matcher
+    global d_tree, w_tree
     # Preprocessing
+    d_tree = STRtree([l["geo"] for l in d_matcher])
+    w_tree = STRtree([l["geo"] for l in w_matcher])
     aois_poly, aois_poi, aois_stop = [], [], []
     logging.info("Pre Compute")
     for aoi in aois:
