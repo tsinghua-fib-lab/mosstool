@@ -58,7 +58,7 @@ class Builder:
         gen_sidewalk_speed_limit: float = 0,
         expand_roads: bool = False,
         road_expand_mode: Union[Literal["L"], Literal["M"], Literal["R"]] = "R",
-        green_time: float = 60.0,
+        green_time: float = 30.0,
         yellow_time: float = 5.0,
         strict_mode: bool = False,
         workers: int = cpu_count(),
@@ -2302,15 +2302,18 @@ class Builder:
                                 else DEFAULT_TURN_NUM["MAIN_SMALL_LEFT"]
                             )
                             # There is a shared road here that turns left and goes straight
-                            default_main_count -= default_left_count #- 1
+                            if default_main_count - default_left_count >= 1:
+                                default_main_count -= default_left_count
+                            else:
+                                default_main_count -= default_left_count - 1
                             if (
                                 len(in_main_lanes) <= SMALL_LANE_NUM_THRESHOLD
                                 and out_main_group
                             ):
-                                main_count = len(in_main_lanes)
+                                default_main_count = len(in_main_lanes)
                         default_main_out_start, default_main_out_end = (
-                            max(default_left_count - 1, 0),
-                            max(default_left_count - 1, 0) + default_main_count,
+                            max(default_left_count, 0),
+                            max(default_left_count, 0) + default_main_count,
                         )
                         if len(in_main_lanes) <= SMALL_LANE_NUM_THRESHOLD:
                             default_main_out_start, default_main_out_end = 0, len(
@@ -2448,15 +2451,18 @@ class Builder:
                                 else DEFAULT_TURN_NUM["MAIN_SMALL_LEFT"]
                             )
                             # There is a shared road that turns left and goes straight.
-                            default_main_count -= default_left_count #- 1
+                            if default_main_count - default_left_count >= 1:
+                                default_main_count -= default_left_count
+                            else:
+                                default_main_count -= default_left_count - 1
                             if (
                                 len(in_main_lanes) <= SMALL_LANE_NUM_THRESHOLD
                                 and out_main_group
                             ):
-                                main_count = len(in_main_lanes)
+                                default_main_count = len(in_main_lanes)
                         default_main_out_start, default_main_out_end = (
-                            max(default_left_count - 1, 0),
-                            max(default_left_count - 1, 0) + default_main_count,
+                            max(default_left_count, 0),
+                            max(default_left_count, 0) + default_main_count,
                         )
                         if len(in_main_lanes) <= SMALL_LANE_NUM_THRESHOLD:
                             default_main_out_start, default_main_out_end = 0, len(
@@ -2561,9 +2567,18 @@ class Builder:
                                 else DEFAULT_TURN_NUM["AUXILIARY_SMALL_LEFT"]
                             )
                             # There is a shared road that turns left and goes straight.
-                            default_auxiliary_main_count -= (
-                                default_auxiliary_left_count #- 1
-                            )
+                            if (
+                                default_auxiliary_main_count
+                                - default_auxiliary_left_count
+                                >= 1
+                            ):
+                                default_auxiliary_main_count -= (
+                                    default_auxiliary_left_count
+                                )
+                            else:
+                                default_auxiliary_main_count -= (
+                                    default_auxiliary_left_count - 1
+                                )
                             if (
                                 len(in_auxiliary_lanes) <= SMALL_LANE_NUM_THRESHOLD
                                 and out_main_group
@@ -2573,8 +2588,8 @@ class Builder:
                             default_auxiliary_main_out_start,
                             default_auxiliary_main_out_end,
                         ) = (
-                            max(left_count - 1, 0),
-                            max(left_count - 1, 0) + default_auxiliary_main_count,
+                            max(left_count, 0),
+                            max(left_count, 0) + default_auxiliary_main_count,
                         )
                         if len(in_auxiliary_lanes) <= SMALL_LANE_NUM_THRESHOLD:
                             (
@@ -3925,13 +3940,10 @@ class Builder:
             "stations": stations,
         }
         return public_road_uids
+
     def _reuse_aoi(self):
         """Match aoi to road network"""
-        d_right_lanes = [
-            w["lanes"][-1]
-            for w in self.map_roads.values()
-            if w["lanes"]
-        ]
+        d_right_lanes = [w["lanes"][-1] for w in self.map_roads.values() if w["lanes"]]
         d_matcher = [
             {
                 "id": self.lane2data[geo]["uid"],
@@ -3943,9 +3955,7 @@ class Builder:
             for geo in d_right_lanes
         ]
         w_lanes = [
-            l
-            for l, d in self.lane2data.items()
-            if d["type"] == mapv2.LANE_TYPE_WALKING
+            l for l, d in self.lane2data.items() if d["type"] == mapv2.LANE_TYPE_WALKING
         ]
         w_matcher = [
             {
@@ -3961,13 +3971,10 @@ class Builder:
             "drive": d_matcher,
             "walk": w_matcher,
         }
-        reuse_map = cast(Map,self.reuse_map)
+        reuse_map = cast(Map, self.reuse_map)
         (self.map_aois, self.map_pois) = match_map_aois(
-            net = reuse_map,
-            matchers=matchers,
-            workers=self.workers
+            net=reuse_map, matchers=matchers, workers=self.workers
         )
-        
 
     def _add_aoi(self):
         """Match aoi to road network"""
@@ -4104,7 +4111,7 @@ class Builder:
         self.output_aois = {}
         for uid, d in self.map_aois.items():
             # d["name"] = "" # The specific name of the AOI needs to be obtained by running patcher. The default is an empty string.
-            external = d.get("external",{})
+            external = d.get("external", {})
             if "stop_id" in external:
                 station_type = external["station_type"]
                 stop_id = external["stop_id"]
