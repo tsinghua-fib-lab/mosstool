@@ -10,7 +10,7 @@ from shapely.strtree import STRtree
 
 from ...type import Map
 from ...util.format_converter import pb2dict
-from .aoi_matcher import _matcher_unit, _process_matched_result,_str_tree_matcher_unit
+from .aoi_matcher import _process_matched_result,_str_tree_matcher_unit
 from .const import *
 
 
