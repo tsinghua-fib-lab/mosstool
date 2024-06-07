@@ -2916,7 +2916,7 @@ class Builder:
                                         lane_type=mapv2.LANE_TYPE_DRIVING,
                                         junc_id=j_uid,
                                     )
-                        if main_count > 0:
+                        if main_count > 0 and out_main_group is not None:
                             assert (
                                 out_main_group is not None
                             ), f"Junction {jid} arranged straight out_ways but no out_ways to connect!"
