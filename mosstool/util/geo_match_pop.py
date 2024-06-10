@@ -401,7 +401,7 @@ def geo2pop(
     if geo_type == GeoDataFrame:
         # add population column
         geo_data = cast(GeoDataFrame, orig_geo_data)
-        geo_data.assign(population=[idx2pop[i] for i in range(len(geo_data.geometry))])
+        geo_data = geo_data.assign(population=[idx2pop[i] for i in range(len(geo_data.geometry))]) # type:ignore 
     elif geo_type == FeatureCollection:
         # add properties.population
         geo_data = cast(FeatureCollection, orig_geo_data)
