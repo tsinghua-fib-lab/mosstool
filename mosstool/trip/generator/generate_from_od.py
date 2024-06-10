@@ -255,6 +255,7 @@ class TripGenerator:
         self,
         m: Map,
         pop_tif_path: Optional[str] = None,
+        activity_distributions: Optional[dict] = None,
         template: Person = DEFAULT_PERSON,
         add_pop: bool = False,
         workers: int = cpu_count(),
@@ -263,6 +264,7 @@ class TripGenerator:
         Args:
         - m (Map): The Map.
         - pop_tif_path (str): path to population tif file.
+        - activity_distributions (dict): human mobility mode and its probability. e.g. {"HWH": 18.0, "HWH+": 82.0,}. H for go home, W for go to work, O or + for other activities
         - template (Person): The template of generated person object, whose `schedules`, `home` will be replaced and others will be copied.
         - add_pop (bool): Add population to aois.
         - workers (int): number of workers.
@@ -280,7 +282,14 @@ class TripGenerator:
         self.region2aoi = defaultdict(list)
         self.persons = []
         # activity proportion
-        ori_modes_stat = HUMAN_MODE_STATS
+        if activity_distributions is not None:
+            ori_modes_stat = {
+                k: float(v)
+                for k, v in activity_distributions.items()
+                if k in HUMAN_MODE_STATS
+            }
+        else:
+            ori_modes_stat = HUMAN_MODE_STATS
         self.modes = [mode for mode in ori_modes_stat.keys()]
         self.p = np.array([prob for prob in ori_modes_stat.values()])
         self.p_mode = self.p / sum(self.p)
@@ -296,7 +305,13 @@ class TripGenerator:
                 "urban_land_use": i.urban_land_use,
             }
             a["geo"] = [self.projector(p.x, p.y, inverse=True) for p in i.positions]
-            a["shapely"] = geometry.Polygon([p.x, p.y,] for p in i.positions)
+            a["shapely"] = geometry.Polygon(
+                [
+                    p.x,
+                    p.y,
+                ]
+                for p in i.positions
+            )
             aois.append(a)
 
         def get_aoi_catg(urban_land_use: str):
