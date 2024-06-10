@@ -48,12 +48,12 @@ def _get_mode(p1, p2):
 def _get_mode_with_distribution(p1, p2):
     (x1, y1), (x2, y2) = p1, p2
     distance = ((x2 - x1) ** 2 + (y2 - y1) ** 2) ** 0.5
-    subway_expense = 10
-    bus_expense = 5
-    driving_duration = distance / (30 / 3.6)
-    subway_duration = distance / (35 / 3.6) + 10 * 60
-    bus_duration = distance / (15 / 3.6) + 10 * 60
-    bicycle_duration = distance / (10 / 3.6)
+    subway_expense = SUBWAY_EXPENSE
+    bus_expense = BUS_EXPENSE
+    driving_duration = distance / DRIVING_SPEED + DRIVING_PENALTY
+    subway_duration = distance / SUBWAY_SPEED + SUBWAY_PENALTY
+    bus_duration = distance / BUS_SPEED + BUS_PENALTY
+    bicycle_duration = distance / BIKE_SPEED + BIKE_PENALTY
     parking_fee = 20  # 停车费
     age = 0.384  # 18到35岁人口占比
     income = 0.395  # 低收入人群占比
@@ -256,6 +256,16 @@ class TripGenerator:
         m: Map,
         pop_tif_path: Optional[str] = None,
         activity_distributions: Optional[dict] = None,
+        driving_speed: float = 30 / 3.6,
+        driving_penalty: float = 0.0,
+        subway_speed: float = 35 / 3.6,
+        subway_penalty: float = 600.0,
+        subway_expense: float = 10.0,
+        bus_speed: float = 15 / 3.6,
+        bus_penalty: float = 600.0,
+        bus_expense: float = 5.0,
+        bike_speed: float = 10 / 3.6,
+        bike_penalty: float = 0.9,
         template: Person = DEFAULT_PERSON,
         add_pop: bool = False,
         workers: int = cpu_count(),
@@ -265,10 +275,26 @@ class TripGenerator:
         - m (Map): The Map.
         - pop_tif_path (str): path to population tif file.
         - activity_distributions (dict): human mobility mode and its probability. e.g. {"HWH": 18.0, "HWH+": 82.0,}. H for go home, W for go to work, O or + for other activities
+        - driving_speed (float): vehicle speed(m/s) for traffic mode assignment.
+        - driving_penalty (float): extra cost(s) of vehicle for traffic mode assignment.
+        - subway_speed (float): subway speed(m/s) for traffic mode assignment.
+        - subway_penalty (float): extra cost(s) of subway for traffic mode assignment.
+        - subway_expense (float): money  cost(￥) of subway for traffic mode assignment.
+        - bus_speed (float): bus speed(m/s) for traffic mode assignment.
+        - bus_penalty (float): extra cost(s) of bus for traffic mode assignment.
+        - bus_expense (float): money  cost(￥) of bus for traffic mode assignment.
+        - bike_speed (float): extra cost(s) of bike for traffic mode assignment.
+        - bike_penalty (float): money  cost(￥) of bike for traffic mode assignment.
         - template (Person): The template of generated person object, whose `schedules`, `home` will be replaced and others will be copied.
         - add_pop (bool): Add population to aois.
         - workers (int): number of workers.
         """
+        global SUBWAY_EXPENSE, BUS_EXPENSE, DRIVING_SPEED, DRIVING_PENALTY, SUBWAY_SPEED, SUBWAY_PENALTY, BUS_SPEED, BUS_PENALTY, BIKE_SPEED, BIKE_PENALTY
+        SUBWAY_EXPENSE, BUS_EXPENSE = subway_expense, bus_expense
+        DRIVING_SPEED, DRIVING_PENALTY = driving_speed, driving_penalty
+        SUBWAY_SPEED, SUBWAY_PENALTY = subway_speed, subway_penalty
+        BUS_SPEED, BUS_PENALTY = bus_speed, bus_penalty
+        BIKE_SPEED, BIKE_PENALTY = bike_speed, bike_penalty
         self.m = m
         self.pop_tif_path = pop_tif_path
         self.add_pop = add_pop
