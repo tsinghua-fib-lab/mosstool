@@ -85,8 +85,7 @@ def _get_mode_with_distribution(p1, p2):
 
 def _match_aoi_unit(projector, aoi):
     global shapes
-    x, y = projector(aoi["geo"][0][0], aoi["geo"][0][1])
-    p = geometry.Point((x, y))
+    p = aoi["shapely"].centroid
     for id, j in enumerate(shapes):
         if j.contains(p):
             return (aoi["id"], id)
@@ -297,6 +296,7 @@ class TripGenerator:
                 "urban_land_use": i.urban_land_use,
             }
             a["geo"] = [self.projector(p.x, p.y, inverse=True) for p in i.positions]
+            a["shapely"] = geometry.Polygon([p.x, p.y,] for p in i.positions)
             aois.append(a)
 
         def get_aoi_catg(urban_land_use: str):
