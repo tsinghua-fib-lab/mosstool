@@ -92,7 +92,7 @@ def _match_aoi_unit(projector, aoi):
     return None
 
 
-def _generate_unit(H, W, O, seed, args):
+def _generate_unit(H, W, O, a_start, seed, args):
     # Three steps
     # 1.determine person activity mode
     # 2.determine departure times
@@ -115,7 +115,10 @@ def _generate_unit(H, W, O, seed, args):
         return region2aoi[region_id][idx]
 
     rng = np.random.default_rng(seed)
-    start = rng.choice(n_region, p=H)
+    if a_start is None:
+        start = rng.choice(n_region, p=H)
+    else:
+        start = a_start
     mode = rng.choice(len(modes), p=p_mode)
     mode = modes[mode]
     aoi_list = []
@@ -236,9 +239,9 @@ def _generate_unit(H, W, O, seed, args):
 
 def _process_agent_unit(args, d):
     global home_dist, work_od, other_od
-    _, seed = d
+    _, seed, start = d
     aoi_list, time, trip_mode, activity = _generate_unit(
-        home_dist, work_od, other_od, seed, args
+        home_dist, work_od, other_od, start, seed, args
     )
     return aoi_list, time, trip_mode, activity
 
@@ -455,6 +458,7 @@ class TripGenerator:
     def _generate_mobi(
         self,
         agent_num: int = 10000,
+        area_pops: Optional[list] = None,
         seed: int = 0,
     ):
         global region2aoi, aoi_map
@@ -508,9 +512,18 @@ class TripGenerator:
         # global variables
         home_dist, work_od, other_od = home_distribution, work_od, other_od
         agent_args = []
+        a_starts = []
+        if area_pops is not None:
+            for ii, pop in enumerate(area_pops):
+                pop_num = int(pop)
+                if pop_num > 0:
+                    a_starts += [ii for _ in range(pop_num)]
+            agent_num = sum(a_starts)
+        else:
+            a_starts = [None for _ in range(agent_num)]
         rng = np.random.default_rng(seed)
-        for i in range(agent_num):
-            agent_args.append((i, rng.integers(0, 2**16 - 1)))
+        for i, a_start in enumerate(a_starts):
+            agent_args.append((i, rng.integers(0, 2**16 - 1), a_starts[i]))
         partial_args = (
             self.modes,
             self.p_mode,
@@ -556,6 +569,7 @@ class TripGenerator:
         od_matrix: np.ndarray,
         areas: GeoDataFrame,
         departure_time_curve: Optional[list[float]] = None,
+        area_pops: Optional[list] = None,
         seed: int = 0,
         agent_num: Optional[int] = None,
     ) -> List[Person]:
@@ -564,6 +578,7 @@ class TripGenerator:
         - od_matrix (numpy.ndarray): The OD matrix.
         - areas (GeoDataFrame): The area data.
         - departure_time_curve (list[float]): The departure time of a day (24h). The resolution must >=1h.
+        - area_pops (list): list of populations in each area. If is not None, # of the persons departs from each home position is exactly equal to the given pop num.
         - agent_num (int): number of agents to generate.
         - seed (int): The random seed.
 
@@ -590,5 +605,5 @@ class TripGenerator:
         if agent_num <= 0:
             logging.warning("agent_num should >=1")
             return []
-        self._generate_mobi(agent_num, seed)
+        self._generate_mobi(agent_num, area_pops, seed)
         return self.persons
