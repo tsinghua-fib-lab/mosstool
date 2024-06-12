@@ -4,6 +4,7 @@ import random
 from collections import defaultdict
 
 import Levenshtein
+import numpy as np
 import requests
 from bs4 import BeautifulSoup
 from coord_convert.transform import gcj2wgs
@@ -72,12 +73,14 @@ class AmapBus:
             )  # corresponds to the bus at the beginning
             resp = requests.get(bus_single_url, headers=_get_headers(url))
             bus_main_html = BeautifulSoup(resp.text, "html.parser")
-
-            bus_route_list = bus_main_html.find(
-                "div", class_="list clearfix"
-            ).find_all(  # type:ignore
-                "a"
-            )
+            try:
+                bus_route_list = bus_main_html.find(
+                    "div", class_="list clearfix"
+                ).find_all(  # type:ignore
+                    "a"
+                )
+            except:
+                continue
             route_href = (
                 []
             )  # Only access the link of the route -/x_322e21c5, the complete url needs to be spliced
@@ -126,28 +129,28 @@ class AmapBus:
                 except:
                     continue
 
-        def fetch_amap_positions(self):
-            url = "https://restapi.amap.com/v3/place/text"
-            amap_api_res = {}
-            for sta in self.all_sta_names:
-                params = {
-                    "keywords": f"{sta}公交站",
-                    "city": self.city_name_zh_cn,
-                    "types": "150700",  # bus stations
-                    "city_limit": "true",
-                    "output": "json",
-                    "key": self.amap_ak,
-                }
-                response = requests.get(url=url, params=params)
-                if response:
-                    res = response.json()
-                    amap_api_res[sta] = res
-            for sta, v in amap_api_res.items():
-                pois = v["pois"]
-                for p in pois:
-                    if "id" in p and p["id"].startswith("BV"):
-                        self.sta2bv[sta] = p["id"]
-                        break
+    def _fetch_amap_positions(self):
+        url = "https://restapi.amap.com/v3/place/text"
+        amap_api_res = {}
+        for sta in self.all_sta_names:
+            params = {
+                "keywords": f"{sta}公交站",
+                "city": self.city_name_zh_cn,
+                "types": "150700",  # bus stations
+                "city_limit": "true",
+                "output": "json",
+                "key": self.amap_ak,
+            }
+            response = requests.get(url=url, params=params)
+            if response:
+                res = response.json()
+                amap_api_res[sta] = res
+        for sta, v in amap_api_res.items():
+            pois = v["pois"]
+            for p in pois:
+                if "id" in p and p["id"].startswith("BV"):
+                    self.sta2bv[sta] = p["id"]
+                    break
 
     def _fetch_amap_lines(self):
         # fetch info according to BVcode, mainly for line id
@@ -226,7 +229,6 @@ class AmapBus:
     def _process_amap(self):
         bus_stations = {}
         bus_lines = {}
-        import numpy as np
 
         def get_coords(ss: str):
             coords = []
@@ -238,6 +240,8 @@ class AmapBus:
         for k, v in self.bus_lines.items():
             sublines = []
             for sl_name, sl in v["sub_lines"].items():
+                if not sl_name in self.sl2amap:
+                    continue
                 info = self.sl2amap[sl_name]
                 bline = info["buslines"][0]
                 bstops = bline["busstops"]
@@ -274,6 +278,8 @@ class AmapBus:
                 sl["split_str"] = split_str
                 sl["all_geo"] = [gcj2wgs(*c) for c in get_coords(line_str)]
                 sublines.append(sl)
+            if len(sublines) == 0:
+                continue
             bus_lines[k] = {
                 "name": k,
                 "sublines": sublines,
@@ -282,6 +288,7 @@ class AmapBus:
 
     def get_output_data(self):
         self._fetch_raw_data()
+        self._fetch_amap_positions()
         self._fetch_amap_lines()
         bus_stations, bus_lines = self._process_amap()
         sta2id = {k: i for i, (k, _) in enumerate(bus_stations.items())}

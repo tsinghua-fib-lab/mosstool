@@ -140,6 +140,7 @@ class AmapSubway:
                 bstops = sline["busstops"]
                 sl_name = sline["name"]
                 sl["stops"] = []
+                sl["stop_names"] = []
                 line_str = sline["polyline"]
                 for st in bstops:
                     st_id = st["id"]
@@ -147,6 +148,7 @@ class AmapSubway:
                     if not st_id:
                         st_id = st_name
                     sl["stops"].append((sl_name, st_id))
+                    sl["stop_names"].append(st_name)
                     st_loc = gcj2wgs(*(get_coords(st["location"])[0]))
                     subway_stations[(sl_name, st_id)] = {
                         "name": st_name,
@@ -285,6 +287,8 @@ class AmapSubway:
         for k, v in subway_lines.items():
             line_data = {"name": k, "type": "SUBWAY", "sublines": []}
             for sl in v["sublines"]:
+                if "stop_names" not in sl:
+                    continue
                 line_data["sublines"].append(
                     {
                         "id": ii,
@@ -298,6 +302,8 @@ class AmapSubway:
                     sta2sl[kk].append(ii)
                 sl2id[sl["name"]] = ii
                 ii += 1
+            if len(line_data["sublines"]) == 0:
+                continue
             subway_data["lines"].append(line_data)
         for ii, (k, v) in enumerate(self.name2sts.items()):
             subway_data["stations"].append(

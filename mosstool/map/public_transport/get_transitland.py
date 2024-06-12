@@ -17,7 +17,6 @@ __all__ = [
 ]
 
 
-
 def cut(line: LineString, points: List[Point], projstr: str):
     """
     Split routes based on stations
@@ -37,12 +36,14 @@ def cut(line: LineString, points: List[Point], projstr: str):
         p_0 = points_xy[ii]
         p_1 = points_xy[ii + 1]
         res.append(clip_line(line_i, p_0, p_1))
-    res = [offset_lane(l,-10) for l in res] # Translate the road
+    res = [offset_lane(l, -10) for l in res]  # Translate the road
     return [[list(projector(*c, inverse=True)) for c in line.coords] for line in res]
 
 
 def merge_geo(coord, projstr, square_length=350):
-    SQUARE_SIDE_LENGTH = square_length # The side length of the rectangle formed by a single point POI
+    SQUARE_SIDE_LENGTH = (
+        square_length  # The side length of the rectangle formed by a single point POI
+    )
     projector = pyproj.Proj(projstr)
     if len(coord) > 1:
         geo = MultiPoint(coord).minimum_rotated_rectangle
@@ -110,10 +111,10 @@ def gps_distance(
     """
     Distance between GPS points (m)
     """
-    if LON2 == None: # The input is [lon1,lat1], [lon2,lat2]
+    if LON2 == None:  # The input is [lon1,lat1], [lon2,lat2]
         lon1, lat1 = cast(Tuple[float, float], LON1)
         lon2, lat2 = cast(Tuple[float, float], LAT1)
-    else: # The input is lon1, lat1, lon2, lat2
+    else:  # The input is lon1, lat1, lon2, lat2
         assert LAT2 != None, "LON2 and LAT2 should be both None or both not None"
         LON1 = cast(float, LON1)
         LAT1 = cast(float, LAT1)
@@ -139,12 +140,16 @@ class TransitlandPublicTransport:
         max_latitude: float,
         min_latitude: float,
     ):
-        self.MAX_SEARCH_RADIUS = 10000 # API’s maximum search radius
-        self.MAX_STOP_NUM = 100 #The maximum number of sites for a single API search
-        self.MAX_STOP_DISGATE = 15 # Anything beyond this distance is not considered a stop for this line.
-        self.SUBWAY_SAME_STA_DIS = 800 # The merge distance threshold of subway stations with the same name
+        self.MAX_SEARCH_RADIUS = 10000  # API’s maximum search radius
+        self.MAX_STOP_NUM = 100  # The maximum number of sites for a single API search
+        self.MAX_STOP_DISGATE = (
+            15  # Anything beyond this distance is not considered a stop for this line.
+        )
+        self.SUBWAY_SAME_STA_DIS = (
+            800  # The merge distance threshold of subway stations with the same name
+        )
         self.BUS_SAME_STA_DIS = 30
-        MIN_UNIT_NUM = 16 # Minimum number of search blocks
+        MIN_UNIT_NUM = 16  # Minimum number of search blocks
         lon1, lat1 = min_longitude, min_latitude
         lon2, lat2 = max_longitude, max_latitude
         self.lon_center = (lon1 + lon2) / 2
@@ -154,19 +159,20 @@ class TransitlandPublicTransport:
         self.unit = max(
             MIN_UNIT_NUM,
             int(gps_distance(lon1, lat1, lon2, lat2) / self.MAX_SEARCH_RADIUS / 2 + 1),
-        ) # unit-1 * unit-1 large raster
+        )  # unit-1 * unit-1 large raster
         self.lon_partition = [
             round(x, 6) for x in list(np.linspace(lon1, lon2, self.unit))
-        ] # Used to calculate search radius
+        ]  # Used to calculate search radius
         self.lat_partition = [
             round(y, 6) for y in list(np.linspace(lat1, lat2, self.unit))
         ]
+
     def fetch_raw_stops(self):
         url = "https://transit.land/api/v2/rest/stops"
         stops_without_routes = []
         logging.info("Fetching raw stops from Transitland")
-        for i in range(0, self.unit - 1): # Horizontal grid index
-            for j in range(0, self.unit - 1): # Vertical grid index
+        for i in range(0, self.unit - 1):  # Horizontal grid index
+            for j in range(0, self.unit - 1):  # Vertical grid index
                 lon_1, lat_1 = self.lon_partition[i], self.lat_partition[j]
                 lon_2, lat_2 = self.lon_partition[i + 1], self.lat_partition[j + 1]
                 radius = min(
@@ -187,7 +193,8 @@ class TransitlandPublicTransport:
                     res = response.json()
                     stops_without_routes.extend(res["stops"])
                 else:
-                    print("BAD", i, j)
+                    # no lines in this area
+                    continue
         one_stop_ids = set(s["onestop_id"] for s in stops_without_routes)
         stops_with_route = []
         # interface address
