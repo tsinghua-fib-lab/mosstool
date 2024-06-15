@@ -3,7 +3,8 @@ from collections import defaultdict
 from functools import partial
 from math import ceil
 from multiprocessing import Pool, cpu_count
-from typing import List, Optional, cast
+from typing import (Callable, Dict, List, Literal, Optional, Set, Tuple, Union,
+                    cast)
 
 import numpy as np
 import pyproj
@@ -97,22 +98,33 @@ def _generate_unit(H, W, O, a_start, seed, args):
     # 1.determine person activity mode
     # 2.determine departure times
     # 3.generate trip according to OD-matrix
-    global region2aoi, aoi_map
+    global region2aoi, aoi_map, aoi_type2ids
     modes, p_mode, n_region, projector, departure_prob, LEN_OD_TIMES = args
     OD_TIME_INTERVAL = 24 / LEN_OD_TIMES  # (hour)
 
-    def choose_aoi_from_region(region_id):
-        if len(region2aoi[region_id]) == 1:
-            return region2aoi[region_id][0]
-        popu = np.zeros(len(region2aoi[region_id]))
-        for i, id in enumerate(region2aoi[region_id]):
-            popu[i] = aoi_map[id]["external"]["population"]
-        if sum(popu) == 0:
-            idx = rng.choice(len(region2aoi[region_id]))
-            return region2aoi[region_id][idx]
-        p = popu / sum(popu)
-        idx = rng.choice(len(region2aoi[region_id]), p=p)
-        return region2aoi[region_id][idx]
+    def choose_aoi_with_type(
+        region_id,
+        aoi_type: Union[
+            Literal["work"],
+            Literal["home"],
+            Literal["other"],
+        ],
+    ):
+        region_aois = region2aoi[region_id]
+        if len(region_aois) > 0:
+            if len(region2aoi[region_id]) == 1:
+                return region2aoi[region_id][0]
+            popu = np.zeros(len(region_aois))
+            for i, id in enumerate(region_aois):
+                popu[i] = aoi_map[id]["external"]["population"]
+            if sum(popu) == 0:
+                idx = rng.choice(len(region_aois))
+                return region_aois[idx]
+            p = popu / sum(popu)
+            idx = rng.choice(len(region_aois), p=p)
+            return region_aois[idx]
+        else:
+            return rng.choice(aoi_type2ids[aoi_type])
 
     rng = np.random.default_rng(seed)
     if a_start is None:
@@ -190,7 +202,7 @@ def _generate_unit(H, W, O, a_start, seed, args):
 
     for i in range(len(mode)):
         if mode[i] == "H":
-            a = choose_aoi_from_region(start)
+            a = choose_aoi_with_type(start, "home")
             aoi_list.append(a)
             now_region = start
 
@@ -204,7 +216,7 @@ def _generate_unit(H, W, O, a_start, seed, args):
             p = p / sum(p)
 
             work_reigon = rng.choice(n_region, p=p)
-            a = choose_aoi_from_region(work_reigon)
+            a = choose_aoi_with_type(work_reigon, "work")
             aoi_list.append(a)
             now_region = work_reigon
 
@@ -217,7 +229,7 @@ def _generate_unit(H, W, O, a_start, seed, args):
             ]  # hour to int index
             p = p / sum(p)
             other_region = rng.choice(n_region, p=p)
-            a = choose_aoi_from_region(other_region)
+            a = choose_aoi_with_type(other_region, "other")
             aoi_list.append(a)
             now_region = other_region
     trip_mode = []
@@ -309,6 +321,7 @@ class TripGenerator:
         self.area_shapes = []
         self.aoi2region = defaultdict(list)
         self.region2aoi = defaultdict(list)
+        self.aoi_type2ids = defaultdict(list)
         self.persons = []
         # activity proportion
         if activity_distributions is not None:
@@ -461,7 +474,7 @@ class TripGenerator:
         area_pops: Optional[list] = None,
         seed: int = 0,
     ):
-        global region2aoi, aoi_map
+        global region2aoi, aoi_map, aoi_type2ids
         global home_dist, work_od, other_od
         region2aoi = self.region2aoi
         aoi_map = {d["id"]: d for d in self.aois}
@@ -474,10 +487,19 @@ class TripGenerator:
         # home catg
         HOME_CATGS = {"residential"}
         for aoi in self.aois:
-            if aoi["id"] not in self.aoi2region:
-                continue
-            reg_idx = self.aoi2region[aoi["id"]]
+            # aoi type identify
             external = aoi["external"]
+            aoi_id = aoi["id"]
+            if external["catg"] in HOME_CATGS:
+                self.aoi_type2ids["home"].append(aoi_id)
+            elif external["catg"] in WORK_CATGS:
+                self.aoi_type2ids["work"].append(aoi_id)
+            else:
+                self.aoi_type2ids["other"].append(aoi_id)
+            # pop calculation
+            if aoi_id not in self.aoi2region:
+                continue
+            reg_idx = self.aoi2region[aoi_id]
             total_popu[reg_idx] += external["population"]
             work_popu[reg_idx] += (
                 external["population"] if external["catg"] in WORK_CATGS else 0
@@ -511,6 +533,7 @@ class TripGenerator:
         other_od[np.where(sum_other_od_j == 0)] = 1
         # global variables
         home_dist, work_od, other_od = home_distribution, work_od, other_od
+        aoi_type2ids = self.aoi_type2ids
         agent_args = []
         a_starts = []
         if area_pops is not None:
@@ -523,7 +546,7 @@ class TripGenerator:
             a_starts = [None for _ in range(agent_num)]
         rng = np.random.default_rng(seed)
         for i, a_start in enumerate(a_starts):
-            agent_args.append((i, rng.integers(0, 2**16 - 1), a_starts[i]))
+            agent_args.append((i, rng.integers(0, 2**16 - 1), a_start))
         partial_args = (
             self.modes,
             self.p_mode,

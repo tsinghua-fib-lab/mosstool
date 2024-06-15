@@ -247,6 +247,8 @@ class TransitlandPublicTransport:
         all_routes = {}
         stops_from_routes = {}
         for gtfs_route_id, v in self.GTFS_route_id2route_info.items():
+            if len(v.get("routes", [])) == 0:
+                continue
             route = v["routes"][0]
             route_type = route["route_type"]
             long_name = route["route_long_name"]
