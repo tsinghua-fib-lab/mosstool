@@ -181,6 +181,8 @@ class AmapBus:
                     if not bvcode in bv2amap:
                         continue
                     id_sets = set()
+                    if len(bv2amap[bvcode].get("busstops", [])) < 1:
+                        continue
                     for bl in bv2amap[bvcode]["busstops"][0]["buslines"]:
                         id_sets.add(bl["id"])
                         if bl["id"] not in bus_amap_info:
@@ -230,11 +232,14 @@ class AmapBus:
         bus_stations = {}
         bus_lines = {}
 
-        def get_coords(ss: str):
+        def get_coords(coords_str: str):
             coords = []
-            for c in ss.split(";"):
-                lon, lat = c.split(",")
-                coords.append((np.float64(lon), np.float64(lat)))
+            try:
+                for c in coords_str.split(";"):
+                    lon, lat = c.split(",")
+                    coords.append((np.float64(lon), np.float64(lat)))
+            except:
+                pass
             return coords
 
         for k, v in self.bus_lines.items():
@@ -243,8 +248,17 @@ class AmapBus:
                 if not sl_name in self.sl2amap:
                     continue
                 info = self.sl2amap[sl_name]
+                if len(info.get("buslines", [])) < 1:
+                    continue
                 bline = info["buslines"][0]
                 bstops = bline["busstops"]
+                if len(bstops) < 1:
+                    continue
+                if not all(
+                    "location" in st and len(get_coords(st["location"])) > 0
+                    for st in bstops
+                ):
+                    continue
                 sl["stops"] = []
                 line_str = bline["polyline"]
                 for st in bstops:

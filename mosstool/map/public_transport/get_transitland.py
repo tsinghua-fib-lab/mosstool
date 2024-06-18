@@ -1,9 +1,10 @@
 """Fetch the subway bus data from transitland"""
 
 import logging
+import random
 from collections import defaultdict
 from math import asin, cos, radians, sin, sqrt
-from typing import List, Optional, Tuple, Union, cast
+from typing import Dict, List, Optional, Tuple, Union, cast
 
 import numpy as np
 import pyproj
@@ -15,6 +16,32 @@ from .._util.line import clip_line, offset_lane
 __all__ = [
     "TransitlandPublicTransport",
 ]
+
+
+def _get_headers(referer_url):
+    first_num = random.randint(55, 76)
+    third_num = random.randint(0, 3800)
+    fourth_num = random.randint(0, 140)
+    os_type = [
+        "(Windows NT 6.1; WOW64)",
+        "(Windows NT 10.0; WOW64)",
+        "(X11; Linux x86_64)",
+        "(Macintosh; Intel Mac OS X 10_14_5)",
+    ]
+    chrome_version = "Chrome/{}.0.{}.{}".format(first_num, third_num, fourth_num)
+
+    ua = " ".join(
+        [
+            "Mozilla/5.0",
+            random.choice(os_type),
+            "AppleWebKit/537.36",
+            "(KHTML, like Gecko)",
+            chrome_version,
+            "Safari/537.36",
+        ]
+    )
+    headers = {"User-Agent": ua, "Referer": referer_url}
+    return headers
 
 
 def cut(line: LineString, points: List[Point], projstr: str):
@@ -134,12 +161,21 @@ class TransitlandPublicTransport:
     def __init__(
         self,
         proj_str: str,
-        transitland_ak: str,
         max_longitude: float,
         min_longitude: float,
         max_latitude: float,
         min_latitude: float,
+        transitland_ak: Optional[str] = None,
+        proxies: Optional[Dict[str, str]] = None,
+        wikipedia_name: Optional[str] = None,
+        from_osm: bool = False,
     ):
+        self.proxies = proxies
+        self.wikipedia_name = wikipedia_name
+        self.from_osm = from_osm
+        if transitland_ak is None:
+            self.from_osm = True
+            logging.info("No transitland ak provided! Fetching from OSM")
         self.MAX_SEARCH_RADIUS = 10000  # API’s maximum search radius
         self.MAX_STOP_NUM = 100  # The maximum number of sites for a single API search
         self.MAX_STOP_DISGATE = (
@@ -150,6 +186,12 @@ class TransitlandPublicTransport:
         )
         self.BUS_SAME_STA_DIS = 30
         MIN_UNIT_NUM = 16  # Minimum number of search blocks
+        self.bbox = (
+            min_latitude,
+            min_longitude,
+            max_latitude,
+            max_longitude,
+        )
         lon1, lat1 = min_longitude, min_latitude
         lon2, lat2 = max_longitude, max_latitude
         self.lon_center = (lon1 + lon2) / 2
@@ -167,7 +209,132 @@ class TransitlandPublicTransport:
             round(y, 6) for y in list(np.linspace(lat1, lat2, self.unit))
         ]
 
-    def fetch_raw_stops(self):
+    def _query_raw_data_from_osm(self):
+        """
+        Get raw data from OSM API
+        OSM query language: https://wiki.openstreetmap.org/wiki/Overpass_API/Language_Guide
+        Can be run and visualized in real time at https://overpass-turbo.eu/
+        """
+        logging.info("Fetching raw stops from OpenStreetMap")
+        bbox_str = ",".join(str(i) for i in self.bbox)
+        query_header = f"[out:json][timeout:120][bbox:{bbox_str}];"
+        area_wikipedia_name = self.wikipedia_name
+        if area_wikipedia_name is not None:
+            query_header += f'area[wikipedia="{area_wikipedia_name}"]->.searchArea;'
+        osm_data = None
+        for _ in range(3):  # retry 3 times
+            try:
+                query_body_raw = [
+                    (
+                        "way",
+                        "[route=bus]",
+                    ),
+                    (
+                        "rel",
+                        "[route=bus]",
+                    ),
+                ]
+                query_body = ""
+                for obj, args in query_body_raw:
+                    area = (
+                        "(area.searchArea)" if area_wikipedia_name is not None else ""
+                    )
+                    query_body += obj + area + args + ";"
+                query_body = "(" + query_body + ");"
+                query = query_header + query_body + "(._;>;);" + "out body;"
+                logging.info(f"{query}")
+                osm_data = requests.get(
+                    "http://overpass-api.de/api/interpreter?data=" + query,
+                    proxies=self.proxies,
+                ).json()["elements"]
+                break
+            except Exception as e:
+                logging.warning(f"Exception when querying OSM data {e}")
+                logging.warning("No response from OSM, Please try again later!")
+        if osm_data is None:
+            raise Exception("No BUS response from OSM!")
+        self._osm_data = osm_data
+
+    def _process_raw_data_from_osm(self):
+        _nodes = {}
+        _ways = {}
+        for d in self._osm_data:
+            # stations
+            if d["type"] == "node":
+                node_name = d["id"]
+                if "tags" in d:
+                    if "name" in d["tags"]:
+                        node_name = d["tags"]["name"]
+                    elif "wikipedia" in d["tags"]:
+                        node_name = d["tags"]["wikipedia"]
+                    elif "name:en" in d["tags"]:
+                        node_name = d["tags"]["name:en"]
+                _nodes[d["id"]] = {
+                    "pos": (
+                        d["lat"],
+                        d["lon"],
+                    ),
+                    "name": str(node_name),
+                    "orig_node": d,
+                }
+            # lines
+            elif "tags" in d:
+                if "nodes" in d:
+                    way_nodes = [_nodes[nid] for nid in d["nodes"]]
+                    pos = [n["pos"] for n in way_nodes]
+                    way_name = f"{way_nodes[0]['name']}->{way_nodes[-1]['name']}"
+                    if "name" in d["tags"]:
+                        way_name = d["tags"]["name"]
+                    elif "wikipedia" in d["tags"]:
+                        way_name = d["tags"]["wikipedia"]
+                    elif "name:en" in d["tags"]:
+                        way_name = d["tags"]["name:en"]
+                    tags = d["tags"]
+                    _ways[d["id"]] = {
+                        "pos": pos,
+                        "name": str(way_name),
+                        "tags": tags,
+                        "node_ids": d["nodes"],
+                    }
+            # build GTFS data from OSM
+        GTFS_format_data = {}
+        for way_id, way in _ways.items():
+            if (
+                "railway" in way["tags"]
+                and way["tags"]["railway"] == "subway"
+                or "name" in way["tags"]
+                and any(
+                    k in way["tags"]["name"]
+                    for k in ["subway", "Subway", "metro", "地铁"]
+                )
+            ):
+                route_type = 1
+            else:
+                route_type = 3
+            route = {
+                "route_type": route_type,
+                "route_long_name": way["name"],
+                "route_short_name": way["name"],
+                "geometry": {
+                    "coordinates": [way["pos"]],
+                },
+                "route_stops": [
+                    {
+                        "stop": {
+                            "stop_name": _nodes[node_id]["name"],
+                            "id": node_id,
+                            "geometry": {
+                                "coordinates": _nodes[node_id]["pos"],
+                            },
+                        }
+                    }
+                    for node_id in way["node_ids"]
+                ],
+            }
+            GTFS_format_data[way_id] = {"routes": [route]}
+        self.GTFS_route_id2route_info = GTFS_format_data
+
+    def _fetch_raw_stops(self):
         url = "https://transit.land/api/v2/rest/stops"
         stops_without_routes = []
         logging.info("Fetching raw stops from Transitland")
@@ -188,7 +355,9 @@ class TransitlandPublicTransport:
                     "radius": radius,
                     "apikey": self.ak,
                 }
-                response = requests.get(url=url, params=params)
+                response = requests.get(
+                    url=url, params=params, headers=_get_headers(url)
+                )
                 if response:
                     res = response.json()
                     stops_without_routes.extend(res["stops"])
@@ -205,13 +374,13 @@ class TransitlandPublicTransport:
                 "stop_key": one_stop_id,
                 "apikey": self.ak,
             }
-            response = requests.get(url=url, params=params)
+            response = requests.get(url=url, params=params, headers=_get_headers(url))
             if response:
                 res = response.json()
                 stops_with_route.extend(res["stops"])
         self.stops_with_route = stops_with_route
 
-    def fetch_raw_lines(self):
+    def _fetch_raw_lines(self):
         GTFS_stop_id2route_ids = defaultdict(list)
         for s in self.stops_with_route:
             if "id" not in s:
@@ -225,7 +394,10 @@ class TransitlandPublicTransport:
         url = "https://transit.land/api/v2/rest/routes"
         for _, v in GTFS_stop_id2route_ids.items():
             for gtfs_route_id in v:
-                if gtfs_route_id in GTFS_route_id2route_info:
+                if (
+                    gtfs_route_id in GTFS_route_id2route_info
+                    and len(GTFS_route_id2route_info[gtfs_route_id]) > 0
+                ):
                     continue
                 params = {
                     "include_alerts": "false",
@@ -234,7 +406,9 @@ class TransitlandPublicTransport:
                     "include_geometry": "true",
                     "apikey": self.ak,
                 }
-                response = requests.get(url=url, params=params)
+                response = requests.get(
+                    url=url, params=params, headers=_get_headers(url)
+                )
                 if response:
                     res = response.json()
                     GTFS_route_id2route_info[gtfs_route_id] = res
@@ -255,10 +429,14 @@ class TransitlandPublicTransport:
             short_name = route["route_short_name"]
             route_geo = route["geometry"]["coordinates"]
             route_geo_xy = [[projector(*c) for c in l] for l in route_geo]
+            if len(route_geo) == 0:
+                continue
             rstops = []
             for st in route["route_stops"]:
                 st_name = st["stop"].get("stop_name", "")
                 st_id = st["stop"].get("id", "")  # gtfs_id
+                if not len(st["stop"]["geometry"]["coordinates"]) == 2:
+                    continue
                 st_loc = [st["stop"]["geometry"]["coordinates"]]  #  [[lon,lat]]
                 kk = (gtfs_route_id, st_name)
                 rstops.append(kk)
@@ -271,6 +449,8 @@ class TransitlandPublicTransport:
                         "geo_xy": [projector(*c) for c in st_loc],
                         "gtfs_id": st_id,
                     }
+            if len(rstops) == 0:
+                continue
             all_routes[gtfs_route_id] = {
                 "geo": route_geo,
                 "geo_xy": route_geo_xy,
@@ -281,57 +461,65 @@ class TransitlandPublicTransport:
             }
         split_routes = {}
         for gtfs_route_id, gtfs_route in all_routes.items():
-            geo_xy = gtfs_route["geo_xy"]
-            sublines = []
-            for i, coords in enumerate(geo_xy):
-                stop_points = []
-                same_name_stops = defaultdict(list)
-                for k in gtfs_route["stops"]:
-                    _, st_name = k
-                    same_name_stops[st_name].append(
-                        {"point": Point(*stops_from_routes[k]["geo_xy"][0]), "key": k}
-                    )  # k sl_id,st_name
-                line = LineString(coords)
-                for _, v in same_name_stops.items():
-                    stop_points.append(min(v, key=lambda x: x["point"].distance(line)))
-                stop_points = sorted(
-                    stop_points, key=lambda x: line.project(x["point"])
-                )
-                added_stops = set()
-                subline_stops = []
-                for p in stop_points:
-                    _, st_name = p["key"]
-                    if st_name in added_stops:
-                        continue
-                    else:
-                        if line.distance(p["point"]) < self.MAX_STOP_DISGATE:
-                            added_stops.add(st_name)
-                            subline_stops.append(p["key"])
-                if len(subline_stops) >= 2:
-                    coords_lonlat = gtfs_route["geo"][i]
-                    split_geo = cut(
-                        line=LineString(coords_lonlat),
-                        points=[
-                            Point(*stops_from_routes[k]["geo"][0])
-                            for k in subline_stops
-                        ],
-                        projstr=self.projstr,
+            try:
+                geo_xy = gtfs_route["geo_xy"]
+                sublines = []
+                for i, coords in enumerate(geo_xy):
+                    stop_points = []
+                    same_name_stops = defaultdict(list)
+                    for k in gtfs_route["stops"]:
+                        _, st_name = k
+                        same_name_stops[st_name].append(
+                            {
+                                "point": Point(*stops_from_routes[k]["geo_xy"][0]),
+                                "key": k,
+                            }
+                        )  # k sl_id,st_name
+                    line = LineString(coords)
+                    for _, v in same_name_stops.items():
+                        stop_points.append(
+                            min(v, key=lambda x: x["point"].distance(line))
+                        )
+                    stop_points = sorted(
+                        stop_points, key=lambda x: line.project(x["point"])
                     )
-                    sublines.append(
-                        {
-                            "geo": coords_lonlat,
-                            "geo_xy": coords,
-                            "long_name": gtfs_route["long_name"],
-                            "short_name": gtfs_route["short_name"],
-                            "stops": subline_stops,
-                            "split_geo": split_geo,
-                        }
-                    )
-            if len(sublines) >= 1:
-                split_routes[gtfs_route_id] = {
-                    "sublines": sublines,
-                    "route_type": gtfs_route["route_type"],
-                }
+                    added_stops = set()
+                    subline_stops = []
+                    for p in stop_points:
+                        _, st_name = p["key"]
+                        if st_name in added_stops:
+                            continue
+                        else:
+                            if line.distance(p["point"]) < self.MAX_STOP_DISGATE:
+                                added_stops.add(st_name)
+                                subline_stops.append(p["key"])
+                    if len(subline_stops) >= 2:
+                        coords_lonlat = gtfs_route["geo"][i]
+                        split_geo = cut(
+                            line=LineString(coords_lonlat),
+                            points=[
+                                Point(*stops_from_routes[k]["geo"][0])
+                                for k in subline_stops
+                            ],
+                            projstr=self.projstr,
+                        )
+                        sublines.append(
+                            {
+                                "geo": coords_lonlat,
+                                "geo_xy": coords,
+                                "long_name": gtfs_route["long_name"],
+                                "short_name": gtfs_route["short_name"],
+                                "stops": subline_stops,
+                                "split_geo": split_geo,
+                            }
+                        )
+                if len(sublines) >= 1:
+                    split_routes[gtfs_route_id] = {
+                        "sublines": sublines,
+                        "route_type": gtfs_route["route_type"],
+                    }
+            except:
+                continue
         bus_routes = {}
         bus_stations = {}
         subway_routes = {}
@@ -342,7 +530,7 @@ class TransitlandPublicTransport:
                 for sl in v["sublines"]:
                     for st in sl["stops"]:
                         subway_stations[st] = stops_from_routes[st]
-            elif v["route_type"] == 3:  # bus
+            elif v["route_type"] in {3, 11}:  # bus, trolleybus
                 bus_routes[k] = v
                 for sl in v["sublines"]:
                     for st in sl["stops"]:
@@ -430,8 +618,12 @@ class TransitlandPublicTransport:
         self.merged_bus_stations = merged_bus_stations
 
     def get_output_data(self):
-        self.fetch_raw_stops()
-        self.fetch_raw_lines()
+        if self.from_osm:
+            self._query_raw_data_from_osm()
+            self._process_raw_data_from_osm()
+        else:
+            self._fetch_raw_stops()
+            self._fetch_raw_lines()
         self.process_raw_data()
         self.merge_raw_data()
         merged_subway_stations = self.merged_subway_stations
@@ -459,7 +651,7 @@ class TransitlandPublicTransport:
                     {
                         "id": ii,
                         "name": sl.get(
-                            "long name", f"{sl_stop_start_name}->{sl_stop_end_name}"
+                            "long_name", f"{sl_stop_start_name}->{sl_stop_end_name}"
                         ),
                         "geo": sl["split_geo"],
                         "stations": [
@@ -485,7 +677,7 @@ class TransitlandPublicTransport:
                     {
                         "id": jj,
                         "name": sl.get(
-                            "long name", f"{sl_stop_start_name}->{sl_stop_end_name}"
+                            "long_name", f"{sl_stop_start_name}->{sl_stop_end_name}"
                         ),
                         "geo": sl["split_geo"],
                         "stations": [
