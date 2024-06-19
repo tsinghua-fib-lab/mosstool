@@ -54,8 +54,12 @@ def geojson_format_check(
             topo_dict[feature_type].append(feature)
     road_ids = set()
     junc_ids = set()
-    out_way_id2junc_id = defaultdict(list)  # Check if the pre-junction of the road is unique
-    in_way_id2junc_id = defaultdict(list)  # Check if the suc-junction of the road is unique
+    out_way_id2junc_id = defaultdict(
+        list
+    )  # Check if the pre-junction of the road is unique
+    in_way_id2junc_id = defaultdict(
+        list
+    )  # Check if the suc-junction of the road is unique
     # Check road
     for feature in topo_dict["LineString"]:
         # id
@@ -298,7 +302,7 @@ def geojson_format_check(
     handler.trigger_warnings()
 
 
-def output_format_check(output_map: dict):
+def output_format_check(output_map: dict, output_value_check: bool):
     logging.basicConfig(level=logging.INFO)
     handler = _FormatCheckHandler()
     logger = logging.getLogger()
@@ -313,7 +317,7 @@ def output_format_check(output_map: dict):
     ]:
         if not class_name in output_map:
             logging.warning(f"No class:{class_name} in output map!")
-    # Check connections 
+    # Check connections
     lanes = output_map["lanes"]
     dict_lanes = {l["id"]: l for l in lanes}
     roads = output_map["roads"]
@@ -393,16 +397,17 @@ def output_format_check(output_map: dict):
                 logging.warning(
                     f"{lane_type} lane {lane_id} has successor {suc_lane_id} not in lane data"
                 )
-    # Check values 
-    for lane in lanes:
-        lane_id = lane["id"]
-        length = lane["length"]
-        lane_type = lane_type_dict.get(lane["type"], "unspecified")
-        parent_id = lane["parent_id"]
-        if parent_id < JUNC_START_ID:
-            continue
-        if length > MAX_JUNC_LANE_LENGTH:
-            logging.warning(
-                f"Junction {lane_type} lane {lane_id} is too long ({length} m), please check input GeoJSON file!"
-            )
+    # Check values
+    if output_value_check:
+        for lane in lanes:
+            lane_id = lane["id"]
+            length = lane["length"]
+            lane_type = lane_type_dict.get(lane["type"], "unspecified")
+            parent_id = lane["parent_id"]
+            if parent_id < JUNC_START_ID:
+                continue
+            if length > MAX_JUNC_LANE_LENGTH:
+                logging.warning(
+                    f"Junction {lane_type} lane {lane_id} is too long ({length} m), please check input GeoJSON file!"
+                )
     handler.trigger_warnings()

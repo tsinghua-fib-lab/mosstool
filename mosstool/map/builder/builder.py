@@ -61,6 +61,7 @@ class Builder:
         green_time: float = 30.0,
         yellow_time: float = 5.0,
         strict_mode: bool = False,
+        output_value_check: bool = False,
         workers: int = cpu_count(),
     ):
         """
@@ -80,6 +81,7 @@ class Builder:
         - road_expand_mode (str): road expand mode
         - green_time (float): green time
         - strict_mode (bool): when enabled, causes the program to exit whenever a warning occurs
+        - output_value_check (bool): when enabled, will do value checks on output maps. e.g., lane lengths
         - yellow_time (float): yellow time
         - workers (int): number of workers
         """
@@ -103,6 +105,7 @@ class Builder:
         self.landuse_shp_path = landuse_shp_path
         self.traffic_light_min_direction_group = traffic_light_min_direction_group
         self.strict_mode = strict_mode
+        self.output_value_check = output_value_check
         self.reuse_map = reuse_map
         self.workers = workers
         # id mapping relationship
@@ -330,6 +333,13 @@ class Builder:
                 if lane_type != mapv2.LANE_TYPE_WALKING
                 else LineString([in_lane.coords[-1], out_lane.coords[0]])
             )
+            # limit the junc lane length
+            if not in_walk_type and not out_walk_type:
+                if conn_lane.length > 1e99:
+                    continue
+            else:
+                if conn_lane.length > 1e99:
+                    continue
             # Add new lane
             self.map_lanes[self.lane_uid] = conn_lane
             # Add the connection relationship of the new lane
@@ -904,7 +914,7 @@ class Builder:
                 line = ops.substring(line, width, line.length - width)
             else:
                 line = ops.substring(line, line.length * 0.4, line.length * 0.6)
-            line = line.simplify(0.1)
+            line = cast(LineString, line.simplify(0.1))
             if self.road_expand_mode == "L":
                 # Expand to the left
                 lanes = [
@@ -3792,6 +3802,7 @@ class Builder:
                     lane = ops.substring(
                         line, line.length / 3, line.length - line.length / 3
                     )
+                lane = cast(LineString, lane)
                 lane = offset_lane(lane, -0.5 * lane_width)
                 # Public section routes will not be added to lanes repeatedly.
                 if lane in self.lane2data:
@@ -4318,7 +4329,7 @@ class Builder:
         else:
             self._add_aoi()
         output_map = self.get_output_map(name)
-        output_format_check(output_map)
+        output_format_check(output_map, self.output_value_check)
         return output_map
 
 

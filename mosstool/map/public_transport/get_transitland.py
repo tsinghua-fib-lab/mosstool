@@ -10,6 +10,7 @@ import numpy as np
 import pyproj
 import requests
 from shapely.geometry import LineString, MultiPoint, Point, Polygon
+from shapely.strtree import STRtree
 
 from .._util.line import clip_line, offset_lane
 
@@ -181,6 +182,7 @@ class TransitlandPublicTransport:
         self.MAX_STOP_DISGATE = (
             15  # Anything beyond this distance is not considered a stop for this line.
         )
+        self.OSM_STOP_DISGATE = 15
         self.SUBWAY_SAME_STA_DIS = (
             800  # The merge distance threshold of subway stations with the same name
         )
@@ -233,6 +235,18 @@ class TransitlandPublicTransport:
                         "rel",
                         "[route=bus]",
                     ),
+                    (
+                        "way",
+                        "[route=subway]",
+                    ),
+                    (
+                        "rel",
+                        "[route=subway]",
+                    ),
+                    (
+                        "node",
+                        "[highway=bus_stop]",
+                    ),
                 ]
                 query_body = ""
                 for obj, args in query_body_raw:
@@ -258,22 +272,38 @@ class TransitlandPublicTransport:
     def _process_raw_data_from_osm(self):
         _nodes = {}
         _ways = {}
+        _station_node_ids = set()
+        # highway=bus_stop, public_transport=platform,
+        projector = pyproj.Proj(self.projstr)
         for d in self._osm_data:
             # stations
             if d["type"] == "node":
-                node_name = d["id"]
+                d_id = d["id"]
+                node_name = d_id
                 if "tags" in d:
-                    if "name" in d["tags"]:
-                        node_name = d["tags"]["name"]
-                    elif "wikipedia" in d["tags"]:
-                        node_name = d["tags"]["wikipedia"]
-                    elif "name:en" in d["tags"]:
-                        node_name = d["tags"]["name:en"]
-                _nodes[d["id"]] = {
+                    d_tags = d["tags"]
+                    if "name" in d_tags:
+                        node_name = d_tags["name"]
+                    elif "wikipedia" in d_tags:
+                        node_name = d_tags["wikipedia"]
+                    elif "name:en" in d_tags:
+                        node_name = d_tags["name:en"]
+                    if (
+                        d_tags.get("highway", "") in {"bus_stop", "subway", "station"}
+                        or d_tags.get("public_transport", "")
+                        in {"platform", "station", "bus", "subway"}
+                        or d_tags.get("bus", "") in {"yes"}
+                        or d_tags.get("amenity", "")
+                        in {"bus_station", "subway_station", "bus", "subway"}
+                        or "station" in d_tags
+                    ):
+                        _station_node_ids.add(d_id)
+                _nodes[d_id] = {
                     "pos": (
-                        d["lat"],
                         d["lon"],
+                        d["lat"],
                     ),
+                    "pos_xy": list(projector(d["lat"], d["lon"])),
                     "name": str(node_name),
                     "orig_node": d,
                 }
@@ -283,20 +313,38 @@ class TransitlandPublicTransport:
                     way_nodes = [_nodes[nid] for nid in d["nodes"]]
                     pos = [n["pos"] for n in way_nodes]
                     way_name = f"{way_nodes[0]['name']}->{way_nodes[-1]['name']}"
-                    if "name" in d["tags"]:
-                        way_name = d["tags"]["name"]
-                    elif "wikipedia" in d["tags"]:
-                        way_name = d["tags"]["wikipedia"]
-                    elif "name:en" in d["tags"]:
-                        way_name = d["tags"]["name:en"]
-                    tags = d["tags"]
+                    d_tags = d["tags"]
+                    if "name" in d_tags:
+                        way_name = d_tags["name"]
+                    elif "wikipedia" in d_tags:
+                        way_name = d_tags["wikipedia"]
+                    elif "name:en" in d_tags:
+                        way_name = d_tags["name:en"]
+                    tags = d_tags
                     _ways[d["id"]] = {
                         "pos": pos,
                         "name": str(way_name),
                         "tags": tags,
                         "node_ids": d["nodes"],
                     }
-            # build GTFS data from OSM
+        # build GTFS data from OSM
+        station_tree = STRtree(
+            [
+                Point(nn["pos_xy"])
+                for nid, nn in _nodes.items()
+                if nid in _station_node_ids
+            ]
+        )
+        for node_id, node in _nodes.items():
+            if node_id in _station_node_ids:
+                continue
+            else:
+                tree_ids = station_tree.query(
+                    Point(node["pos_xy"]).buffer(self.OSM_STOP_DISGATE)
+                )
+                tree_ids = set(tree_ids)
+                if len(tree_ids) > 0:
+                    _station_node_ids.add(node_id)
         GTFS_format_data = {}
         for way_id, way in _ways.items():
             if (
@@ -311,6 +359,11 @@ class TransitlandPublicTransport:
                 route_type = 1
             else:
                 route_type = 3
+            way_station_ids = (
+                [way["node_ids"][0]]
+                + [nid for nid in way["node_ids"][1:-1] if nid in _station_node_ids]
+                + [way["node_ids"][-1]]
+            )
             route = {
                 "route_type": route_type,
                 "route_long_name": way["name"],
@@ -328,7 +381,7 @@ class TransitlandPublicTransport:
                             },
                         }
                     }
-                    for node_id in way["node_ids"]
+                    for node_id in way_station_ids
                 ],
             }
             GTFS_format_data[way_id] = {"routes": [route]}
@@ -368,16 +421,23 @@ class TransitlandPublicTransport:
         stops_with_route = []
         # interface address
         for one_stop_id in one_stop_ids:
-            params = {
-                "include_alerts": "false",
-                "format": "json",
-                "stop_key": one_stop_id,
-                "apikey": self.ak,
-            }
-            response = requests.get(url=url, params=params, headers=_get_headers(url))
-            if response:
-                res = response.json()
-                stops_with_route.extend(res["stops"])
+            for _ in range(3):
+                try:
+                    params = {
+                        "include_alerts": "false",
+                        "format": "json",
+                        "stop_key": one_stop_id,
+                        "apikey": self.ak,
+                    }
+                    response = requests.get(
+                        url=url, params=params, headers=_get_headers(url)
+                    )
+                    if response:
+                        res = response.json()
+                        stops_with_route.extend(res["stops"])
+                    break
+                except:
+                    continue
         self.stops_with_route = stops_with_route
 
     def _fetch_raw_lines(self):
@@ -394,26 +454,31 @@ class TransitlandPublicTransport:
         url = "https://transit.land/api/v2/rest/routes"
         for _, v in GTFS_stop_id2route_ids.items():
             for gtfs_route_id in v:
-                if (
-                    gtfs_route_id in GTFS_route_id2route_info
-                    and len(GTFS_route_id2route_info[gtfs_route_id]) > 0
-                ):
-                    continue
-                params = {
-                    "include_alerts": "false",
-                    "format": "json",
-                    "route_key": gtfs_route_id,
-                    "include_geometry": "true",
-                    "apikey": self.ak,
-                }
-                response = requests.get(
-                    url=url, params=params, headers=_get_headers(url)
-                )
-                if response:
-                    res = response.json()
-                    GTFS_route_id2route_info[gtfs_route_id] = res
-                else:
-                    GTFS_route_id2route_info[gtfs_route_id] = {}
+                for _ in range(3):
+                    try:
+                        if (
+                            gtfs_route_id in GTFS_route_id2route_info
+                            and len(GTFS_route_id2route_info[gtfs_route_id]) > 0
+                        ):
+                            continue
+                        params = {
+                            "include_alerts": "false",
+                            "format": "json",
+                            "route_key": gtfs_route_id,
+                            "include_geometry": "true",
+                            "apikey": self.ak,
+                        }
+                        response = requests.get(
+                            url=url, params=params, headers=_get_headers(url)
+                        )
+                        if response:
+                            res = response.json()
+                            GTFS_route_id2route_info[gtfs_route_id] = res
+                        else:
+                            GTFS_route_id2route_info[gtfs_route_id] = {}
+                        break
+                    except:
+                        continue
         self.GTFS_route_id2route_info = GTFS_route_id2route_info
 
     def process_raw_data(self):
@@ -696,7 +761,7 @@ class TransitlandPublicTransport:
                 {
                     "id": ii,
                     "name": v["name"],
-                    "geo": [list(v["geo"])],
+                    "geo": list(v["geo"]),
                     "type": "BUS",
                     "subline_ids": all_sta_key2sl_ids[k],
                 }
@@ -706,7 +771,7 @@ class TransitlandPublicTransport:
                 {
                     "id": jj + ii,
                     "name": v["name"],
-                    "geo": [list(v["geo"])],
+                    "geo": list(v["geo"]),
                     "type": "SUBWAY",
                     "subline_ids": all_sta_key2sl_ids[k],
                 }
