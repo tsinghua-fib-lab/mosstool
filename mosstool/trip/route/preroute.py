@@ -1,9 +1,11 @@
 import logging
 from typing import cast
+
 from pycityproto.city.person.v1.person_pb2 import Person
-from pycityproto.city.trip.v2.trip_pb2 import Schedule, TripMode
 from pycityproto.city.routing.v2.routing_pb2 import RouteType
 from pycityproto.city.routing.v2.routing_service_pb2 import GetRouteRequest
+from pycityproto.city.trip.v2.trip_pb2 import Schedule, TripMode
+
 from .client import RoutingClient
 
 __all__ = ["pre_route"]
@@ -16,7 +18,9 @@ _TYPE_MAP = {
 }
 
 
-async def pre_route(client: RoutingClient, person: Person, in_place: bool = False) -> Person:
+async def pre_route(
+    client: RoutingClient, person: Person, in_place: bool = False
+) -> Person:
     """
     Fill in the route of the person's all schedules.
     The function will REMOVE all schedules that can not be routed.
@@ -35,7 +39,9 @@ async def pre_route(client: RoutingClient, person: Person, in_place: bool = Fals
         person = p
     start = person.home
     departure_time = None
-    for schedule in person.schedules:
+    all_schedules = list(person.schedules)
+    person.ClearField("schedules")
+    for schedule in all_schedules:
         schedule = cast(Schedule, schedule)
         if schedule.HasField("departure_time"):
             departure_time = schedule.departure_time
@@ -85,6 +91,9 @@ async def pre_route(client: RoutingClient, person: Person, in_place: bool = Fals
                 start = trip.end
                 # Set departure time invalid
                 departure_time = None
-        schedule.ClearField("trips")
-        schedule.trips.extend(good_trips)
+        if len(good_trips) > 0:
+            good_schedule = cast(Schedule, person.schedules.add())
+            good_schedule.CopyFrom(schedule)
+            good_schedule.ClearField("trips")
+            good_schedule.trips.extend(good_trips)
     return person
