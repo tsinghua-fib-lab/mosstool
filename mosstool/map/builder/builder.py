@@ -61,7 +61,7 @@ class Builder:
         green_time: float = 30.0,
         yellow_time: float = 5.0,
         strict_mode: bool = False,
-        output_value_check: bool = False,
+        output_lane_length_check: bool = False,
         workers: int = cpu_count(),
     ):
         """
@@ -81,7 +81,7 @@ class Builder:
         - road_expand_mode (str): road expand mode
         - green_time (float): green time
         - strict_mode (bool): when enabled, causes the program to exit whenever a warning occurs
-        - output_value_check (bool): when enabled, will do value checks on output maps. e.g., lane lengths
+        - output_lane_length_check (bool): when enabled, will do value checks lane lengths in output map.
         - yellow_time (float): yellow time
         - workers (int): number of workers
         """
@@ -105,7 +105,7 @@ class Builder:
         self.landuse_shp_path = landuse_shp_path
         self.traffic_light_min_direction_group = traffic_light_min_direction_group
         self.strict_mode = strict_mode
-        self.output_value_check = output_value_check
+        self.output_lane_length_check = output_lane_length_check
         self.reuse_map = reuse_map
         self.workers = workers
         # id mapping relationship
@@ -4329,7 +4329,7 @@ class Builder:
         else:
             self._add_aoi()
         output_map = self.get_output_map(name)
-        output_format_check(output_map, self.output_value_check)
+        output_format_check(output_map, self.output_lane_length_check)
         return output_map
 
 

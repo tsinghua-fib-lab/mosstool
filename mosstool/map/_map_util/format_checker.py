@@ -302,7 +302,7 @@ def geojson_format_check(
     handler.trigger_warnings()
 
 
-def output_format_check(output_map: dict, output_value_check: bool):
+def output_format_check(output_map: dict, output_lane_length_check: bool):
     logging.basicConfig(level=logging.INFO)
     handler = _FormatCheckHandler()
     logger = logging.getLogger()
@@ -398,7 +398,7 @@ def output_format_check(output_map: dict, output_value_check: bool):
                     f"{lane_type} lane {lane_id} has successor {suc_lane_id} not in lane data"
                 )
     # Check values
-    if output_value_check:
+    if output_lane_length_check:
         for lane in lanes:
             lane_id = lane["id"]
             length = lane["length"]
