@@ -13,11 +13,13 @@ from .format_converter import dict2pb, pb2dict
 def merge_map(
     partial_maps: List[Map],
     output_path: Optional[str] = None,
+    output_lane_length_check: bool = False,
 ) -> Map:
     """
     Args:
     - partial_maps (list[Map]): maps to be merged.
     - output_path (str): merged map output path.
+    - output_lane_length_check (bool): whether to check lane length.
 
     Returns:
     - merged map.
@@ -66,7 +68,7 @@ def merge_map(
         "east": max(x),
         "projection": list(projstr_set)[0],
     }
-    output_format_check(output_map_dict)
+    output_format_check(output_map_dict, output_lane_length_check)
     map_pb = dict2pb(output_map_dict, Map())
     if output_path is not None:
         with open(output_path, "wb") as f:
