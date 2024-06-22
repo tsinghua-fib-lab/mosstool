@@ -54,7 +54,7 @@ def _get_mode(p1, p2):
 
 
 def _get_mode_with_distribution(
-    p1: Tuple[float, float], p2: Tuple[float, float], profile: dict
+    p1: Tuple[float, float], p2: Tuple[float, float], profile: dict, seed: int = 0
 ):
     (x1, y1), (x2, y2) = p1, p2
     distance = ((x2 - x1) ** 2 + (y2 - y1) ** 2) ** 0.5
@@ -90,7 +90,8 @@ def _get_mode_with_distribution(
     V = np.exp(V)
     V = recalculate_trip_mode_prob(profile, V)
     V = V / sum(V)
-    choice_index = np.random.choice(len(V), p=V)
+    rng = np.random.default_rng(seed)
+    choice_index = rng.choice(len(V), p=V)
     return ALL_TRIP_MODES[choice_index]
 
 
@@ -273,7 +274,7 @@ def _generate_unit(H, W, E, O, a_home_region, a_profile, modes, p_mode, seed, ar
         lon2, lat2 = aoi_map[next_aoi]["geo"][0][:2]
         p1 = projector(longitude=lon1, latitude=lat1)
         p2 = projector(longitude=lon2, latitude=lat2)
-        trip_modes.append(_get_mode_with_distribution(p1, p2, a_profile))
+        trip_modes.append(_get_mode_with_distribution(p1, p2, a_profile, seed))
 
     # determine activity
     activities = []
