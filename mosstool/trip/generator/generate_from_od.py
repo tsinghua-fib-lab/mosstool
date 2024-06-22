@@ -63,9 +63,9 @@ def _get_mode_with_distribution(
     subway_duration = distance / SUBWAY_SPEED + SUBWAY_PENALTY
     bus_duration = distance / BUS_SPEED + BUS_PENALTY
     bicycle_duration = distance / BIKE_SPEED + BIKE_PENALTY
-    parking_fee = 20  # 停车费
-    age = 0.384  # 18到35岁人口占比
-    income = 0.395  # 低收入人群占比
+    parking_fee = 20
+    age = 0.384  # proportion of ages from 18 to 35 population 
+    income = 0.395  # proportion of low-income population
     if bus_expense > 0:
         V_bus = -0.0516 * bus_duration / 60 - 0.4810 * bus_expense
     else:
