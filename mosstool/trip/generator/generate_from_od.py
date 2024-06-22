@@ -12,19 +12,20 @@ from geojson import Feature, FeatureCollection, Polygon
 from geopandas.geodataframe import GeoDataFrame
 from pycityproto.city.geo.v2.geo_pb2 import AoiPosition, Position
 from pycityproto.city.map.v2.map_pb2 import Map
-from pycityproto.city.person.v1.person_pb2 import Person
 from pycityproto.city.person.v1.person_pb2 import (
-    PersonProfile,
+    Consumption,
     Education,
     Gender,
-    Consumption,
+    Person,
+    PersonProfile,
 )
 from pycityproto.city.trip.v2.trip_pb2 import Schedule, Trip, TripMode
-from ...util.format_converter import dict2pb
+
 from ...map._map_util.const import *
+from ...util.format_converter import dict2pb
 from ...util.geo_match_pop import geo2pop
-from ._util.utils import gen_profiles, recalculate_trip_mode_prob
 from ._util.const import *
+from ._util.utils import gen_profiles, recalculate_trip_mode_prob
 from .template import DEFAULT_PERSON
 
 
@@ -64,7 +65,7 @@ def _get_mode_with_distribution(
     bus_duration = distance / BUS_SPEED + BUS_PENALTY
     bicycle_duration = distance / BIKE_SPEED + BIKE_PENALTY
     parking_fee = 20
-    age = 0.384  # proportion of ages from 18 to 35 population 
+    age = 0.384  # proportion of ages from 18 to 35 population
     income = 0.395  # proportion of low-income population
     if bus_expense > 0:
         V_bus = -0.0516 * bus_duration / 60 - 0.4810 * bus_expense
@@ -282,7 +283,17 @@ def _generate_unit(H, W, E, O, a_home_region, a_profile, modes, p_mode, seed, ar
     if person_work is None:
         person_work = aoi_list[1]
     assert len(aoi_list) == len(times) + 1
-    return aoi_list, person_home, person_work, a_profile, times, trip_modes, activities
+    trip_models = ["" for _ in range(n_trip)]
+    return (
+        aoi_list,
+        person_home,
+        person_work,
+        a_profile,
+        times,
+        trip_modes,
+        trip_models,
+        activities,
+    )
 
 
 def _process_agent_unit(args, d):
@@ -303,7 +314,9 @@ def _process_agent_unit(args, d):
 
 
 def _post_process(
-    raw_persons, scenario: Union[Literal[""], Literal["adult_taking_child_to_school"]]
+    raw_persons,
+    scenario: Union[Literal[""], Literal["adult_taking_child_to_school"]],
+    workers: int,
 ):
     results = []
     if scenario == "":
@@ -540,12 +553,6 @@ class TripGenerator:
         work_popu = np.zeros(n_region)
         educate_popu = np.zeros(n_region)
         home_popu = np.zeros(n_region)
-        # work catg
-        WORK_CATGS = {"business", "industrial", "administrative"}
-        # education catg
-        EDUCATION_CATGS = {"education"}
-        # home catg
-        HOME_CATGS = {"residential"}
         for aoi in self.aois:
             # aoi type identify
             external = aoi["external"]
@@ -661,7 +668,7 @@ class TripGenerator:
                     chunksize=min(ceil(len(agent_args_batch) / self.workers), 500),
                 )
         raw_persons = [r for r in raw_persons]
-        scenario_persons = _post_process(raw_persons, scenario)
+        scenario_persons = _post_process(raw_persons, scenario, self.workers)
         for agent_id, (
             aoi_list,
             person_home,
@@ -669,17 +676,18 @@ class TripGenerator:
             a_profile,
             times,
             trip_modes,
+            trip_models,
             activities,
         ) in enumerate(scenario_persons):
-            times = times * 3600  # hour->second
+            times = np.array(times) * 3600  # hour->second
             p = Person()
             p.CopyFrom(self.template)
             p.id = agent_id
             p.home.CopyFrom(Position(aoi_position=AoiPosition(aoi_id=person_home)))
             p.work.CopyFrom(Position(aoi_position=AoiPosition(aoi_id=person_work)))
             p.profile.CopyFrom(dict2pb(a_profile, PersonProfile()))
-            for time, aoi_id, trip_mode, activity in zip(
-                times, aoi_list[1:], trip_modes, activities
+            for time, aoi_id, trip_mode, activity, trip_model in zip(
+                times, aoi_list[1:], trip_modes, activities, trip_models
             ):
                 schedule = cast(Schedule, p.schedules.add())
                 schedule.departure_time = time
@@ -691,6 +699,7 @@ class TripGenerator:
                     ),
                     end=Position(aoi_position=AoiPosition(aoi_id=aoi_id)),
                     activity=activity,
+                    model=trip_model,
                 )
                 schedule.trips.append(trip)
             self.persons.append(p)

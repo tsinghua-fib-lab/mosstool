@@ -20,6 +20,7 @@ HUMAN_MODE_STATS = {
     "HOH": 10.91,
     "HOH+": 11.45,
     "HWHWH+": 1.43,
+    "HSOSH":0.00,
 }
 BUS = tripv2.TRIP_MODE_BUS_WALK
 CAR = tripv2.TRIP_MODE_DRIVE_ONLY
@@ -58,7 +59,7 @@ CONSUMPTION_LEVELS = [
     personv1.CONSUMPTION_RELATIVELY_LOW,
     personv1.CONSUMPTION_MEDIUM,
     personv1.CONSUMPTION_RELATIVELY_HIGH,
-    personv1.CONSUMPTION_RELATIVELY_HIGH,
+    personv1.CONSUMPTION_HIGH,
 ]
 # probabilities
 CONSUMPTION_STATS = [
@@ -73,3 +74,9 @@ GENDER_STATS = [1 / len(GENDERS) for _ in range(len(GENDERS))]
 AGES = [i for i in range(8, 75)]
 # probabilities
 AGE_STATS = [1 / len(AGES) for _ in range(len(AGES))]
+# work catg
+WORK_CATGS = {"business", "industrial", "administrative"}
+# education catg
+EDUCATION_CATGS = {"education"}
+# home catg
+HOME_CATGS = {"residential"}
