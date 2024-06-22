@@ -272,6 +272,7 @@ class TransitlandPublicTransport:
     def _process_raw_data_from_osm(self):
         _nodes = {}
         _ways = {}
+        _rels = {}
         _station_node_ids = set()
         # highway=bus_stop, public_transport=platform,
         projector = pyproj.Proj(self.projstr)
@@ -308,12 +309,12 @@ class TransitlandPublicTransport:
                     "orig_node": d,
                 }
             # lines
-            elif "tags" in d:
+            elif d["type"] == "way":
                 if "nodes" in d:
                     way_nodes = [_nodes[nid] for nid in d["nodes"]]
                     pos = [n["pos"] for n in way_nodes]
                     way_name = f"{way_nodes[0]['name']}->{way_nodes[-1]['name']}"
-                    d_tags = d["tags"]
+                    d_tags = d.get("tags", {})
                     if "name" in d_tags:
                         way_name = d_tags["name"]
                     elif "wikipedia" in d_tags:
@@ -327,49 +328,87 @@ class TransitlandPublicTransport:
                         "tags": tags,
                         "node_ids": d["nodes"],
                     }
-        # build GTFS data from OSM
-        station_tree = STRtree(
-            [
-                Point(nn["pos_xy"])
-                for nid, nn in _nodes.items()
-                if nid in _station_node_ids
-            ]
-        )
-        for node_id, node in _nodes.items():
-            if node_id in _station_node_ids:
-                continue
-            else:
-                tree_ids = station_tree.query(
-                    Point(node["pos_xy"]).buffer(self.OSM_STOP_DISGATE)
-                )
-                tree_ids = set(tree_ids)
-                if len(tree_ids) > 0:
-                    _station_node_ids.add(node_id)
+            # relations
+            elif d["type"] == "relation":
+                rel_way_ids = [mm["ref"] for mm in d["members"] if mm["type"] == "way"]
+                rel_node_ids = [
+                    mm["ref"] for mm in d["members"] if mm["type"] == "node"
+                ]
+                d_id = d["id"]
+                d_tags = d.get("tags", {})
+                rel_name = str(d_id)
+                if "name" in d_tags:
+                    rel_name = d_tags["name"]
+                elif "wikipedia" in d_tags:
+                    rel_name = d_tags["description"]
+                if not rel_way_ids and not rel_node_ids:
+                    continue
+                _rels[d_id] = {
+                    "way_ids": rel_way_ids,
+                    "node_ids": rel_node_ids,
+                    "name": rel_name,
+                    "tags": d_tags,
+                }
         GTFS_format_data = {}
-        for way_id, way in _ways.items():
-            if (
-                "railway" in way["tags"]
-                and way["tags"]["railway"] == "subway"
-                or "name" in way["tags"]
-                and any(
-                    k in way["tags"]["name"]
-                    for k in ["subway", "Subway", "metro", "地铁"]
-                )
+        for rel_id, rel in _rels.items():
+            rel_way_ids = rel["way_ids"]
+            rel_ways = [_ways[wid] for wid in rel_way_ids]
+            rel_node_ids = []
+            rel_coords = []
+            for way in rel_ways:
+                cur_node_ids = way["node_ids"]
+                rel_node_ids += cur_node_ids
+            station_ids = rel["node_ids"]
+            # station nodes
+            if len(station_ids) <= 2:
+                station_ids = [nid for nid in rel_node_ids if nid in _station_node_ids]
+            for idx in range(len(station_ids) - 1):
+                cur_id = station_ids[idx]
+                cur_pos = _nodes[cur_id]["pos"]
+                next_id = station_ids[idx + 1]
+                next_pos = _nodes[next_id]["pos"]
+                if gps_distance(cur_pos, next_pos) > self.MAX_SEARCH_RADIUS / 2:
+                    station_ids = station_ids[: idx + 1]
+                    break
+            # way positions
+            rel_coords = []
+            rel_station_ids = []
+            for idx in range(len(station_ids) - 1):
+                cur_id = station_ids[idx]
+                cur_pos = _nodes[cur_id]["pos"]
+                next_id = station_ids[idx + 1]
+                next_pos = _nodes[next_id]["pos"]
+                avg_pos = [(cur_pos[j] + next_pos[j]) / 2 for j in range(len(cur_pos))]
+                rel_station_ids.append(cur_id)
+                rel_coords.append(cur_pos)
+                rel_coords.append(avg_pos)
+                if idx == len(station_ids) - 2:
+                    rel_coords.append(next_pos)
+                    rel_station_ids.append(next_id)
+            # no enough way shapes
+            if len(rel_coords) <= 2 or len(rel_station_ids) <= 2:
+                continue
+            if any(
+                [
+                    "railway" in way["tags"]
+                    and way["tags"]["railway"] == "subway"
+                    or "name" in way["tags"]
+                    and any(
+                        k in way["tags"]["name"]
+                        for k in ["subway", "Subway", "metro", "地铁"]
+                    )
+                    for way in rel_ways
+                ]
             ):
-                route_type = 1
+                route_type = 1  # subway
             else:
-                route_type = 3
-            way_station_ids = (
-                [way["node_ids"][0]]
-                + [nid for nid in way["node_ids"][1:-1] if nid in _station_node_ids]
-                + [way["node_ids"][-1]]
-            )
+                route_type = 3  # bus
             route = {
                 "route_type": route_type,
-                "route_long_name": way["name"],
-                "route_short_name": way["name"],
+                "route_long_name": rel["name"],
+                "route_short_name": rel["name"],
                 "geometry": {
-                    "coordinates": [way["pos"]],
+                    "coordinates": [rel_coords] + [rel_coords[::-1]],
                 },
                 "route_stops": [
                     {
@@ -381,10 +420,10 @@ class TransitlandPublicTransport:
                             },
                         }
                     }
-                    for node_id in way_station_ids
+                    for node_id in rel_station_ids
                 ],
             }
-            GTFS_format_data[way_id] = {"routes": [route]}
+            GTFS_format_data[rel_id] = {"routes": [route]}
         self.GTFS_route_id2route_info = GTFS_format_data
 
     def _fetch_raw_stops(self):
@@ -541,6 +580,7 @@ class TransitlandPublicTransport:
                             }
                         )  # k sl_id,st_name
                     line = LineString(coords)
+                    line = line.simplify(0.001)
                     for _, v in same_name_stops.items():
                         stop_points.append(
                             min(v, key=lambda x: x["point"].distance(line))
@@ -769,7 +809,7 @@ class TransitlandPublicTransport:
         for jj, (k, v) in enumerate(merged_subway_stations.items()):
             transport_data["stations"].append(
                 {
-                    "id": jj + ii,
+                    "id": jj + ii + 1,
                     "name": v["name"],
                     "geo": list(v["geo"]),
                     "type": "SUBWAY",

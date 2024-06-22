@@ -5,8 +5,8 @@ from typing import List, Literal, Optional, Tuple, Union, cast
 from xml.dom.minidom import parse
 
 import numpy as np
-import pycityproto.city.agent.v2.agent_pb2 as agentv2
 import pycityproto.city.map.v2.map_pb2 as mapv2
+import pycityproto.city.person.v1.person_pb2 as personv1
 import pycityproto.city.routing.v2.routing_pb2 as routingv2
 import pycityproto.city.trip.v2.trip_pb2 as tripv2
 from pycityproto.city.map.v2.map_pb2 import Map
@@ -79,7 +79,9 @@ class RouteConverter:
         # get the root node
         root_node = dom_tree.documentElement
         # read SUMO .route.xml
-        self._vtype = {}  # vehicle_id -> (agent_attribute,vehicle_attribute,)
+        self._vtype = (
+            {}
+        )  # vehicle_id -> (agent_attribute,vehicle_attribute,pedestrian_attribute,bike_attribute,agent_type,)
         self._routes = root_node.getElementsByTagName("route")
         self._trips = root_node.getElementsByTagName("trip")
         self._flows = root_node.getElementsByTagName("flow")
@@ -119,11 +121,14 @@ class RouteConverter:
             )
             v_class = v.getAttribute("vClass") if v.hasAttribute("vClass") else ""
             if v_class == "pedestrian":
-                atype = agentv2.AGENT_TYPE_PERSON
+                agent_type = "AGENT_TYPE_PERSON"
             elif v_class == "bus":
-                atype = agentv2.AGENT_TYPE_BUS
+                agent_type = "AGENT_TYPE_BUS"
+            elif v_class == "bicycle":
+                agent_type = "AGENT_TYPE_BIKE"
             else:
-                atype = agentv2.AGENT_TYPE_PRIVATE_CAR
+                agent_type = "AGENT_TYPE_PRIVATE_CAR"
+
             usual_acc = 2.0
             usual_dec = -4.5
             LC_length = 2 * length
@@ -132,7 +137,6 @@ class RouteConverter:
             # model_name = v.getAttribute("carFollowModel") if v.hasAttribute("carFollowModel") else "IDM"
             self._vtype[vid] = (
                 {
-                    "type": atype,
                     "length": length,
                     "width": width,
                     "max_speed": max_speed,
@@ -145,6 +149,13 @@ class RouteConverter:
                     "lane_change_length": LC_length,
                     "min_gap": min_gap,
                 },
+                {
+                    "speed": 1.34,
+                },
+                {
+                    "speed": 5.0,
+                },
+                agent_type,
             )
         self._additional_stops = {}
         if self._additional_path:
@@ -268,7 +279,11 @@ class RouteConverter:
                 )
             else:
                 veh_end = stop["veh_end"]
-            if TRIP_MODE == agentv2.AGENT_TYPE_PERSON:
+            if TRIP_MODE in {
+                tripv2.TRIP_MODE_WALK_ONLY,
+                tripv2.TRIP_MODE_BIKE_WALK,
+                tripv2.TRIP_MODE_BUS_WALK,
+            }:
                 pre_lid = pre_veh_end["lane_position"]["lane_id"]
                 pre_geo = self._lanes[pre_lid]["geo"]
                 cur_lid = veh_end["lane_position"]["lane_id"]
@@ -433,6 +448,8 @@ class RouteConverter:
                     "home": flow_home,
                     "attribute": self.agent_attribute,
                     "vehicle_attribute": self.vehicle_attribute,
+                    "pedestrian_attribute": self.pedestrian_attribute,
+                    "bike_attribute": self.bike_attribute,
                     "schedules": schedules,
                 }
             )
@@ -562,12 +579,16 @@ class RouteConverter:
         return res_pos
 
     def _process_agent_type(self):
-        agent_type = self.agent_attribute["type"]
-        if agent_type == agentv2.AGENT_TYPE_PERSON:
+        agent_type = self.agent_type
+        if agent_type == "AGENT_TYPE_PERSON":
             TRIP_MODE = tripv2.TRIP_MODE_WALK_ONLY
             SPEED = random.uniform(0.3, 0.8) * 2
             ROAD_LANE_TYPE = "walking_lane_ids"
-        elif agent_type == agentv2.AGENT_TYPE_PRIVATE_CAR:
+        elif agent_type == "AGENT_TYPE_BIKE":
+            TRIP_MODE = tripv2.TRIP_MODE_BIKE_WALK
+            SPEED = random.uniform(3, 6)
+            ROAD_LANE_TYPE = "walking_lane_ids"
+        elif agent_type == "AGENT_TYPE_PRIVATE_CAR":
             TRIP_MODE = tripv2.TRIP_MODE_DRIVE_ONLY
             SPEED = random.uniform(0.3, 0.8) * 50 / 3.6
             ROAD_LANE_TYPE = "driving_lane_ids"
@@ -629,6 +650,8 @@ class RouteConverter:
                 "home": veh_home,
                 "attribute": self.agent_attribute,
                 "vehicle_attribute": self.vehicle_attribute,
+                "pedestrian_attribute": self.pedestrian_attribute,
+                "bike_attribute": self.bike_attribute,
                 "schedules": schedules,
             }
         )
@@ -637,7 +660,6 @@ class RouteConverter:
     def convert_route(self):
         self.agent_uid = 0
         DEFAULT_AGENT_ATTRIBUTE = {
-            "type": agentv2.AGENT_TYPE_PRIVATE_CAR,
             "length": 5,
             "width": 2,
             "max_speed": 41.6666666667,
@@ -650,6 +672,15 @@ class RouteConverter:
             "lane_change_length": 10,
             "min_gap": 1,
         }
+        DEFAULT_PEDESTRIAN_ATTRIBUTE = {
+            "lane_change_length": 10,
+            "min_gap": 1,
+        }
+        DEFAULT_BIKE_ATTRIBUTE = {
+            "lane_change_length": 10,
+            "min_gap": 1,
+        }
+        DEFAULT_AGENT_TYPE = "AGENT_TYPE_PRIVATE_CAR"
 
         # Route contains the edges that all vehicles pass through, that is, the complete trajectory
         # Route can be defined separately from vehicle or under vehicle, so additional judgment is required.
@@ -798,6 +829,8 @@ class RouteConverter:
                         "home": trip_home,
                         "attribute": self.agent_attribute,
                         "vehicle_attribute": self.vehicle_attribute,
+                        "pedestrian_attribute": self.pedestrian_attribute,
+                        "bike_attribute": self.bike_attribute,
                         "schedules": schedules,
                     }
                 )
@@ -906,11 +939,26 @@ class RouteConverter:
             veh_id = v.getAttribute("id")
             if v.hasAttribute("type"):
                 vehicle_type = v.getAttribute("type")
-                self.agent_attribute, self.vehicle_attribute = self._vtype[vehicle_type]
+                (
+                    self.agent_attribute,
+                    self.vehicle_attribute,
+                    self.pedestrian_attribute,
+                    self.bike_attribute,
+                    self.agent_type,
+                ) = self._vtype[vehicle_type]
             else:
-                self.agent_attribute, self.vehicle_attribute = (
+                (
+                    self.agent_attribute,
+                    self.vehicle_attribute,
+                    self.pedestrian_attribute,
+                    self.bike_attribute,
+                    self.agent_type,
+                ) = (
                     DEFAULT_AGENT_ATTRIBUTE,
                     DEFAULT_VEHICLE_ATTRIBUTE,
+                    DEFAULT_PEDESTRIAN_ATTRIBUTE,
+                    DEFAULT_BIKE_ATTRIBUTE,
+                    DEFAULT_AGENT_TYPE,
                 )
             (TRIP_MODE, SPEED, ROAD_LANE_TYPE) = self._process_agent_type()
             if v.hasAttribute("route"):
