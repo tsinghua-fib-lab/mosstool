@@ -33,3 +33,43 @@ ALL_TRIP_MODES = [
     CAR,
     WALK,
 ]
+PRIMARY_SCHOOL, JUNIOR_HIGH_SCHOOL, HIGH_SCHOOL, COLLEGE, BACHELOR, MASTER, DOCTOR = (
+    personv1.EDUCATION_PRIMARY_SCHOOL,
+    personv1.EDUCATION_JUNIOR_HIGH_SCHOOL,
+    personv1.EDUCATION_HIGH_SCHOOL,
+    personv1.EDUCATION_COLLEGE,
+    personv1.EDUCATION_BACHELOR,
+    personv1.EDUCATION_MASTER,
+    personv1.EDUCATION_DOCTOR,
+)
+EDUCATION_LEVELS = [
+    PRIMARY_SCHOOL,
+    JUNIOR_HIGH_SCHOOL,
+    HIGH_SCHOOL,
+    COLLEGE,
+    BACHELOR,
+    MASTER,
+    DOCTOR,
+]
+# probabilities
+EDUCATION_STATS = [1 / len(EDUCATION_LEVELS) for _ in range(len(EDUCATION_LEVELS))]
+CONSUMPTION_LEVELS = [
+    personv1.CONSUMPTION_LOW,
+    personv1.CONSUMPTION_RELATIVELY_LOW,
+    personv1.CONSUMPTION_MEDIUM,
+    personv1.CONSUMPTION_RELATIVELY_HIGH,
+    personv1.CONSUMPTION_RELATIVELY_HIGH,
+]
+# probabilities
+CONSUMPTION_STATS = [
+    1 / len(CONSUMPTION_LEVELS) for _ in range(len(CONSUMPTION_LEVELS))
+]
+GENDERS = [
+    personv1.GENDER_FEMALE,
+    personv1.GENDER_MALE,
+]
+# probabilities
+GENDER_STATS = [1 / len(GENDERS) for _ in range(len(GENDERS))]
+AGES = [i for i in range(8, 75)]
+# probabilities
+AGE_STATS = [1 / len(AGES) for _ in range(len(AGES))]

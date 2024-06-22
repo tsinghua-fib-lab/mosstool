@@ -3,8 +3,7 @@ from collections import defaultdict
 from functools import partial
 from math import ceil
 from multiprocessing import Pool, cpu_count
-from typing import (Callable, Dict, List, Literal, Optional, Set, Tuple, Union,
-                    cast)
+from typing import Dict, List, Literal, Optional, Set, Tuple, Union, cast
 
 import numpy as np
 import pyproj
@@ -14,10 +13,17 @@ from geopandas.geodataframe import GeoDataFrame
 from pycityproto.city.geo.v2.geo_pb2 import AoiPosition, Position
 from pycityproto.city.map.v2.map_pb2 import Map
 from pycityproto.city.person.v1.person_pb2 import Person
+from pycityproto.city.person.v1.person_pb2 import (
+    PersonProfile,
+    Education,
+    Gender,
+    Consumption,
+)
 from pycityproto.city.trip.v2.trip_pb2 import Schedule, Trip, TripMode
-
+from ...util.format_converter import dict2pb
 from ...map._map_util.const import *
 from ...util.geo_match_pop import geo2pop
+from ._util.utils import gen_profiles, recalculate_trip_mode_prob
 from ._util.const import *
 from .template import DEFAULT_PERSON
 
@@ -46,7 +52,9 @@ def _get_mode(p1, p2):
         return WALK
 
 
-def _get_mode_with_distribution(p1, p2):
+def _get_mode_with_distribution(
+    p1: Tuple[float, float], p2: Tuple[float, float], profile: dict
+):
     (x1, y1), (x2, y2) = p1, p2
     distance = ((x2 - x1) ** 2 + (y2 - y1) ** 2) ** 0.5
     subway_expense = SUBWAY_EXPENSE
@@ -79,6 +87,7 @@ def _get_mode_with_distribution(p1, p2):
         V_bicycle = -0.1185 * bicycle_duration / 60
     V = np.array([V_bus, V_subway, V_fuel, V_elec, V_bicycle])
     V = np.exp(V)
+    V = recalculate_trip_mode_prob(profile, V)
     V = V / sum(V)
     choice_index = np.random.choice(len(V), p=V)
     return ALL_TRIP_MODES[choice_index]
@@ -93,13 +102,13 @@ def _match_aoi_unit(projector, aoi):
     return None
 
 
-def _generate_unit(H, W, O, a_start, seed, args):
+def _generate_unit(H, W, E, O, a_home_region, a_profile, modes, p_mode, seed, args):
     # Three steps
     # 1.determine person activity mode
     # 2.determine departure times
     # 3.generate trip according to OD-matrix
     global region2aoi, aoi_map, aoi_type2ids
-    modes, p_mode, n_region, projector, departure_prob, LEN_OD_TIMES = args
+    n_region, projector, departure_prob, LEN_OD_TIMES = args
     OD_TIME_INTERVAL = 24 / LEN_OD_TIMES  # (hour)
 
     def choose_aoi_with_type(
@@ -107,6 +116,7 @@ def _generate_unit(H, W, O, a_start, seed, args):
         aoi_type: Union[
             Literal["work"],
             Literal["home"],
+            Literal["education"],
             Literal["other"],
         ],
     ):
@@ -127,17 +137,17 @@ def _generate_unit(H, W, O, a_start, seed, args):
             return rng.choice(aoi_type2ids[aoi_type])
 
     rng = np.random.default_rng(seed)
-    if a_start is None:
-        start = rng.choice(n_region, p=H)
+    if a_home_region is None:
+        home_region = rng.choice(n_region, p=H)
     else:
-        start = a_start
+        home_region = a_home_region
     mode = rng.choice(len(modes), p=p_mode)
     mode = modes[mode]
     aoi_list = []
-    now_region = 0
-    # arrange time   time[i]: departure time from region i
+    now_region = home_region
+    # arrange time   times[i]: departure time from region i
     n_trip = len(mode) - 1 if mode[-1] == "H" else len(mode)
-    time = np.zeros(n_trip)
+    times = [0.0 for _ in range(n_trip)]
     if departure_prob is not None:
         LEN_TIMES = len(departure_prob)
         TIME_INTERVAL = 24 / LEN_TIMES  # (hour)
@@ -145,16 +155,16 @@ def _generate_unit(H, W, O, a_start, seed, args):
             time_center = (
                 rng.choice(range(LEN_TIMES), p=departure_prob)
             ) * TIME_INTERVAL
-            time[i] = rng.uniform(
+            times[i] = rng.uniform(
                 time_center - 0.5 * TIME_INTERVAL, time_center + 0.5 * TIME_INTERVAL
             )
     else:
         # Defaults
         ## Go to work
         if mode[1] == "W" or mode[1] == "S":
-            time[0] = rng.normal(8, 2)
+            times[0] = rng.normal(8, 2)
         else:
-            time[0] = rng.normal(10.5, 2.5)
+            times[0] = rng.normal(10.5, 2.5)
         ## Go home
         end_idx = -1
         for i in range(len(mode)):
@@ -164,98 +174,143 @@ def _generate_unit(H, W, O, a_start, seed, args):
                 else:
                     t = rng.normal(14.5, 3)
 
-                time[len(mode) - i - 2] = t
+                times[len(mode) - i - 2] = t
                 end_idx = len(mode) - i - 2
                 break
-        if time[0] > time[end_idx]:
-            time[0], time[end_idx] = time[end_idx], time[0]
+        if times[0] > times[end_idx]:
+            times[0], times[end_idx] = times[end_idx], times[0]
         ## uniform distribute from work and home
         for i in range(1, end_idx):
-            if time[end_idx] - time[0] > 4:
-                time[i] = rng.uniform(time[0] + 1, time[end_idx] - 1)
-            elif time[end_idx] - time[0] > 2:
-                time[i] = rng.uniform(time[0] + 0.5, time[end_idx] - 0.5)
+            if times[end_idx] - times[0] > 4:
+                times[i] = rng.uniform(times[0] + 1, times[end_idx] - 1)
+            elif times[end_idx] - times[0] > 2:
+                times[i] = rng.uniform(times[0] + 0.5, times[end_idx] - 0.5)
             else:
-                time[i] = rng.uniform(time[0], time[end_idx])
+                times[i] = rng.uniform(times[0], times[end_idx])
         if mode[-1] != "H":
             sleep_time = 22 + rng.exponential(2)
-            if sleep_time - time[end_idx] > 3:
-                time[-1] = rng.uniform(time[end_idx] + 0.5, sleep_time - 0.5)
-                time[-2] = rng.uniform(time[end_idx] + 0.5, sleep_time - 0.5)
-            elif sleep_time > time[end_idx]:
-                time[-1] = rng.uniform(time[end_idx], sleep_time)
-                time[-2] = rng.uniform(time[end_idx], sleep_time)
+            if sleep_time - times[end_idx] > 3:
+                times[-2:] = rng.uniform(times[end_idx] + 0.5, sleep_time - 0.5, size=2)
+            elif sleep_time > times[end_idx]:
+                times[-2:] = rng.uniform(times[end_idx], sleep_time, size=2)
             else:
-                time[-1] = rng.uniform(sleep_time, time[end_idx])
-                time[-2] = rng.uniform(sleep_time, time[end_idx])
+                times[-2:] = rng.uniform(sleep_time, times[end_idx], size=2)
 
-    time = np.sort(time)
-    time = time % 24
+    times = np.sort(times)
+    times = times % 24
 
-    for t in time:
+    for t in times:
         assert t >= 0 and t <= 24
 
     # add hidden H for further process
     # HWH+ ->HWH+H
     if mode[-1] != "H":
         mode = mode + "H"
-
-    for i in range(len(mode)):
-        if mode[i] == "H":
-            a = choose_aoi_with_type(start, "home")
-            aoi_list.append(a)
-            now_region = start
-
-        if mode[i] == "W" or mode[i] == "S":
-            p = np.zeros((n_region))
-            p = W[
-                now_region,
-                :,
-                min(int(time[i - 1] / OD_TIME_INTERVAL), LEN_OD_TIMES - 1),
-            ]  # hour to int index
-            p = p / sum(p)
-
-            work_reigon = rng.choice(n_region, p=p)
-            a = choose_aoi_with_type(work_reigon, "work")
-            aoi_list.append(a)
-            now_region = work_reigon
-
-        if mode[i] == "+" or mode[i] == "O":
+    # home aoi
+    home_aoi = choose_aoi_with_type(home_region, "home")
+    person_home = home_aoi
+    person_work = None
+    # work aoi
+    work_indexes = [idx for (idx, m) in enumerate(mode) if m == "W"]
+    if len(work_indexes) > 0:
+        p = np.zeros((n_region))
+        p = W[
+            home_region,
+            :,
+            min(int(times[work_indexes[0] - 1] / OD_TIME_INTERVAL), LEN_OD_TIMES - 1),
+        ]  # hour to int index
+        p = p / sum(p)
+        work_region = rng.choice(n_region, p=p)
+        work_aoi = choose_aoi_with_type(work_region, "work")
+        person_work = work_aoi
+    else:
+        work_region = None
+        work_aoi = None
+    # Study Aoi
+    educate_indexes = [idx for (idx, m) in enumerate(mode) if m == "S"]
+    if len(educate_indexes) > 0:
+        p = np.zeros((n_region))
+        p = E[
+            home_region,
+            :,
+            min(
+                int(times[educate_indexes[0] - 1] / OD_TIME_INTERVAL), LEN_OD_TIMES - 1
+            ),
+        ]  # hour to int index
+        p = p / sum(p)
+        educate_region = rng.choice(n_region, p=p)
+        educate_aoi = choose_aoi_with_type(educate_region, "education")
+        person_work = educate_aoi
+    else:
+        educate_region = None
+        educate_aoi = None
+    for idx, mode_i in enumerate(mode):
+        if mode_i == "H":
+            aoi_list.append(home_aoi)
+            now_region = home_region
+        elif mode_i == "W":
+            aoi_list.append(work_aoi)
+            now_region = work_region
+        elif mode_i == "S":
+            aoi_list.append(educate_aoi)
+            now_region = educate_region
+        elif mode_i == "+" or mode_i == "O":
             p = np.zeros((n_region))
             p = O[
                 now_region,
                 :,
-                min(int(time[i - 1] / OD_TIME_INTERVAL), LEN_OD_TIMES - 1),
+                min(int(times[idx - 1] / OD_TIME_INTERVAL), LEN_OD_TIMES - 1),
             ]  # hour to int index
             p = p / sum(p)
             other_region = rng.choice(n_region, p=p)
-            a = choose_aoi_with_type(other_region, "other")
-            aoi_list.append(a)
+            other_aoi = choose_aoi_with_type(other_region, "other")
+            aoi_list.append(other_aoi)
             now_region = other_region
-    trip_mode = []
-    for i in range(len(aoi_list) - 1):
-        lon1, lat1 = aoi_map[aoi_list[i]]["geo"][0][:2]
-        lon2, lat2 = aoi_map[aoi_list[i + 1]]["geo"][0][:2]
+    trip_modes = []
+    for cur_aoi, next_aoi in zip(aoi_list[:-1], aoi_list[1:]):
+        lon1, lat1 = aoi_map[cur_aoi]["geo"][0][:2]
+        lon2, lat2 = aoi_map[next_aoi]["geo"][0][:2]
         p1 = projector(longitude=lon1, latitude=lat1)
         p2 = projector(longitude=lon2, latitude=lat2)
-        trip_mode.append(_get_mode_with_distribution(p1, p2))
+        trip_modes.append(_get_mode_with_distribution(p1, p2, a_profile))
 
     # determine activity
-    activity = []
-    for i in range(len(aoi_list) - 1):
-        activity.append(aoi_map[aoi_list[i + 1]]["external"]["catg"])
-
-    assert len(aoi_list) == len(time) + 1
-    return aoi_list, time, trip_mode, activity
+    activities = []
+    for next_aoi in aoi_list[1:]:
+        activities.append(aoi_map[next_aoi]["external"]["catg"])
+    # neither work or study
+    if person_work is None:
+        person_work = aoi_list[1]
+    assert len(aoi_list) == len(times) + 1
+    return aoi_list, person_home, person_work, a_profile, times, trip_modes, activities
 
 
 def _process_agent_unit(args, d):
-    global home_dist, work_od, other_od
-    _, seed, start = d
-    aoi_list, time, trip_mode, activity = _generate_unit(
-        home_dist, work_od, other_od, start, seed, args
+    global home_dist, work_od, educate_od, other_od
+    _, seed, home_region, profile, mode, p_mode = d
+    return _generate_unit(
+        home_dist,
+        work_od,
+        educate_od,
+        other_od,
+        home_region,
+        profile,
+        mode,
+        p_mode,
+        seed,
+        args,
     )
-    return aoi_list, time, trip_mode, activity
+
+
+def _post_process(
+    raw_persons, scenario: Union[Literal[""], Literal["adult_taking_child_to_school"]]
+):
+    results = []
+    if scenario == "":
+        results = raw_persons
+    elif scenario == "adult_taking_child_to_school":
+        pass
+    return results
 
 
 __all__ = ["TripGenerator"]
@@ -472,18 +527,23 @@ class TripGenerator:
         self,
         agent_num: int = 10000,
         area_pops: Optional[list] = None,
+        person_profiles: Optional[list] = None,
+        scenario: Union[Literal[""], Literal["adult_taking_child_to_school"]] = "",
         seed: int = 0,
     ):
         global region2aoi, aoi_map, aoi_type2ids
-        global home_dist, work_od, other_od
+        global home_dist, work_od, other_od, educate_od
         region2aoi = self.region2aoi
         aoi_map = {d["id"]: d for d in self.aois}
         n_region = len(self.regions)
         total_popu = np.zeros(n_region)
         work_popu = np.zeros(n_region)
+        educate_popu = np.zeros(n_region)
         home_popu = np.zeros(n_region)
         # work catg
-        WORK_CATGS = {"business", "industrial", "administrative", "education"}
+        WORK_CATGS = {"business", "industrial", "administrative"}
+        # education catg
+        EDUCATION_CATGS = {"education"}
         # home catg
         HOME_CATGS = {"residential"}
         for aoi in self.aois:
@@ -494,6 +554,8 @@ class TripGenerator:
                 self.aoi_type2ids["home"].append(aoi_id)
             elif external["catg"] in WORK_CATGS:
                 self.aoi_type2ids["work"].append(aoi_id)
+            elif external["catg"] in EDUCATION_CATGS:
+                self.aoi_type2ids["education"].append(aoi_id)
             else:
                 self.aoi_type2ids["other"].append(aoi_id)
             # pop calculation
@@ -507,82 +569,128 @@ class TripGenerator:
             home_popu[reg_idx] += (
                 external["population"] if external["catg"] in HOME_CATGS else 0
             )
-        home_distribution = home_popu / sum(home_popu)
+            educate_popu[reg_idx] += (
+                external["population"] if external["catg"] in EDUCATION_CATGS else 0
+            )
+        home_dist = home_popu / sum(home_popu)
         # initialization
         work_od = np.zeros((n_region, n_region, self.LEN_OD_TIMES))
+        educate_od = np.zeros((n_region, n_region, self.LEN_OD_TIMES))
         other_od = np.zeros((n_region, n_region, self.LEN_OD_TIMES))
         # calculate frequency
+        ## work
         work_od[:, :, :] = (
             self.od_prob[:, :, :] * work_popu[:, None] / total_popu[:, None]
         )
         work_od[:, total_popu <= 0, :] = 0
+        ## study
+        educate_od[:, :, :] = (
+            self.od_prob[:, :, :] * educate_popu[:, None] / total_popu[:, None]
+        )
+        educate_od[:, total_popu <= 0, :] = 0
+        ## other
         other_od[:, :, :] = (
             self.od_prob[:, :, :]
-            * (total_popu[:, None] - work_popu[:, None])
+            * (total_popu[:, None] - work_popu[:, None] - educate_popu[:, None])
             / total_popu[:, None]
         )
         other_od[:, total_popu <= 0, :] = 0
         # to probabilities
+        ## work
         sum_work_od_j = np.sum(work_od, axis=1)
         work_od = work_od / sum_work_od_j[:, np.newaxis]
         work_od = np.nan_to_num(work_od)
         work_od[np.where(sum_work_od_j == 0)] = 1
+        ## study
+        sum_educate_od_j = np.sum(educate_od, axis=1)
+        educate_od = educate_od / sum_educate_od_j[:, np.newaxis]
+        educate_od = np.nan_to_num(educate_od)
+        educate_od[np.where(sum_educate_od_j == 0)] = 1
+        ## other
         sum_other_od_j = np.sum(other_od, axis=1)
         other_od = other_od / sum_other_od_j[:, np.newaxis]
         other_od = np.nan_to_num(other_od)
         other_od[np.where(sum_other_od_j == 0)] = 1
         # global variables
-        home_dist, work_od, other_od = home_distribution, work_od, other_od
+        ## home_dist, work_od, educate_od, other_od = home_dist, work_od, educate_od, other_od
         aoi_type2ids = self.aoi_type2ids
         agent_args = []
-        a_starts = []
+        a_home_regions = []
         if area_pops is not None:
             for ii, pop in enumerate(area_pops):
                 pop_num = int(pop)
                 if pop_num > 0:
-                    a_starts += [ii for _ in range(pop_num)]
-            agent_num = sum(a_starts)
+                    a_home_regions += [ii for _ in range(pop_num)]
+            agent_num = sum(a_home_regions)
         else:
-            a_starts = [None for _ in range(agent_num)]
+            a_home_regions = [None for _ in range(agent_num)]
         rng = np.random.default_rng(seed)
-        for i, a_start in enumerate(a_starts):
-            agent_args.append((i, rng.integers(0, 2**16 - 1), a_start))
+        if person_profiles is not None:
+            a_profiles = person_profiles
+        else:
+            a_profiles = gen_profiles(agent_num, self.workers)
+        a_modes = [self.modes for _ in range(agent_num)]
+        a_p_modes = [self.p_mode for _ in range(agent_num)]
+        for i, (a_home_region, a_profile, a_mode, a_p_mode) in enumerate(
+            zip(a_home_regions, a_profiles, a_modes, a_p_modes)
+        ):
+            agent_args.append(
+                (
+                    i,
+                    rng.integers(0, 2**16 - 1),
+                    a_home_region,
+                    a_profile,
+                    a_mode,
+                    a_p_mode,
+                )
+            )
         partial_args = (
-            self.modes,
-            self.p_mode,
             len(self.regions),
             self.projector,
             self.departure_prob,
             self.LEN_OD_TIMES,
         )
         _process_agent_unit_with_arg = partial(_process_agent_unit, partial_args)
-        results = []
+        raw_persons = []
         for i in range(0, len(agent_args), MAX_BATCH_SIZE):
             agent_args_batch = agent_args[i : i + MAX_BATCH_SIZE]
             with Pool(processes=self.workers) as pool:
-                results += pool.map(
+                raw_persons += pool.map(
                     _process_agent_unit_with_arg,
                     agent_args_batch,
                     chunksize=min(ceil(len(agent_args_batch) / self.workers), 500),
                 )
-        results = [r for r in results]
-        for agent_id, (aoi_list, time, trip_mode, activity) in enumerate(results):
-            time = time * 3600  # hour->second
+        raw_persons = [r for r in raw_persons]
+        scenario_persons = _post_process(raw_persons, scenario)
+        for agent_id, (
+            aoi_list,
+            person_home,
+            person_work,
+            a_profile,
+            times,
+            trip_modes,
+            activities,
+        ) in enumerate(scenario_persons):
+            times = times * 3600  # hour->second
             p = Person()
             p.CopyFrom(self.template)
             p.id = agent_id
-            p.home.CopyFrom(Position(aoi_position=AoiPosition(aoi_id=aoi_list[0])))
-            for i in range(len(aoi_list) - 1):
+            p.home.CopyFrom(Position(aoi_position=AoiPosition(aoi_id=person_home)))
+            p.work.CopyFrom(Position(aoi_position=AoiPosition(aoi_id=person_work)))
+            p.profile.CopyFrom(dict2pb(a_profile, PersonProfile()))
+            for time, aoi_id, trip_mode, activity in zip(
+                times, aoi_list[1:], trip_modes, activities
+            ):
                 schedule = cast(Schedule, p.schedules.add())
-                schedule.departure_time = time[i]
+                schedule.departure_time = time
                 schedule.loop_count = 1
                 trip = Trip(
                     mode=cast(
                         TripMode,
-                        trip_mode[i],
+                        trip_mode,
                     ),
-                    end=Position(aoi_position=AoiPosition(aoi_id=aoi_list[i + 1])),
-                    activity=activity[i],
+                    end=Position(aoi_position=AoiPosition(aoi_id=aoi_id)),
+                    activity=activity,
                 )
                 schedule.trips.append(trip)
             self.persons.append(p)
@@ -593,6 +701,8 @@ class TripGenerator:
         areas: GeoDataFrame,
         departure_time_curve: Optional[list[float]] = None,
         area_pops: Optional[list] = None,
+        person_profiles: Optional[list[dict]] = None,
+        scenario: Union[Literal[""], Literal["adult_taking_child_to_school"]] = "",
         seed: int = 0,
         agent_num: Optional[int] = None,
     ) -> List[Person]:
@@ -602,6 +712,7 @@ class TripGenerator:
         - areas (GeoDataFrame): The area data.
         - departure_time_curve (list[float]): The departure time of a day (24h). The resolution must >=1h.
         - area_pops (list): list of populations in each area. If is not None, # of the persons departs from each home position is exactly equal to the given pop num.
+        - person_profiles (list[dict]): list of profiles in dict format.
         - agent_num (int): number of agents to generate.
         - seed (int): The random seed.
 
@@ -625,8 +736,8 @@ class TripGenerator:
         self._match_aoi2region()
         if agent_num is None:
             agent_num = int(np.sum(self.od) / self.LEN_OD_TIMES)
-        if agent_num <= 0:
+        if not agent_num >= 1:
             logging.warning("agent_num should >=1")
             return []
-        self._generate_mobi(agent_num, area_pops, seed)
+        self._generate_mobi(agent_num, area_pops, person_profiles, scenario, seed)
         return self.persons
