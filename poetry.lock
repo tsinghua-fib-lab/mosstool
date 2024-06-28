@@ -2338,13 +2338,13 @@ tests = ["pytest"]
 
 [[package]]
 name = "pycityproto"
-version = "1.14.0"
+version = "1.19.1"
 description = "City Proto Generated Python SDK"
 optional = false
 python-versions = ">=3.8"
 files = [
-    {file = "pycityproto-1.14.0-py3-none-any.whl", hash = "sha256:45994fdcf902c4708640546039da22f5225bcd7a9e8607a69daaa0f938c1f273"},
-    {file = "pycityproto-1.14.0.tar.gz", hash = "sha256:fa3eecf2d30a004f4f60a63e9c5ee0d412f162d83c5984e76099e51896009e83"},
+    {file = "pycityproto-1.19.1-py3-none-any.whl", hash = "sha256:087284b20b7c14fb00b172f473cea50108989f11ae1d35a49b3b2c6d5e931e26"},
+    {file = "pycityproto-1.19.1.tar.gz", hash = "sha256:f58ac8509fadaf20deda09305d1c788c8d9f766a4a8643e6e60f074b4dd0c970"},
 ]
 
 [package.dependencies]
@@ -3836,4 +3836,4 @@ test = ["big-O", "importlib-resources", "jaraco.functools", "jaraco.itertools", 
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.9"
-content-hash = "c7b9c9f2cd57cc409e7ffcfe7c3ad12a69d2eebd92573267eabafc8b963c95d4"
+content-hash = "56dee837922a906b8790519f3f8017e57592c53a0710d6f66e50b87addd81e13"
