@@ -237,6 +237,14 @@ class TransitlandPublicTransport:
                     ),
                     (
                         "way",
+                        "[route=trolleybus]",
+                    ),
+                    (
+                        "rel",
+                        "[route=trolleybus]",
+                    ),
+                    (
+                        "way",
                         "[route=subway]",
                     ),
                     (
@@ -331,6 +339,7 @@ class TransitlandPublicTransport:
             # relations
             elif d["type"] == "relation":
                 rel_way_ids = [mm["ref"] for mm in d["members"] if mm["type"] == "way"]
+
                 rel_node_ids = [
                     mm["ref"] for mm in d["members"] if mm["type"] == "node"
                 ]
@@ -339,7 +348,7 @@ class TransitlandPublicTransport:
                 rel_name = str(d_id)
                 if "name" in d_tags:
                     rel_name = d_tags["name"]
-                elif "wikipedia" in d_tags:
+                elif "description" in d_tags:
                     rel_name = d_tags["description"]
                 if not rel_way_ids and not rel_node_ids:
                     continue
@@ -350,7 +359,9 @@ class TransitlandPublicTransport:
                     "tags": d_tags,
                 }
         GTFS_format_data = {}
+        ref_id2routes = defaultdict(list)
         for rel_id, rel in _rels.items():
+            ref_id = rel.get("tags", {}).get("ref")
             rel_way_ids = rel["way_ids"]
             rel_ways = [_ways[wid] for wid in rel_way_ids]
             rel_node_ids = []
@@ -358,6 +369,7 @@ class TransitlandPublicTransport:
             for way in rel_ways:
                 cur_node_ids = way["node_ids"]
                 rel_node_ids += cur_node_ids
+            rel_node_pos = {nid: _nodes[nid]["pos"] for nid in rel_node_ids}
             station_ids = rel["node_ids"]
             # station nodes
             if len(station_ids) <= 2:
@@ -373,15 +385,45 @@ class TransitlandPublicTransport:
             # way positions
             rel_coords = []
             rel_station_ids = []
+            added_nodes_set = set()
             for idx in range(len(station_ids) - 1):
                 cur_id = station_ids[idx]
                 cur_pos = _nodes[cur_id]["pos"]
                 next_id = station_ids[idx + 1]
                 next_pos = _nodes[next_id]["pos"]
                 avg_pos = [(cur_pos[j] + next_pos[j]) / 2 for j in range(len(cur_pos))]
+                between_way_pos_s = []
+                cur_straight_line = LineString([cur_pos, next_pos])
+                cur_point = Point(cur_pos)
+                next_point = Point(next_pos)
+                cur_line_length = cur_straight_line.length
+                for nid, node_pos in rel_node_pos.items():
+                    if nid in added_nodes_set:
+                        continue
+                    else:
+                        # continue
+                        node_point = Point(node_pos)
+                        proj_s = cur_straight_line.project(node_point, normalized=True)
+                        if (
+                            0.1 < proj_s < 0.9
+                            and node_point.distance(cur_straight_line)
+                            < 0.1 * cur_line_length
+                            and node_point.distance(cur_point)
+                            + node_point.distance(next_point)
+                            < 1.1 * cur_line_length
+                        ):
+                            between_way_pos_s.append((node_pos, proj_s))
+                            added_nodes_set.add(nid)
+                between_way_pos_s = sorted(
+                    between_way_pos_s, key=lambda x: x[1]
+                )  # s from small to big
+                between_way_pos = [p for (p, s) in between_way_pos_s]
                 rel_station_ids.append(cur_id)
                 rel_coords.append(cur_pos)
-                rel_coords.append(avg_pos)
+                if len(between_way_pos) > 0:
+                    rel_coords.extend(between_way_pos)
+                else:
+                    rel_coords.append(avg_pos)
                 if idx == len(station_ids) - 2:
                     rel_coords.append(next_pos)
                     rel_station_ids.append(next_id)
@@ -403,12 +445,15 @@ class TransitlandPublicTransport:
                 route_type = 1  # subway
             else:
                 route_type = 3  # bus
+            route_coords = [rel_coords]
+            if ref_id is None:
+                route_coords += [rel_coords[::-1]]
             route = {
                 "route_type": route_type,
                 "route_long_name": rel["name"],
                 "route_short_name": rel["name"],
                 "geometry": {
-                    "coordinates": [rel_coords] + [rel_coords[::-1]],
+                    "coordinates": route_coords,
                 },
                 "route_stops": [
                     {
@@ -423,7 +468,15 @@ class TransitlandPublicTransport:
                     for node_id in rel_station_ids
                 ],
             }
-            GTFS_format_data[rel_id] = {"routes": [route]}
+            if ref_id is None:
+                GTFS_format_data[rel_id] = {"routes": [route]}
+            else:
+                ref_id2routes[ref_id].append(route)
+        for ref_id, routes in ref_id2routes.items():
+            main_route_type = routes[0]["route_type"]
+            for r in routes:
+                r["route_type"] = main_route_type
+            GTFS_format_data[ref_id] = {"routes": routes}
         self.GTFS_route_id2route_info = GTFS_format_data
 
     def _fetch_raw_stops(self):
@@ -580,7 +633,7 @@ class TransitlandPublicTransport:
                             }
                         )  # k sl_id,st_name
                     line = LineString(coords)
-                    line = line.simplify(0.001)
+                    line = line.simplify(5)
                     for _, v in same_name_stops.items():
                         stop_points.append(
                             min(v, key=lambda x: x["point"].distance(line))

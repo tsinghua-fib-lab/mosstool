@@ -314,19 +314,6 @@ def _process_agent_unit(args, d):
     )
 
 
-def _post_process(
-    raw_persons,
-    scenario: Union[Literal[""], Literal["adult_taking_child_to_school"]],
-    workers: int,
-):
-    results = []
-    if scenario == "":
-        results = raw_persons
-    elif scenario == "adult_taking_child_to_school":
-        pass
-    return results
-
-
 __all__ = ["TripGenerator"]
 
 
@@ -542,7 +529,6 @@ class TripGenerator:
         agent_num: int = 10000,
         area_pops: Optional[list] = None,
         person_profiles: Optional[list] = None,
-        scenario: Union[Literal[""], Literal["adult_taking_child_to_school"]] = "",
         seed: int = 0,
     ):
         global region2aoi, aoi_map, aoi_type2ids
@@ -669,7 +655,6 @@ class TripGenerator:
                     chunksize=min(ceil(len(agent_args_batch) / self.workers), 500),
                 )
         raw_persons = [r for r in raw_persons]
-        scenario_persons = _post_process(raw_persons, scenario, self.workers)
         for agent_id, (
             aoi_list,
             person_home,
@@ -679,7 +664,7 @@ class TripGenerator:
             trip_modes,
             trip_models,
             activities,
-        ) in enumerate(scenario_persons):
+        ) in enumerate(raw_persons):
             times = np.array(times) * 3600  # hour->second
             p = Person()
             p.CopyFrom(self.template)
@@ -712,7 +697,6 @@ class TripGenerator:
         departure_time_curve: Optional[list[float]] = None,
         area_pops: Optional[list] = None,
         person_profiles: Optional[list[dict]] = None,
-        scenario: Union[Literal[""], Literal["adult_taking_child_to_school"]] = "",
         seed: int = 0,
         agent_num: Optional[int] = None,
     ) -> List[Person]:
@@ -749,5 +733,5 @@ class TripGenerator:
         if not agent_num >= 1:
             logging.warning("agent_num should >=1")
             return []
-        self._generate_mobi(agent_num, area_pops, person_profiles, scenario, seed)
+        self._generate_mobi(agent_num, area_pops, person_profiles, seed)
         return self.persons
