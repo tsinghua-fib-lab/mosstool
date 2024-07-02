@@ -11,14 +11,27 @@ from .._map_util.const import *
 __all__ = [
     "generate_aoi_poi",
     "generate_sumo_aoi_poi",
+    "geo_coords",
 ]
 
 
-def _fix_polygon(polygon: Polygon):
-    if polygon.is_valid:
-        return polygon
+def geo_coords(geo):
+    if isinstance(geo, Polygon):
+        return list(geo.exterior.coords)
+    elif isinstance(geo, MultiPolygon):
+        all_coords = []
+        for p_geo in geo.geoms:
+            all_coords.extend(geo_coords(p_geo))
+        return all_coords
     else:
-        geo = polygon.buffer(0)
+        return list(geo.coords)
+
+
+def _fix_polygon(input_poly: Polygon):
+    if input_poly.is_valid:
+        return input_poly
+    else:
+        geo = input_poly.buffer(0)
         if isinstance(geo, Polygon) and geo.is_valid:
             polygon = geo
         elif isinstance(geo, MultiPolygon):
@@ -31,10 +44,10 @@ def _fix_polygon(polygon: Polygon):
                 polygon = candidate_poly
             else:
                 polygon = MultiPoint(
-                    [pt for g in geo.geoms for pt in g.exterior.coords]
+                    [pt for g in geo.geoms for pt in geo_coords(g)]
                 ).convex_hull
         else:
-            polygon = MultiPoint([pt for pt in polygon.exterior.coords]).convex_hull
+            polygon = MultiPoint([pt for pt in geo_coords(input_poly)]).convex_hull
         return polygon
 
 
@@ -44,7 +57,7 @@ def _fix_aois_poly(input_aois: list) -> list:
         coords = aoi["coords"]
         geo = _fix_polygon(Polygon(coords))
         if geo.is_valid and geo:
-            aoi["coords"] = [c for c in geo.exterior.coords]
+            aoi["coords"] = [c for c in geo_coords(geo)]
             aois.append(aoi)
     return aois
 
@@ -54,7 +67,7 @@ def _connect_aoi_unit1(poly):
     Find the children aoi of each poly in the merged geometry
     """
     global aois_small
-    x, y = list(poly.centroid.coords)[0]
+    x, y = geo_coords(poly.centroid)[0]
     length = poly.length
     children = []
     added_aoi_small = []
@@ -81,7 +94,7 @@ def _connect_aoi_unit2(arg):
         ]  # There is only 1 child, indicating that it is not connected to other aoi and restores the original shape
 
     poly_inner = MultiPoint(
-        [pt for aoi in children for pt in aoi["geo"].exterior.coords]
+        [pt for aoi in children for pt in geo_coords(aoi["geo"])]
     ).convex_hull
     poly = poly.intersection(poly_inner)
     if not isinstance(poly, Polygon):
@@ -113,7 +126,7 @@ def _connect_aoi_unit2(arg):
                 "inner_poi": inner_poi,
                 "inner_poi_catg": inner_poi_catg,
             },
-            "point": list(poly.centroid.coords)[
+            "point": geo_coords(poly.centroid)[
                 0
             ],  # For subsequent processing needs, calculate the merged geometric center
             "length": poly.length,  # perimeter
@@ -171,7 +184,7 @@ def _merge_aoi(input_aois: list, merge_aoi: bool = False, workers: int = 32):
             logging.warning(f"Invalid polygon {aoi['id']}")
             continue
         aoi["geo"] = geo
-        aoi["point"] = list(geo.centroid.coords)[0]  # Geometric center
+        aoi["point"] = geo_coords(geo.centroid)[0]  # Geometric center
         aoi["length"] = geo.length  # Perimeter
         aoi["area"] = geo.area  # area
         aois.append(aoi)
@@ -221,7 +234,7 @@ def _connect_aoi(input_aois: list, merge_aoi: bool = False, workers: int = 32):
             logging.warning(f"Invalid polygon {aoi['id']}")
             continue
         aoi["geo"] = geo
-        aoi["point"] = list(geo.centroid.coords)[0]  # Geometric center
+        aoi["point"] = geo_coords(geo.centroid)[0]  # Geometric center
         aoi["length"] = geo.length  # Perimeter
         aoi["area"] = geo.area  # area
         aois.append(aoi)
@@ -239,7 +252,7 @@ def _connect_aoi(input_aois: list, merge_aoi: bool = False, workers: int = 32):
     polys = [aoi["geo"] for aoi in aois_small]
     polys_scale = [scale(p, xfact=SCALE, yfact=SCALE, origin="centroid") for p in polys]
     geo_scale_connect = ops.unary_union(polys_scale)
-    args = list(geo_scale_connect.geoms)
+    args = list(geo_scale_connect.geoms)  # type: ignore
     with Pool(processes=workers) as pool:
         results = pool.map(
             _connect_aoi_unit1,
@@ -326,7 +339,7 @@ def _process_stops(stops):
             geo = Polygon(coords)
         geo = _fix_polygon(geo)
         stop["geo"] = geo
-        stop["point"] = list(geo.centroid.coords)[0]  # Geometric center
+        stop["point"] = geo_coords(geo.centroid)[0]  # Geometric center
         stop["length"] = geo.length  # Perimeter
         stop["area"] = geo.area  # area
     return stops
@@ -381,7 +394,7 @@ def _match_poi_to_aoi(aois, pois, workers):
 def _post_compute_aoi_poi(aois, pois_isolate):
     # Update coordinates
     for a in aois:
-        coords = a["geo"].exterior.coords[:]
+        coords = geo_coords(a["geo"])
         a["coords"] = coords
     # poi becomes Aoi independently
     for p in pois_isolate:

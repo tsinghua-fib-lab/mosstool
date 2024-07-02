@@ -15,21 +15,11 @@ from geojson import FeatureCollection
 from geopandas.geodataframe import GeoDataFrame
 from shapely.geometry import MultiPolygon, Point, Polygon
 
+from ..map._map_util.aoiutils import geo_coords
 from ..map._map_util.const import *
 
 __all__ = ["geo2pop"]
 
-
-def _coords(geo):
-    if isinstance(geo, Polygon):
-        return list(geo.exterior.coords)
-    elif isinstance(geo, MultiPolygon):
-        all_coords = []
-        for p_geo in geo.geoms:
-            all_coords.extend(list(p_geo.exterior.coords))
-        return all_coords
-    else:
-        return list(geo.coords)
 
 
 def _gps_distance(
@@ -206,7 +196,7 @@ def _get_poly_pop_unit(arg, geo_item):
         return (idx, total_pop)
 
     # If aoi is too small so that no pixel falls within it, take the population of the pixel where it is located.
-    x, y = _coords(poly.centroid)[0]
+    x, y = geo_coords(poly.centroid)[0]
     try:
         t = (
             pixel_idx2point_pop[
@@ -287,7 +277,7 @@ def geo2pop(
         geo_data = cast(GeoDataFrame, geo_data)
         for _, polygon in enumerate(geo_data.geometry):
             all_geos.append((polygon, polygon.bounds))
-            all_coords_lonlat.extend([c[:2] for c in _coords(polygon)])
+            all_coords_lonlat.extend([c[:2] for c in geo_coords(polygon)])
     elif geo_type == FeatureCollection:
         geo_data = cast(FeatureCollection, geo_data)
         for feature in geo_data["features"]:

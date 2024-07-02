@@ -5,8 +5,7 @@ from collections import defaultdict
 from copy import deepcopy
 from math import atan2
 from multiprocessing import cpu_count
-from typing import (Callable, Dict, List, Literal, Optional, Set, Tuple, Union,
-                    cast)
+from typing import Callable, Dict, List, Literal, Optional, Set, Tuple, Union, cast
 
 import matplotlib.pyplot as plt
 import networkx as nx
@@ -26,14 +25,20 @@ from .._map_util.aoi_matcher import add_aoi_to_map
 from .._map_util.aoiutils import generate_aoi_poi
 from .._map_util.const import *
 from .._map_util.convert_aoi import convert_aoi, convert_poi
-from .._map_util.format_checker import (geojson_format_check,
-                                        output_format_check)
+from .._map_util.format_checker import geojson_format_check, output_format_check
 from .._map_util.gen_traffic_light import generate_traffic_light
 from .._map_util.map_aois_matchers import match_map_aois
 from .._util.angle import abs_delta_angle, delta_angle
-from .._util.line import (align_line, connect_line_string, get_line_angle,
-                          get_start_vector, line_extend, line_max_curvature,
-                          merge_line_start_end, offset_lane)
+from .._util.line import (
+    align_line,
+    connect_line_string,
+    get_line_angle,
+    get_start_vector,
+    line_extend,
+    line_max_curvature,
+    merge_line_start_end,
+    offset_lane,
+)
 
 __all__ = ["Builder"]
 
@@ -49,7 +54,6 @@ class Builder:
         proj_str: str,
         aois: Optional[FeatureCollection] = None,
         pois: Optional[FeatureCollection] = None,
-        reuse_map: Optional[Map] = None,
         public_transport: Optional[Dict[str, List]] = None,
         pop_tif_path: Optional[str] = None,
         landuse_shp_path: Optional[str] = None,
@@ -58,6 +62,7 @@ class Builder:
         gen_sidewalk_speed_limit: float = 0,
         expand_roads: bool = False,
         road_expand_mode: Union[Literal["L"], Literal["M"], Literal["R"]] = "R",
+        aoi_mode: Union[Literal["append"], Literal["overwrite"]] = "overwrite",
         green_time: float = 30.0,
         yellow_time: float = 5.0,
         strict_mode: bool = False,
@@ -70,7 +75,6 @@ class Builder:
         - proj_str (str): projection string
         - aois (FeatureCollection): area of interest
         - pois (FeatureCollection): point of interest
-        - reuse_map (Map): aoi and poi of this Map will be reused
         - public_transport (Dict[str, List]): public transports in json format
         - pop_tif_path (str): path to population tif file
         - landuse_shp_path (str): path to landuse shape file
@@ -79,6 +83,7 @@ class Builder:
         - gen_sidewalk_speed_limit (float): speed limit to generate sidewalk
         - expand_roads (bool): expand roads according to junction type
         - road_expand_mode (str): road expand mode
+        - aoi_mode (str): aoi appending mode. `append` takes effect when the input `net` is Map, incrementally adding the input AOIs; `overwrite` only adds the input AOIs, ignoring existing ones.
         - green_time (float): green time
         - strict_mode (bool): when enabled, causes the program to exit whenever a warning occurs
         - output_lane_length_check (bool): when enabled, will do value checks lane lengths in output map.
@@ -93,6 +98,7 @@ class Builder:
         self.gen_sidewalk_speed_limit = gen_sidewalk_speed_limit
         self.expand_roads = expand_roads
         self.road_expand_mode = road_expand_mode
+        self.aoi_mode = aoi_mode
         self.green_time = green_time
         self.yellow_time = yellow_time
         self.lane_uid = LANE_START_ID
@@ -106,7 +112,6 @@ class Builder:
         self.traffic_light_min_direction_group = traffic_light_min_direction_group
         self.strict_mode = strict_mode
         self.output_lane_length_check = output_lane_length_check
-        self.reuse_map = reuse_map
         self.workers = workers
         # id mapping relationship
         self.uid_mapping = {}
@@ -3952,8 +3957,9 @@ class Builder:
         }
         return public_road_uids
 
-    def _reuse_aoi(self):
+    def _add_reuse_aoi(self):
         """Match aoi to road network"""
+        reuse_aois, reuse_pois = {}, {}
         d_right_lanes = [w["lanes"][-1] for w in self.map_roads.values() if w["lanes"]]
         d_matcher = [
             {
@@ -3982,14 +3988,15 @@ class Builder:
             "drive": d_matcher,
             "walk": w_matcher,
         }
-        reuse_map = cast(Map, self.reuse_map)
-        (self.map_aois, self.map_pois) = match_map_aois(
-            net=reuse_map, matchers=matchers, workers=self.workers
-        )
+        if type(self.net) == Map:
+            (reuse_aois, reuse_pois) = match_map_aois(
+                net=self.net, matchers=matchers, workers=self.workers
+            )
+        return (reuse_aois, reuse_pois)
 
-    def _add_aoi(self):
+    def _add_input_aoi(self):
         """Match aoi to road network"""
-        public_road_uids = self._add_public_transport()
+        added_aois, added_pois = {}, {}
         aois, stops = convert_aoi(
             self.raw_aois, self.public_transport_data, self.proj_str
         )
@@ -3998,7 +4005,7 @@ class Builder:
         d_right_lanes = [
             w["lanes"][-1]
             for w in self.map_roads.values()
-            if w["lanes"] and w["uid"] not in public_road_uids
+            if w["lanes"] and w["uid"] not in self.public_road_uids
         ]
         d_matcher = [
             {
@@ -4014,7 +4021,7 @@ class Builder:
             l
             for l, d in self.lane2data.items()
             if d["type"] == mapv2.LANE_TYPE_WALKING
-            and d["parent_id"] not in public_road_uids
+            and d["parent_id"] not in self.public_road_uids
         ]
         w_matcher = [
             {
@@ -4028,7 +4035,7 @@ class Builder:
         road_center_lanes = [
             w["lanes"][len(w["lanes"]) // 2]
             for w in self.map_roads.values()
-            if w["lanes"] and w["uid"] not in public_road_uids
+            if w["lanes"] and w["uid"] not in self.public_road_uids
         ]  # Single point AOI used to split aggregation
         road_lane_matcher = [
             {
@@ -4047,7 +4054,7 @@ class Builder:
             "walk": w_matcher,
             "road_lane": road_lane_matcher,
         }
-        (self.map_aois, self.map_pois) = add_aoi_to_map(
+        (added_aois, added_pois) = add_aoi_to_map(
             matchers=matchers,
             input_aois=aois,
             input_pois=pois,
@@ -4056,8 +4063,8 @@ class Builder:
             projstr=self.proj_str,
             shp_path=self.landuse_shp_path,
         )
-        # self.map_aois = add_aoi_pop(
-        #     aois=self.map_aois,
+        # added_aois = add_aoi_pop(
+        #     aois=added_aois,
         #     max_latitude=self.max_lat,
         #     max_longitude=self.max_lon,
         #     min_latitude=self.min_lat,
@@ -4067,6 +4074,47 @@ class Builder:
         #     workers=self.workers,
         #     tif_path=self.pop_tif_path,
         # )
+        return (added_aois, added_pois)
+
+    def _add_all_aoi(self):
+        # add PT
+        self.public_road_uids = self._add_public_transport()
+        if self.aoi_mode == "append":
+            (reuse_aois, reuse_pois) = self._add_reuse_aoi()
+        elif self.aoi_mode == "overwrite":
+            (reuse_aois, reuse_pois) = ({}, {})
+        else:
+            raise ValueError(f"bad aoi_mode: {self.aoi_mode}")
+        (added_aois, added_pois) = self._add_input_aoi()
+        _item_uid_dict = defaultdict(dict)
+        _aoi_uid = AOI_START_ID
+        _poi_uid = POI_START_ID
+        _all_aois, _all_pois = {}, {}
+        # rearragne aoi and poi ids
+        _all_items = ((reuse_aois, reuse_pois), (added_aois, added_pois))
+        for _idx, (_aois, _pois) in enumerate(_all_items):
+            for aid, _ in _aois.items():
+                _item_uid_dict[_idx][aid] = _aoi_uid
+                _aoi_uid += 1
+            for pid, _ in _pois.items():
+                _item_uid_dict[_idx][pid] = _poi_uid
+                _poi_uid += 1
+        for _idx, (_aois, _pois) in enumerate(_all_items):
+            for aid, a in _aois.items():
+                new_aid = _item_uid_dict[_idx][aid]
+                # update poi_ids
+                a["poi_ids"] = [_item_uid_dict[_idx][ii] for ii in a["poi_ids"]]
+                # update uid
+                a["id"] = new_aid
+                _all_aois[new_aid] = a
+            for pid, p in _pois.items():
+                new_pid = _item_uid_dict[_idx][pid]
+                # update aoi_id
+                p["aoi_id"] = _item_uid_dict[_idx][p["aoi_id"]]
+                # update uid
+                p["id"] = new_pid
+                _all_pois[new_pid] = p
+        self.map_aois, self.map_pois = _all_aois, _all_pois
 
     def write2json(self, topo_path: str, output_path: str):
         # Write the widened road into the geojson file
@@ -4324,10 +4372,7 @@ class Builder:
             self._create_walking_lanes()
             self._expand_remain_roads()
             self._post_process()
-        if self.reuse_map is not None:
-            self._reuse_aoi()
-        else:
-            self._add_aoi()
+        self._add_all_aoi()
         output_map = self.get_output_map(name)
         output_format_check(output_map, self.output_lane_length_check)
         return output_map

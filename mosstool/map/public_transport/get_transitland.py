@@ -11,7 +11,7 @@ import pyproj
 import requests
 from shapely.geometry import LineString, MultiPoint, Point, Polygon
 from shapely.strtree import STRtree
-
+from .._map_util.aoiutils import geo_coords
 from .._util.line import clip_line, offset_lane
 
 __all__ = [
@@ -76,16 +76,9 @@ def merge_geo(coord, projstr, square_length=350):
     if len(coord) > 1:
         geo = MultiPoint(coord).minimum_rotated_rectangle
         # Expand geo into a large square
-        if isinstance(geo, Polygon):
-            min_x = min([p[0] for p in geo.exterior.coords])  # type: ignore
-            min_y = min([p[1] for p in geo.exterior.coords])  # type: ignore
-            max_x = max([p[0] for p in geo.exterior.coords])  # type: ignore
-            max_y = max([p[1] for p in geo.exterior.coords])  # type: ignore
-        else:
-            min_x = min([p[0] for p in geo.coords])  # type: ignore
-            min_y = min([p[1] for p in geo.coords])  # type: ignore
-            max_x = max([p[0] for p in geo.coords])  # type: ignore
-            max_y = max([p[1] for p in geo.coords])  # type: ignore
+        coords = np.array(geo_coords(geo))
+        min_x, min_y = coords.min(axis=0)
+        max_x, max_y = coords.max(axis=0)
         bottom_left = (min_x, min_y)
         top_left = (min_x, max_y)
         top_right = (max_x, max_y)

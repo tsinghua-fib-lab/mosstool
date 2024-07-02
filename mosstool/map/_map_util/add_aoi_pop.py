@@ -7,21 +7,12 @@ import pyproj
 import rasterio
 from shapely.geometry import MultiPolygon, Point, Polygon
 
+from .._map_util.aoiutils import geo_coords
 from .const import *
 
 __all__ = ["add_aoi_pop"]
 
 
-def _coords(geo):
-    if isinstance(geo, Polygon):
-        return list(geo.exterior.coords)
-    elif isinstance(geo, MultiPolygon):
-        all_coords = []
-        for p_geo in geo.geoms:
-            all_coords.extend(list(p_geo.exterior.coords))
-        return all_coords
-    else:
-        return list(geo.coords)
 
 
 def _gps_distance(
@@ -211,7 +202,7 @@ def _get_aoi_poly_pop_unit(aoi):
         return aoi, HAS_INSIDE_PIXEL
 
     # If aoi is too small so that no pixel falls within it, take the population of the pixel where it is located.
-    x, y = _coords(poly.centroid)[0][:2]
+    x, y = geo_coords(poly.centroid)[0][:2]
     try:
         t = (
             pixel_idx2point_pop[

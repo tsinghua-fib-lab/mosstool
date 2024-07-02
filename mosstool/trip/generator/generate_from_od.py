@@ -21,24 +21,13 @@ from pycityproto.city.person.v1.person_pb2 import (
 )
 from pycityproto.city.trip.v2.trip_pb2 import Schedule, Trip, TripMode
 
+from ...map._map_util.aoiutils import geo_coords
 from ...map._map_util.const import *
 from ...util.format_converter import dict2pb
 from ...util.geo_match_pop import geo2pop
 from ._util.const import *
 from ._util.utils import gen_profiles, recalculate_trip_mode_prob
 from .template import DEFAULT_PERSON
-
-
-def _coords(geo):
-    if isinstance(geo, geometry.Polygon):
-        return list(geo.exterior.coords)
-    elif isinstance(geo, geometry.MultiPolygon):
-        all_coords = []
-        for p_geo in geo.geoms:
-            all_coords.extend(list(p_geo.exterior.coords))
-        return all_coords
-    else:
-        return list(geo.coords)
 
 
 # determine trip mode
@@ -475,7 +464,7 @@ class TripGenerator:
         for i, poly in enumerate(self.areas.geometry.to_crs(self.m.header.projection)):
             self.area_shapes.append(poly)
             r = {
-                "geometry": _coords(poly),  # xy coords
+                "geometry": geo_coords(poly),  # xy coords
                 "ori_id": i,
                 "region_id": i,
             }
