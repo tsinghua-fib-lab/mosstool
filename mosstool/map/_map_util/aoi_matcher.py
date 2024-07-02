@@ -19,6 +19,7 @@ from ...type import AoiType
 from .._util.angle import abs_delta_angle, delta_angle
 from .._util.line import (connect_line_string, get_line_angle,
                           get_start_vector, line_extend, offset_lane)
+from .aoiutils import geo_coords
 
 # ATTENTION: In order to achieve longer distance POI merging, the maximum recursion depth needs to be modified.
 sys.setrecursionlimit(50000)
@@ -47,7 +48,7 @@ def _split_merged_poi_unit(points):
         else:
             # Post-processing uses road network segmentation to form polygons
             lines = []  # dividing lines
-            (x, y) = convex.centroid.coords[:][0][:2]
+            (x, y) = geo_coords(convex.centroid)[0][:2]
             length = convex.length
             # {'id', 'geo', 'point', 'length'}
             for lane in road_lane_matcher:
@@ -323,7 +324,7 @@ def _process_matched_result(aoi, d_matched, w_matched):
 #     huge_candidate = []
 #     (x, y) = geo.centroid.coords[:][0][:2]
 #     length = geo.length
-#     bound_poss = [c[:2] for c in geo.exterior.coords[:-1]]
+#     bound_poss = [c[:2] for c in geo_coords(geo)[:-1]]
 #     for lane in matcher:  # {'id', 'geo', 'point', 'length'}
 #         mid_x, mid_y = lane["point"][:2]
 #         dis_upper_bound = (
@@ -464,19 +465,29 @@ def _str_tree_matcher_unit(
     matcher_lane_tree,
     dis_gate,
     huge_gate,
+    direction_geos: Optional[Dict[int, List[LineString]]] = None,
 ):
     global LENGTH_PER_DOOR, MAX_DOOR_NUM, AOI_GATE_OFFSET
     matched = []
-    bound_poss = [c[:2] for c in geo.exterior.coords[:-1]]
+    bound_poss = [c[:2] for c in geo_coords(geo)[:-1]]
     small_tree_ids = matcher_lane_tree.query(geo.buffer(dis_gate))
+    stop_lane_angles = (
+        [[get_line_angle(l) for l in lanes] for lanes in direction_geos.values()]
+        if direction_geos is not None
+        else None
+    )
     for tid in small_tree_ids:
         lane = matcher[tid]  # {'id', 'geo', 'point', 'length'}
         p_aoi, p_lane = ops.nearest_points(
             geo, lane["geo"]
         )  # Returns the calculated nearest points in the input geometries
         distance = p_aoi.distance(p_lane)
-        # if distance < dis_gate:
-        if True:
+        lane_angle = get_line_angle(lane["geo"])
+        if stop_lane_angles is None or any(
+            np.mean([abs_delta_angle(lane_angle, angle) for angle in angles])
+            < np.pi / 4
+            for angles in stop_lane_angles
+        ):
             # Project the point on the lane closest to the poly to the lane and return s
             s = lane["geo"].project(p_lane)
             if (
@@ -596,7 +607,7 @@ def _add_point_aoi_unit(arg):
     global W_DIS_GATE, W_HUGE_GATE
     aoi, aoi_type = arg
     geo = aoi["geo"]
-    x, y = geo.coords[:][0][:2]
+    x, y = geo_coords(geo)[0][:2]
     d_matched, w_matched = [], []
     for (
         matcher,
@@ -717,7 +728,7 @@ def _add_poly_aoi_unit(arg):
         base_aoi = {
             "id": 0,  # It is difficult to deal with the problem of uid += 1 during parallelization, so assign the id after parallelization is completed.
             "type": aoi_type,
-            "positions": [{"x": c[0], "y": c[1]} for c in geo.exterior.coords[:]],
+            "positions": [{"x": c[0], "y": c[1]} for c in geo_coords(geo)],
             "area": geo.area,
             "external": {
                 "osm_tencent_ids": [
@@ -749,7 +760,7 @@ def _add_aoi_stop_unit(arg):
     global LENGTH_PER_DOOR, MAX_DOOR_NUM, AOI_GATE_OFFSET
     aoi, aoi_type = arg
     geo = aoi["geo"]
-    bound_poss = [c[:2] for c in geo.exterior.coords[:-1]]
+    bound_poss = [c[:2] for c in geo_coords(geo)[:-1]]
     station_type = aoi["external"]["station_type"]
     d_matched, w_matched = [], []
     if station_type == "SUBWAY":
@@ -823,7 +834,7 @@ def _add_aoi_stop_unit(arg):
         base_aoi = {
             "id": 0,  # It is difficult to deal with the problem of uid += 1 during parallelization, so assign the id after parallelization is completed.
             "type": aoi_type,
-            "positions": [{"x": c[0], "y": c[1]} for c in geo.exterior.coords[:]],
+            "positions": [{"x": c[0], "y": c[1]} for c in geo_coords(geo)],
             "area": geo.area,
             "external": {
                 "osm_tencent_ids": [
@@ -925,10 +936,10 @@ def _add_aoi_land_use(aois, shp_path: Optional[str], bbox, projstr):
                     polygon = candidate_poly
                 else:
                     polygon = MultiPoint(
-                        [pt for g in geo.geoms for pt in g.exterior.coords]
+                        [pt for g in geo.geoms for pt in geo_coords(g)]
                     ).convex_hull
             else:
-                polygon = MultiPoint([pt for pt in polygon.exterior.coords]).convex_hull
+                polygon = MultiPoint([pt for pt in geo_coords(polygon)]).convex_hull
             df.geometry[i] = polygon
 
     # Processing AOIs
@@ -959,7 +970,7 @@ def _add_aoi_land_use(aois, shp_path: Optional[str], bbox, projstr):
                     polygon = candidate_poly
                 else:
                     polygon = MultiPoint(
-                        [pt for g in geo.geoms for pt in g.exterior.coords]
+                        [pt for g in geo.geoms for pt in geo_coords(g)]
                     ).convex_hull
             else:
                 aoi["land_use"] = map_land_use(-1)  # 默认
@@ -1630,7 +1641,7 @@ def _merge_covered_aoi(aois, workers):
     # Pre-compute geometric properties
     for aoi in aois:
         geo = aoi["geo"]
-        aoi["point"] = list(geo.centroid.coords)[0]  # Geometric center
+        aoi["point"] = geo_coords(geo.centroid)[0]  # Geometric center
         aoi["length"] = geo.length  # Perimeter
         aoi["area"] = geo.area  # area
         aoi["valid"] = geo.is_valid
