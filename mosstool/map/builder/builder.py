@@ -196,11 +196,13 @@ class Builder:
             logging.info("Reading from pb files")
             self.net = net
             self.from_pb = True
+            pb_lane_uids = set()
             # map_lanes & lane2data
             for l in net.lanes:
                 line = LineString([[n.x, n.y, n.z] for n in l.center_line.nodes])
                 l_id = l.id
                 self.map_lanes[l_id] = line
+                pb_lane_uids.add(l_id)
                 self.lane2data[line] = {
                     "uid": l_id,
                     "in": [
@@ -225,7 +227,9 @@ class Builder:
                     "turn": l.turn,
                     "width": l.width,
                 }
+            self.lane_uid = max(pb_lane_uids) + 1
             # map_roads
+            pb_road_uids = set()
             for r in net.roads:
                 road_lanes = [self.map_lanes[l_id] for l_id in r.lane_ids]
                 drive_lanes = [
@@ -242,7 +246,9 @@ class Builder:
                     for l in road_lanes
                     if self.lane2data[l]["type"] == mapv2.LANE_TYPE_WALKING
                 ]
-                self.map_roads[r.id] = {
+                r_id = r.id
+                pb_road_uids.add(r_id)
+                self.map_roads[r_id] = {
                     "lanes": drive_lanes,
                     "left_sidewalk": [
                         l
@@ -256,9 +262,11 @@ class Builder:
                     ],
                     "highway": "",
                     "name": r.name,
-                    "uid": r.id,
+                    "uid": r_id,
                 }
+            self.road_uid = max(pb_road_uids) + 1
             # map_junctions
+            pb_junc_uids = set()
             for j in net.junctions:
                 junc_lanes = [self.map_lanes[l_id] for l_id in j.lane_ids]
                 all_junc_lane_coords = []
@@ -270,15 +278,18 @@ class Builder:
                 else:
                     x_center, y_center = np.mean(all_junc_lane_coords, axis=0)
                     z_center = 0
-                self.map_junctions[j.id] = {
+                j_id = j.id
+                pb_junc_uids.add(j_id)
+                self.map_junctions[j_id] = {
                     "lanes": junc_lanes,
-                    "uid": j.id,
+                    "uid": j_id,
                     "center": {
                         "x": x_center,
                         "y": y_center,
                         "z": z_center,
                     },
                 }
+            self.junc_uid = max(pb_junc_uids) + 1
             # bbox
             self.max_lon, self.max_lat = self.projector(
                 net.header.east, net.header.north, inverse=True
@@ -3808,7 +3819,7 @@ class Builder:
                         line, line.length / 3, line.length - line.length / 3
                     )
                 lane = cast(LineString, lane)
-                lane = offset_lane(lane, -0.5 * lane_width)
+                lane = offset_lane(lane, -0.495 * lane_width)
                 # Public section routes will not be added to lanes repeatedly.
                 if lane in self.lane2data:
                     station_connection_road_ids.append(

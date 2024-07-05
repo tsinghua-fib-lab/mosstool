@@ -6,6 +6,8 @@ from typing import Optional
 
 import numpy as np
 from pycityproto.city.routing.v2.routing_service_pb2 import GetRouteRequest
+import pycityproto.city.map.v2.map_pb2 as mapv2
+
 from tqdm import tqdm
 
 from mosstool.trip.route import RoutingClient
@@ -15,12 +17,8 @@ from .._map_util.const import *
 __all__ = [
     "public_transport_process",
 ]
-# TODO: update pycityproto
-T_SUBLINE_TYPE_UNSPECIFIED = 0
-T_SUBLINE_TYPE_BUS = 1
-T_SUBLINE_TYPE_SUBWAY = 2
-T_ETA_FACTOR = 5
-T_TAZ_LENGTH = 1500
+ETA_FACTOR = 5
+TAZ_LENGTH = 1500
 
 
 async def _fill_public_lines(m: dict, server_address: str):
@@ -37,11 +35,11 @@ async def _fill_public_lines(m: dict, server_address: str):
 
     def get_subline_type(pub_type: str):
         if pub_type == "SUBWAY":
-            return T_SUBLINE_TYPE_SUBWAY
+            return mapv2.SUBLINE_TYPE_SUBWAY
         elif pub_type == "BUS":
-            return T_SUBLINE_TYPE_BUS
+            return mapv2.SUBLINE_TYPE_BUS
         else:
-            return T_SUBLINE_TYPE_UNSPECIFIED
+            return mapv2.SUBLINE_TYPE_UNSPECIFIED
 
     def get_aoi_dis(aoi_id1, aoi_id2):
         x1, y1 = aoi_center_point[aoi_id1]
@@ -132,7 +130,7 @@ async def _fill_public_lines(m: dict, server_address: str):
                                                 "route_end": route_end,
                                                 "road_ids": road_ids,
                                                 "route_length": route_len,
-                                                "eta": eta * T_ETA_FACTOR,
+                                                "eta": eta * ETA_FACTOR,
                                             }
                                         )
                         if len(loop_res) > 0:
@@ -265,7 +263,7 @@ def _get_taz_cost_unit(arg):
     station_durations = [aoi["external"]["duration"] for _, aoi in station_aois.items()]
     subline_id = subline["id"]
     subline_type = subline["type"]
-    if subline_type == T_SUBLINE_TYPE_SUBWAY:
+    if subline_type == mapv2.SUBLINE_TYPE_SUBWAY:
         vehicle_speed = DEFAULT_MAX_SPEED["SUBWAY"]
     else:
         vehicle_speed = DEFAULT_MAX_SPEED["BUS"]
@@ -295,21 +293,21 @@ def _get_taz_cost_unit(arg):
             drive_eta_time = total_drive_length / vehicle_speed + sum(
                 station_durations[i : i + i_offset]
             )
-            key = (taz_id[0],taz_id[1],cur_aoi_ids[0])
+            key = (taz_id[0], taz_id[1], cur_aoi_ids[0])
             min_tazs[key].append(drive_eta_time)
-    for (taz_x_id,taz_y_id,cur_aoi_id),etas in min_tazs.items():
+    for (taz_x_id, taz_y_id, cur_aoi_id), etas in min_tazs.items():
         taz_costs.append(
-                    {
-                        "taz_x_id": taz_x_id,
-                        "taz_y_id": taz_y_id,
-                        "aoi_id": cur_aoi_id,
-                        "cost": np.mean(etas),
-                    }
-                )
+            {
+                "taz_x_id": taz_x_id,
+                "taz_y_id": taz_y_id,
+                "aoi_id": cur_aoi_id,
+                "cost": np.mean(etas),
+            }
+        )
     return (subline_id, taz_costs)
 
 
-def _post_compute(m: dict):
+def _post_compute(m: dict, workers: int):
     header = m["header"]
     aois = {a["id"]: a for a in m["aois"]}
     lanes = {l["id"]: l for l in m["lanes"]}
@@ -317,10 +315,10 @@ def _post_compute(m: dict):
     x_max, x_min = header["east"], header["west"]
     y_max, y_min = header["north"], header["south"]
     _, x_step = np.linspace(
-        x_min, x_max, max(int((x_max - x_min) / T_TAZ_LENGTH), 2), retstep=True
+        x_min, x_max, max(int((x_max - x_min) / TAZ_LENGTH), 2), retstep=True
     )
     _, y_step = np.linspace(
-        y_min, y_max, max(int((y_max - y_min) / T_TAZ_LENGTH), 2), retstep=True
+        y_min, y_max, max(int((y_max - y_min) / TAZ_LENGTH), 2), retstep=True
     )
     # update header
     header["taz_x_step"] = x_step
@@ -364,10 +362,6 @@ def _post_compute(m: dict):
             route_lengths.append(station_distance(road_ids, s_start, s_end))
         arg = (subline, station_aois, (x_min, x_step, y_min, y_step), route_lengths)
         taz_cost_args.append(arg)
-    workers = cpu_count()
-    import time
-    start_time = time.time()
-    print(time.time())
 
     with Pool(processes=workers) as pool:
         taz_results = pool.map(
@@ -375,24 +369,23 @@ def _post_compute(m: dict):
             taz_cost_args,
             chunksize=max((len(taz_cost_args) // workers), 500),
         )
-    print(time.time() - start_time)
     subline_id2taz_costs = {r[0]: r[1] for r in taz_results}
     for subline in sublines_data:
         subline_id = subline["id"]
         subline["taz_costs"] = subline_id2taz_costs[subline_id]
     for sl in sublines_data:
-        if not sl["type"]==T_SUBLINE_TYPE_SUBWAY:
+        if not sl["type"] == mapv2.SUBLINE_TYPE_SUBWAY:
             continue
         transfer_stations = []
         for aid in sl["aoi_ids"]:
             station = aois[aid]
-            if len(station["subline_ids"])>1:
+            if len(station["subline_ids"]) > 1:
                 transfer_stations.append(station)
 
     return m
 
 
-def public_transport_process(m: dict, server_address: str):
+def public_transport_process(m: dict, server_address: str, workers: int = cpu_count()):
     m = asyncio.run(_fill_public_lines(m, server_address))
-    m = _post_compute(m)
+    m = _post_compute(m, workers)
     return m

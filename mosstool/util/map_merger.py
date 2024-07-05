@@ -2,12 +2,59 @@
 merge all input maps into one map
 """
 
+import logging
 import time
+from copy import deepcopy
 from typing import List, Optional
 
 from ..map._map_util.format_checker import output_format_check
 from ..type import Map
 from .format_converter import dict2pb, pb2dict
+
+
+def _filter_map(map_dict: dict):
+    """
+    Filter invalid values in output map
+    """
+    output_map = deepcopy(map_dict)
+    lanes = output_map["lanes"]
+    roads = output_map["roads"]
+    juncs = output_map["junctions"]
+    aois = output_map["aois"]
+    all_lane_ids = set(l["id"] for l in lanes)
+    # aoi
+    filter_aois = []
+    for aoi in aois:
+        aoi_id = aoi["id"]
+        aoi_pos_gate_key_tuples = (
+            ("driving_positions", "driving_gates", "Driving"),
+            ("walking_positions", "walking_gates", "Walking"),
+        )
+        for pos_key, gate_key, pos_type in aoi_pos_gate_key_tuples:
+            a_pos = aoi[pos_key]
+            a_gate = aoi[gate_key]
+            assert len(a_pos) == len(
+                a_gate
+            ), f"Different {pos_type} position and gates length in Aoi {aoi_id}"
+            pos_idxes = []
+            for i, pos in enumerate(a_pos):
+                pos_l_id = pos["lane_id"]
+                if pos_l_id in all_lane_ids:
+                    pos_idxes.append(i)
+                else:
+                    logging.warning(
+                        f"{pos_type} position in Aoi {aoi_id} has lane {pos_l_id} not in map!"
+                    )
+            aoi[pos_key] = [pos for i, pos in enumerate(a_pos) if i in pos_idxes]
+            aoi[gate_key] = [gate for i, gate in enumerate(a_gate) if i in pos_idxes]
+        if all(len(aoi[pos_key]) == 0 for pos_key, _, _ in aoi_pos_gate_key_tuples):
+            # not connected to roadnet
+            logging.warning(f"Aoi {aoi_id} has no gates connected to the roadnet!")
+            continue
+        else:
+            filter_aois.append(aoi)
+    output_map["aois"] = filter_aois
+    return output_map
 
 
 def merge_map(
@@ -68,6 +115,7 @@ def merge_map(
         "east": max(x),
         "projection": list(projstr_set)[0],
     }
+    output_map_dict = _filter_map(output_map_dict)
     output_format_check(output_map_dict, output_lane_length_check)
     map_pb = dict2pb(output_map_dict, Map())
     if output_path is not None:
