@@ -2,6 +2,7 @@
 OD generate constants
 """
 
+import pycityproto.city.geo.v2.geo_pb2 as geov2
 import pycityproto.city.map.v2.map_pb2 as mapv2
 import pycityproto.city.person.v1.person_pb2 as personv1
 import pycityproto.city.trip.v2.trip_pb2 as tripv2
@@ -20,7 +21,7 @@ HUMAN_MODE_STATS = {
     "HOH": 10.91,
     "HOH+": 11.45,
     "HWHWH+": 1.43,
-    "HSOSH":0.00,
+    "HSOSH": 0.00,
 }
 BUS = tripv2.TRIP_MODE_BUS_WALK
 CAR = tripv2.TRIP_MODE_DRIVE_ONLY
@@ -34,6 +35,7 @@ ALL_TRIP_MODES = [
     CAR,
     WALK,
 ]
+PT_START_ID = 1_0000_0000
 PRIMARY_SCHOOL, JUNIOR_HIGH_SCHOOL, HIGH_SCHOOL, COLLEGE, BACHELOR, MASTER, DOCTOR = (
     personv1.EDUCATION_PRIMARY_SCHOOL,
     personv1.EDUCATION_JUNIOR_HIGH_SCHOOL,
@@ -80,3 +82,32 @@ WORK_CATGS = {"business", "industrial", "administrative"}
 EDUCATION_CATGS = {"education"}
 # home catg
 HOME_CATGS = {"residential"}
+PT_DRIVER_ATTRIBUTES = {
+    "BUS": {
+        "length": 15,
+        "width": 2,
+        "max_speed": 41.666666666666664,
+        "max_acceleration": 3,
+        "max_braking_acceleration": -10,
+        "usual_acceleration": 2,
+        "usual_braking_acceleration": -4.5,
+    },
+    "SUBWAY": {
+        "length": 25,
+        "width": 2,
+        "max_speed": 41.666666666666664,
+        "max_acceleration": 3,
+        "max_braking_acceleration": -10,
+        "usual_acceleration": 2,
+        "usual_braking_acceleration": -4.5,
+    },
+    "UNSPECIFIED": {
+        "length": 5,
+        "width": 2,
+        "max_speed": 41.666666666666664,
+        "max_acceleration": 3,
+        "max_braking_acceleration": -10,
+        "usual_acceleration": 2,
+        "usual_braking_acceleration": -4.5,
+    },
+}

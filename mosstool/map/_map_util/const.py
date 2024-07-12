@@ -81,6 +81,7 @@ MAX_WAY_DIS_DIFFERENCE = 8
 STATION_CAPACITY = {
     "BUS": 35,
     "SUBWAY": 850,
+    "UNSPECIFIED": 100,
 }
 DEFAULT_SCHEDULES = {
     "BUS": [t for t in range(int(5.5 * 3600), int(22.5 * 3600), int(5 * 60))],

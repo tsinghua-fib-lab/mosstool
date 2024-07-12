@@ -5,9 +5,8 @@ from multiprocessing import Pool, cpu_count
 from typing import Optional
 
 import numpy as np
-from pycityproto.city.routing.v2.routing_service_pb2 import GetRouteRequest
 import pycityproto.city.map.v2.map_pb2 as mapv2
-
+from pycityproto.city.routing.v2.routing_service_pb2 import GetRouteRequest
 from tqdm import tqdm
 
 from mosstool.trip.route import RoutingClient
@@ -33,7 +32,7 @@ async def _fill_public_lines(m: dict, server_address: str):
         x, y = np.mean(coords, axis=0)[:2]
         aoi_center_point[aoi_id] = (x, y)
 
-    def get_subline_type(pub_type: str):
+    def _get_subline_type(pub_type: str):
         if pub_type == "SUBWAY":
             return mapv2.SUBLINE_TYPE_SUBWAY
         elif pub_type == "BUS":
@@ -41,7 +40,7 @@ async def _fill_public_lines(m: dict, server_address: str):
         else:
             return mapv2.SUBLINE_TYPE_UNSPECIFIED
 
-    def get_aoi_dis(aoi_id1, aoi_id2):
+    def _get_aoi_dis(aoi_id1, aoi_id2):
         x1, y1 = aoi_center_point[aoi_id1]
         x2, y2 = aoi_center_point[aoi_id2]
         return ((x1 - x2) ** 2 + (y1 - y2) ** 2) ** 0.5
@@ -120,7 +119,7 @@ async def _fill_public_lines(m: dict, server_address: str):
                                     )
                                     if len(
                                         road_ids
-                                    ) >= 1 and route_len < 1.6 * get_aoi_dis(
+                                    ) >= 1 and route_len < 1.6 * _get_aoi_dis(
                                         aoi_start, aoi_end
                                     ):
                                         eta = res.journeys[0].driving.eta
@@ -183,12 +182,13 @@ async def _fill_public_lines(m: dict, server_address: str):
                         "station_connection_road_ids": subline[
                             "station_connection_road_ids"
                         ],
-                        "type": get_subline_type(pub["type"]),
+                        "type": _get_subline_type(pub["type"]),
                         "parent_name": subline["parent_name"],
                         "schedules": {
                             "departure_times": departure_times,
                             "offset_times": offset_times,
                         },
+                        "capacity":STATION_CAPACITY[pub["type"]],
                         "taz_costs": [],
                     }
                 )
@@ -242,7 +242,7 @@ async def _fill_public_lines(m: dict, server_address: str):
                 external[ex_key] = [
                     d for i, d in enumerate(external[ex_key]) if i in d_idxs
                 ]
-    # clear lane的aoi ids
+    # clear lane.aoi_ids
     for _, lane in lanes.items():
         lane["aoi_ids"] = []
     # add aoi id
@@ -327,7 +327,7 @@ def _post_compute(m: dict, workers: int):
     sublines_data = m["sublines"]
     taz_cost_args = []
 
-    def station_distance(road_ids, s_start: float, s_end: float) -> float:
+    def _station_distance(road_ids, s_start: float, s_end: float) -> float:
         res = 0
         for road_id in road_ids[:-1]:
             road = roads[road_id]
@@ -359,7 +359,7 @@ def _post_compute(m: dict, workers: int):
                 if lane["parent_id"] == road_ids[-1]:
                     s_end = d["s"]
                     break
-            route_lengths.append(station_distance(road_ids, s_start, s_end))
+            route_lengths.append(_station_distance(road_ids, s_start, s_end))
         arg = (subline, station_aois, (x_min, x_step, y_min, y_step), route_lengths)
         taz_cost_args.append(arg)
 
@@ -373,14 +373,14 @@ def _post_compute(m: dict, workers: int):
     for subline in sublines_data:
         subline_id = subline["id"]
         subline["taz_costs"] = subline_id2taz_costs[subline_id]
-    for sl in sublines_data:
-        if not sl["type"] == mapv2.SUBLINE_TYPE_SUBWAY:
-            continue
-        transfer_stations = []
-        for aid in sl["aoi_ids"]:
-            station = aois[aid]
-            if len(station["subline_ids"]) > 1:
-                transfer_stations.append(station)
+    # for sl in sublines_data:
+    #     if not sl["type"] == mapv2.SUBLINE_TYPE_SUBWAY:
+    #         continue
+    #     transfer_stations = []
+    #     for aid in sl["aoi_ids"]:
+    #         station = aois[aid]
+    #         if len(station["subline_ids"]) > 1:
+    #             transfer_stations.append(station)
 
     return m
 

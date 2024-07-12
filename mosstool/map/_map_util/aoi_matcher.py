@@ -11,14 +11,25 @@ import pyproj
 import shapely.ops as ops
 from scipy.spatial import KDTree
 from shapely.affinity import scale
-from shapely.geometry import (LineString, MultiLineString, MultiPoint,
-                              MultiPolygon, Point, Polygon)
+from shapely.geometry import (
+    LineString,
+    MultiLineString,
+    MultiPoint,
+    MultiPolygon,
+    Point,
+    Polygon,
+)
 from shapely.strtree import STRtree
 
 from ...type import AoiType
 from .._util.angle import abs_delta_angle, delta_angle
-from .._util.line import (connect_line_string, get_line_angle,
-                          get_start_vector, line_extend, offset_lane)
+from .._util.line import (
+    connect_line_string,
+    get_line_angle,
+    get_start_vector,
+    line_extend,
+    offset_lane,
+)
 from .aoiutils import geo_coords
 
 # ATTENTION: In order to achieve longer distance POI merging, the maximum recursion depth needs to be modified.
@@ -830,7 +841,8 @@ def _add_aoi_stop_unit(arg):
         w_matched = _str_tree_matcher_unit(
             geo, w_matcher, w_tree, W_DIS_GATE, W_HUGE_GATE
         )
-    if d_matched and w_matched:  # The station must connect both roadways and sidewalks
+    # if d_matched and w_matched:  # The station must connect both roadways and sidewalks
+    if d_matched:  # The station must connect roadways
         base_aoi = {
             "id": 0,  # It is difficult to deal with the problem of uid += 1 during parallelization, so assign the id after parallelization is completed.
             "type": aoi_type,
