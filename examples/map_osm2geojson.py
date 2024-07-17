@@ -13,8 +13,6 @@ bbox = {
 }
 # Configure log and store it in the file mapbuilder2.log
 logging.basicConfig(
-    filename="mapbuilder2.log",
-    filemode="w",
     level=logging.INFO,
     format="%(asctime)s %(levelname)s %(message)s",
 )

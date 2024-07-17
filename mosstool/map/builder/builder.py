@@ -5,7 +5,8 @@ from collections import defaultdict
 from copy import deepcopy
 from math import atan2
 from multiprocessing import cpu_count
-from typing import Callable, Dict, List, Literal, Optional, Set, Tuple, Union, cast
+from typing import (Callable, Dict, List, Literal, Optional, Set, Tuple, Union,
+                    cast)
 
 import matplotlib.pyplot as plt
 import networkx as nx
@@ -25,21 +26,15 @@ from .._map_util.aoi_matcher import add_aoi_to_map
 from .._map_util.aoiutils import generate_aoi_poi
 from .._map_util.const import *
 from .._map_util.convert_aoi import convert_aoi, convert_poi
-from .._map_util.format_checker import geojson_format_check, output_format_check
+from .._map_util.format_checker import (geojson_format_check,
+                                        output_format_check)
 from .._map_util.gen_traffic_light import generate_traffic_light
 from .._map_util.junctionutils import add_driving_groups, add_overlaps
 from .._map_util.map_aois_matchers import match_map_aois
 from .._util.angle import abs_delta_angle, delta_angle
-from .._util.line import (
-    align_line,
-    connect_line_string,
-    get_line_angle,
-    get_start_vector,
-    line_extend,
-    line_max_curvature,
-    merge_line_start_end,
-    offset_lane,
-)
+from .._util.line import (align_line, connect_line_string, get_line_angle,
+                          get_start_vector, line_extend, line_max_curvature,
+                          merge_line_start_end, offset_lane)
 
 __all__ = ["Builder"]
 
@@ -1543,8 +1538,8 @@ class Builder:
                 ##
                 junc_lanes = []
                 # Due to the difference between main roads and auxiliary roads, there are 4 possibilities for connected wids depending on the presence or absence of auxiliary roads.
-                # 1.Only main road
-                # 2.in only has the main road and out has the main road and the auxiliary road
+                # 1. Only main road
+                # 2. in only has the main road and out has the main road and the auxiliary road
                 # 3. There are main roads and auxiliary roads in and only main roads out.
                 # 4. There are main roads and auxiliary roads in and there are main roads and auxiliary roads out.
                 for in_angle, in_way_ids in in_way_groups:
@@ -1571,9 +1566,6 @@ class Builder:
                         ]
                     else:
                         in_auxiliary_turn_config = []
-                    # if jid in bad_turn_config_jids:
-                    # in_main_turn_config = []
-                    # in_auxiliary_turn_config = []
                     # Default turn annotation
                     # Go straight
                     default_in_straight_main_lanes = in_main_lanes
@@ -1591,10 +1583,12 @@ class Builder:
                         if len(in_main_lanes) > LARGE_LANE_NUM_THRESHOLD
                         else DEFAULT_TURN_NUM["MAIN_SMALL_RIGHT"]
                     )
+                    USE_TURN_CONFIG = False
                     # Mark turn according to turn config
                     if in_main_turn_config and len(in_main_turn_config) == len(
                         in_main_lanes
                     ):
+                        USE_TURN_CONFIG = True
                         # Go straight
                         in_straight_main_lanes = [
                             l
@@ -1614,18 +1608,9 @@ class Builder:
                         main_right_lane_num = len(
                             [t for t in in_main_turn_config if "R" in t or "r" in t]
                         )
-
-                        #
-
-                        # if (
-                        #     (
-                        #         len(out_around_groups) == 0 and ((main_around_lane_num > 0))
-                        #     )
-                        #     or (len(out_left_groups) == 0 and ((main_left_lane_num > 0)))
-                        #     or (len(out_right_groups) == 0 and ((main_right_lane_num > 0)))
-                        # ):
                         # main road
                         if jid in bad_turn_config_jids:
+                            USE_TURN_CONFIG = False
                             # straight
                             in_straight_main_lanes = (
                                 default_in_straight_main_lanes
@@ -1675,6 +1660,7 @@ class Builder:
                     if in_auxiliary_turn_config and len(
                         in_auxiliary_turn_config
                     ) == len(in_auxiliary_lanes):
+                        USE_TURN_CONFIG = True
                         # Go straight
                         in_straight_auxiliary_lanes = [
                             l
@@ -1706,23 +1692,9 @@ class Builder:
                                 if "R" in t or "r" in t
                             ]
                         )
-                        # Determine whether turn_config can be used to connect to the lane. If the default configuration cannot be used,
-                        # if (
-                        #      (
-                        #         len(out_around_groups) == 0
-                        #         and ((auxiliary_around_lane_num > 0))
-                        #     )
-                        #     or (
-                        #         len(out_left_groups) == 0
-                        #         and ((auxiliary_left_lane_num > 0))
-                        #     )
-                        #     or (
-                        #         len(out_right_groups) == 0
-                        #         and ((auxiliary_right_lane_num > 0))
-                        #     )
-                        # ):
                         # auxiliary road
                         if jid in bad_turn_config_jids:
+                            USE_TURN_CONFIG = False
                             # straight
                             in_straight_auxiliary_lanes = (
                                 default_in_straight_auxiliary_lanes
@@ -1755,6 +1727,8 @@ class Builder:
                         auxiliary_left_lane_num = default_auxiliary_left_lane_num
                         auxiliary_right_lane_num = default_auxiliary_right_lane_num
                     # All lanes connecting incoming and outgoing main roads
+                    MAIN_HAS_STRAIGHT_LANES = False
+                    AUXILIARY_HAS_STRAIGHT_LANES = False
                     if out_main_group is not None:
                         out_angle, out_way_ids = out_main_group
                         out_main_wid, out_auxiliary_wids = classify_main_auxiliary_wid(
@@ -1768,6 +1742,7 @@ class Builder:
                         ]
                         # main road to main road
                         if len(in_straight_main_lanes) > 0 and len(out_main_lanes) > 0:
+                            MAIN_HAS_STRAIGHT_LANES = True
                             junc_lanes += self._connect_lane_group(
                                 in_lanes=in_straight_main_lanes,
                                 out_lanes=out_main_lanes,
@@ -1780,6 +1755,7 @@ class Builder:
                             len(in_straight_auxiliary_lanes) > 0
                             and len(out_auxiliary_lanes) > 0
                         ):
+                            AUXILIARY_HAS_STRAIGHT_LANES = True
                             junc_lanes += self._connect_lane_group(
                                 in_lanes=in_straight_auxiliary_lanes,
                                 out_lanes=out_auxiliary_lanes,
@@ -1908,6 +1884,18 @@ class Builder:
 
                     # Connect left ramp
                     if len(out_left_groups) > 0:
+                        # ATTENTION: add # of left lanes when no turn configs provided
+                        if not USE_TURN_CONFIG:
+                            if not MAIN_HAS_STRAIGHT_LANES:
+                                main_left_lane_num = max(
+                                    main_left_lane_num,
+                                    len(in_main_lanes) - main_right_lane_num,
+                                )
+                            if not AUXILIARY_HAS_STRAIGHT_LANES:
+                                auxiliary_left_lane_num = max(
+                                    auxiliary_left_lane_num,
+                                    len(in_auxiliary_lanes) - auxiliary_right_lane_num,
+                                )
                         for out_angle, out_way_ids in out_left_groups:
                             (
                                 out_main_wid,
@@ -2303,6 +2291,7 @@ class Builder:
                     for in_way_id in in_way_ids:
                         in_way_id2available_conn[in_way_id] = available_groups
                     ##
+                    USE_TURN_CONFIG = False
                     # No side roads
                     if not len(in_auxiliary_lanes) > 0:
                         # total number
@@ -2350,6 +2339,7 @@ class Builder:
                         if in_main_turn_config and len(in_main_turn_config) == len(
                             in_main_lanes
                         ):
+                            USE_TURN_CONFIG = True
                             # Go straight
                             main_indexes = [
                                 i
@@ -2377,12 +2367,8 @@ class Builder:
                             right_count = len(
                                 [t for t in in_main_turn_config if "R" in t or "r" in t]
                             )
-                            # Determine whether turn_config can be used to connect to lane. If the default configuration cannot be used,
-                            # if ((len(out_around_groups) == 0 and (around_count > 0))
-                            #     or (len(out_left_groups) == 0 and (left_count > 0))
-                            #     or (len(out_right_groups) == 0 and (right_count > 0))
-                            # ):
                             if jid in bad_turn_config_jids:
+                                USE_TURN_CONFIG = False
                                 around_count = (
                                     default_around_count
                                     if around_count == 0
@@ -2411,6 +2397,17 @@ class Builder:
                             main_out_start = default_main_out_start
                             main_out_end = default_main_out_end
                         # connect lanes
+                        MAIN_HAS_STRAIGHT_LANES = False
+                        if main_count > 0 and out_main_group:
+                            MAIN_HAS_STRAIGHT_LANES = True
+                            out_road = self.map_roads[out_main_group[1][0]]
+                            junc_lanes += self._connect_lane_group(
+                                in_lanes=in_main_lanes[main_out_start:main_out_end],
+                                out_lanes=out_road["lanes"],
+                                lane_turn=mapv2.LANE_TURN_STRAIGHT,
+                                lane_type=mapv2.LANE_TYPE_DRIVING,
+                                junc_id=j_uid,
+                            )
                         if around_count > 0:
                             for out_angle, out_way_ids in out_around_groups:
                                 for wid in out_way_ids:
@@ -2433,6 +2430,10 @@ class Builder:
                                         lane_type=mapv2.LANE_TYPE_DRIVING,
                                         junc_id=j_uid,
                                     )
+                        if not USE_TURN_CONFIG and not MAIN_HAS_STRAIGHT_LANES:
+                            left_count = max(
+                                left_count, len(in_main_lanes) - right_count
+                            )
                         if left_count > 0:
                             for out_angle, out_way_ids in out_left_groups:
                                 for wid in out_way_ids:
@@ -2444,15 +2445,6 @@ class Builder:
                                         lane_type=mapv2.LANE_TYPE_DRIVING,
                                         junc_id=j_uid,
                                     )
-                        if main_count > 0 and out_main_group:
-                            out_road = self.map_roads[out_main_group[1][0]]
-                            junc_lanes += self._connect_lane_group(
-                                in_lanes=in_main_lanes[main_out_start:main_out_end],
-                                out_lanes=out_road["lanes"],
-                                lane_turn=mapv2.LANE_TURN_STRAIGHT,
-                                lane_type=mapv2.LANE_TYPE_DRIVING,
-                                junc_id=j_uid,
-                            )
                     else:  # There is a auxiliary road
                         # main road
                         # Default turn annotation
@@ -2495,10 +2487,12 @@ class Builder:
                             default_main_out_start, default_main_out_end = 0, len(
                                 in_main_lanes
                             )
+                        USE_TURN_CONFIG = False
                         # main road
                         if in_main_turn_config and len(in_main_turn_config) == len(
                             in_main_lanes
                         ):
+                            USE_TURN_CONFIG = True
                             # Go straight
                             main_indexes = [
                                 i
@@ -2527,14 +2521,8 @@ class Builder:
                                 [t for t in in_main_turn_config if "R" in t or "r" in t]
                             )
 
-                            # # Determine whether turn_config can be used to connect to lane. If the default configuration cannot be used,
-                            # if (
-                            #     (len(out_around_groups) == 0 and (around_count > 0))
-                            #     or (len(out_left_groups) == 0 and left_count > 0)
-                            #     or (len(out_right_groups) == 0 and right_count > 0)
-                            # ):
-
                             if jid in bad_turn_config_jids:
+                                USE_TURN_CONFIG = False
                                 around_count = (
                                     default_around_count
                                     if around_count == 0
@@ -2626,6 +2614,7 @@ class Builder:
                         if in_auxiliary_turn_config and len(
                             in_auxiliary_turn_config
                         ) == len(in_auxiliary_lanes):
+                            USE_TURN_CONFIG = True
                             # Go straight
                             auxiliary_main_indexes = [
                                 i
@@ -2667,23 +2656,8 @@ class Builder:
                                     if "R" in t or "r" in t
                                 ]
                             )
-                            # Determine whether turn_config can be used to connect to lane. If the default configuration cannot be used,
-                            # if (
-                            #     (
-                            #         len(out_around_groups) == 0
-                            #         and ((auxiliary_around_count > 0))
-                            #     )
-                            #     or (
-                            #         len(out_left_groups) == 0
-                            #         and ((auxiliary_left_count > 0))
-                            #     )
-                            #     or (
-                            #         len(out_right_groups) == 0
-                            #         and ((auxiliary_right_count > 0))
-                            #     )
-                            # ):
-
                             if jid in bad_turn_config_jids:
+                                USE_TURN_CONFIG = False
                                 auxiliary_around_count = (
                                     default_auxiliary_around_count
                                     if auxiliary_around_count == 0
@@ -2712,6 +2686,92 @@ class Builder:
                             auxiliary_main_out_start = default_auxiliary_main_out_start
                             auxiliary_main_out_end = default_auxiliary_main_out_end
                         # connect lanes
+                        MAIN_HAS_STRAIGHT_LANES = False
+                        AUXILIARY_HAS_STRAIGHT_LANES = False
+                        if main_count > 0 and out_main_group is not None:
+                            assert (
+                                out_main_group is not None
+                            ), f"Junction {jid} arranged straight out_ways but no out_ways to connect!"
+                            out_angle, out_way_ids = out_main_group
+                            (
+                                out_main_wid,
+                                out_auxiliary_wids,
+                            ) = classify_main_auxiliary_wid(
+                                out_way_ids, out_angle, "out_ways"
+                            )
+                            out_main_lanes = self.map_roads[out_main_wid]["lanes"]
+                            out_auxiliary_lanes = [
+                                l
+                                for wid in out_auxiliary_wids
+                                for l in self.map_roads[wid]["lanes"]
+                            ]
+                            # main road to main road
+                            if (
+                                len(in_main_lanes[main_out_start:main_out_end])
+                            ) > 0 and len(out_main_lanes) > 0:
+                                MAIN_HAS_STRAIGHT_LANES = True
+                                junc_lanes += self._connect_lane_group(
+                                    in_lanes=in_main_lanes[main_out_start:main_out_end],
+                                    out_lanes=out_main_lanes,
+                                    lane_turn=mapv2.LANE_TURN_STRAIGHT,
+                                    lane_type=mapv2.LANE_TYPE_DRIVING,
+                                    junc_id=j_uid,
+                                )
+                            # auxiliary road to auxiliary road
+                            if (
+                                len(
+                                    in_auxiliary_lanes[
+                                        auxiliary_main_out_start:auxiliary_main_out_end
+                                    ]
+                                )
+                                > 0
+                                and len(out_auxiliary_lanes) > 0
+                            ):
+                                AUXILIARY_HAS_STRAIGHT_LANES = True
+                                junc_lanes += self._connect_lane_group(
+                                    in_lanes=in_auxiliary_lanes[
+                                        auxiliary_main_out_start:auxiliary_main_out_end
+                                    ],
+                                    out_lanes=out_auxiliary_lanes,
+                                    lane_turn=mapv2.LANE_TURN_STRAIGHT,
+                                    lane_type=mapv2.LANE_TYPE_DRIVING,
+                                    junc_id=j_uid,
+                                )
+                            # When there is no in auxiliary road, connect the in main road to the out auxiliary road
+                            if (
+                                not len(in_auxiliary_lanes) > 0
+                                and len(out_auxiliary_lanes) > 0
+                                and len(in_main_lanes[main_out_start:main_out_end]) > 0
+                            ):
+                                MAIN_HAS_STRAIGHT_LANES = True
+                                junc_lanes += self._connect_lane_group(
+                                    in_lanes=in_main_lanes[main_out_start:main_out_end],
+                                    out_lanes=out_auxiliary_lanes,
+                                    lane_turn=mapv2.LANE_TURN_STRAIGHT,
+                                    lane_type=mapv2.LANE_TYPE_DRIVING,
+                                    junc_id=j_uid,
+                                )
+                            # When there is no out auxiliary road, connect the in auxiliary road to the main road
+                            if (
+                                len(
+                                    in_auxiliary_lanes[
+                                        auxiliary_main_out_start:auxiliary_main_out_end
+                                    ]
+                                )
+                                > 0
+                                and not len(out_auxiliary_lanes) > 0
+                                and len(out_main_lanes) > 0
+                            ):
+                                AUXILIARY_HAS_STRAIGHT_LANES = True
+                                junc_lanes += self._connect_lane_group(
+                                    in_lanes=in_auxiliary_lanes[
+                                        auxiliary_main_out_start:auxiliary_main_out_end
+                                    ],
+                                    out_lanes=out_main_lanes,
+                                    lane_turn=mapv2.LANE_TURN_STRAIGHT,
+                                    lane_type=mapv2.LANE_TYPE_DRIVING,
+                                    junc_id=j_uid,
+                                )
                         if around_count > 0:
                             if key == (1, 1):
                                 for out_angle, out_way_ids in out_around_groups:
@@ -2885,6 +2945,17 @@ class Builder:
                                         lane_type=mapv2.LANE_TYPE_DRIVING,
                                         junc_id=j_uid,
                                     )
+                        # ATTENTION: add # of left lanes when no turn configs provided
+                        if not USE_TURN_CONFIG:
+                            if not MAIN_HAS_STRAIGHT_LANES:
+                                left_count = max(
+                                    left_count, len(in_main_lanes) - right_count
+                                )
+                            if not AUXILIARY_HAS_STRAIGHT_LANES:
+                                auxiliary_left_count = max(
+                                    auxiliary_left_count,
+                                    len(in_auxiliary_lanes) - auxiliary_right_count,
+                                )
                         if left_count > 0:
                             for out_angle, out_way_ids in out_left_groups:
                                 (
@@ -2943,86 +3014,7 @@ class Builder:
                                         lane_type=mapv2.LANE_TYPE_DRIVING,
                                         junc_id=j_uid,
                                     )
-                        if main_count > 0 and out_main_group is not None:
-                            assert (
-                                out_main_group is not None
-                            ), f"Junction {jid} arranged straight out_ways but no out_ways to connect!"
-                            out_angle, out_way_ids = out_main_group
-                            (
-                                out_main_wid,
-                                out_auxiliary_wids,
-                            ) = classify_main_auxiliary_wid(
-                                out_way_ids, out_angle, "out_ways"
-                            )
-                            out_main_lanes = self.map_roads[out_main_wid]["lanes"]
-                            out_auxiliary_lanes = [
-                                l
-                                for wid in out_auxiliary_wids
-                                for l in self.map_roads[wid]["lanes"]
-                            ]
-                            # main road to main road
-                            if (
-                                len(in_main_lanes[main_out_start:main_out_end])
-                            ) > 0 and len(out_main_lanes) > 0:
-                                junc_lanes += self._connect_lane_group(
-                                    in_lanes=in_main_lanes[main_out_start:main_out_end],
-                                    out_lanes=out_main_lanes,
-                                    lane_turn=mapv2.LANE_TURN_STRAIGHT,
-                                    lane_type=mapv2.LANE_TYPE_DRIVING,
-                                    junc_id=j_uid,
-                                )
-                            # auxiliary road to auxiliary road
-                            if (
-                                len(
-                                    in_auxiliary_lanes[
-                                        auxiliary_main_out_start:auxiliary_main_out_end
-                                    ]
-                                )
-                                > 0
-                                and len(out_auxiliary_lanes) > 0
-                            ):
-                                junc_lanes += self._connect_lane_group(
-                                    in_lanes=in_auxiliary_lanes[
-                                        auxiliary_main_out_start:auxiliary_main_out_end
-                                    ],
-                                    out_lanes=out_auxiliary_lanes,
-                                    lane_turn=mapv2.LANE_TURN_STRAIGHT,
-                                    lane_type=mapv2.LANE_TYPE_DRIVING,
-                                    junc_id=j_uid,
-                                )
-                            # When there is no in auxiliary road, connect the in main road to the out auxiliary road
-                            if (
-                                not len(in_auxiliary_lanes) > 0
-                                and len(out_auxiliary_lanes) > 0
-                                and len(in_main_lanes[main_out_start:main_out_end]) > 0
-                            ):
-                                junc_lanes += self._connect_lane_group(
-                                    in_lanes=in_main_lanes[main_out_start:main_out_end],
-                                    out_lanes=out_auxiliary_lanes,
-                                    lane_turn=mapv2.LANE_TURN_STRAIGHT,
-                                    lane_type=mapv2.LANE_TYPE_DRIVING,
-                                    junc_id=j_uid,
-                                )
-                            # When there is no out auxiliary road, connect the in auxiliary road to the main road
-                            if (
-                                len(
-                                    in_auxiliary_lanes[
-                                        auxiliary_main_out_start:auxiliary_main_out_end
-                                    ]
-                                )
-                                > 0
-                                and not len(out_auxiliary_lanes) > 0
-                                and len(out_main_lanes) > 0
-                            ):
-                                junc_lanes += self._connect_lane_group(
-                                    in_lanes=in_auxiliary_lanes[
-                                        auxiliary_main_out_start:auxiliary_main_out_end
-                                    ],
-                                    out_lanes=out_main_lanes,
-                                    lane_turn=mapv2.LANE_TURN_STRAIGHT,
-                                    lane_type=mapv2.LANE_TYPE_DRIVING,
-                                    junc_id=j_uid,
-                                )
+
                 # Check whether every road in the junction is connected
                 valid_turn_config = True
                 for _, in_way_ids in in_way_groups:

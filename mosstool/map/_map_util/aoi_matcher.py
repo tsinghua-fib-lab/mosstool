@@ -11,25 +11,14 @@ import pyproj
 import shapely.ops as ops
 from scipy.spatial import KDTree
 from shapely.affinity import scale
-from shapely.geometry import (
-    LineString,
-    MultiLineString,
-    MultiPoint,
-    MultiPolygon,
-    Point,
-    Polygon,
-)
+from shapely.geometry import (LineString, MultiLineString, MultiPoint,
+                              MultiPolygon, Point, Polygon)
 from shapely.strtree import STRtree
 
 from ...type import AoiType
 from .._util.angle import abs_delta_angle, delta_angle
-from .._util.line import (
-    connect_line_string,
-    get_line_angle,
-    get_start_vector,
-    line_extend,
-    offset_lane,
-)
+from .._util.line import (connect_line_string, get_line_angle,
+                          get_start_vector, line_extend, offset_lane)
 from .aoiutils import geo_coords
 
 # ATTENTION: In order to achieve longer distance POI merging, the maximum recursion depth needs to be modified.
@@ -742,12 +731,10 @@ def _add_poly_aoi_unit(arg):
             "positions": [{"x": c[0], "y": c[1]} for c in geo_coords(geo)],
             "area": geo.area,
             "external": {
-                "osm_tencent_ids": [
-                    aoi["id"]
-                ],  # id in aoi_osm_tencent_fudan.aoi_beijing5ring
+                "osm_input_ids": [aoi["id"]],
                 "ex_poi_ids": aoi["external"].get(
                     "inner_poi", []
-                ),  # Tencent id of poi contained in aoi
+                ),  # Input id of poi contained in aoi
                 # aoi population
                 "population": aoi["external"].get("population", 0),
                 "land_types": aoi["external"].get("land_types", defaultdict(float)),
@@ -849,14 +836,12 @@ def _add_aoi_stop_unit(arg):
             "positions": [{"x": c[0], "y": c[1]} for c in geo_coords(geo)],
             "area": geo.area,
             "external": {
-                "osm_tencent_ids": [
-                    aoi["id"]
-                ],  # id in aoi_osm_tencent_fudan.aoi_beijing5ring
+                "osm_input_ids": [aoi["id"]],
                 "stop_id": aoi["external"]["stop_id"],
                 "station_type": station_type,
                 "ex_poi_ids": aoi["external"].get(
                     "inner_poi", []
-                ),  # Tencent id of poi contained in aoi
+                ),  # Input id of poi contained in aoi
                 # aoi population
                 "population": aoi["external"].get("population", 0),
                 "land_types": aoi["external"].get("land_types", defaultdict(float)),
@@ -1630,7 +1615,7 @@ def _add_pois(aois, pois, projstr):
             "position": {"x": x, "y": y},
             "aoi_id": poi_id_to_aoi_id[poi_id],
             "external": {
-                "tencent_poi_id": poi_id,
+                "input_poi_id": poi_id,
             },
         }
         poi_uid += 1
@@ -1890,10 +1875,10 @@ def add_aoi_to_map(
     raw_pois = {doc["id"]: doc for doc in input_pois}
 
     aois = _add_aoi(aois=input_aois, stops=input_stops, workers=workers, merge_aoi=True)
-    added_tencent_poi = []
+    added_input_poi = []
     for _, aoi in aois.items():
-        added_tencent_poi.extend(aoi["external"].get("ex_poi_ids", []))
-    logging.info(f"Added Tencent POI num: {len(added_tencent_poi)}")
+        added_input_poi.extend(aoi["external"].get("ex_poi_ids", []))
+    logging.info(f"Added Input POI num: {len(added_input_poi)}")
     # Post-compute
     logging.info("Post Compute")
     aois = _add_aoi_land_use(aois, shp_path, bbox, projstr)
