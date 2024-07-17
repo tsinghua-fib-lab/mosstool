@@ -1,11 +1,14 @@
 from functools import partial
 from math import atan2
-from typing import cast
+from typing import List, Optional, Tuple, cast
 
 import numpy as np
+from scipy.spatial import KDTree
 from shapely.geometry import LineString, Point
-from shapely.ops import nearest_points, snap, split
+from shapely.ops import linemerge, nearest_points, snap, split, substring
+from shapely.strtree import STRtree
 
+from .angle import abs_delta_angle
 from .bezier import Bezier
 
 __all__ = [
@@ -15,6 +18,8 @@ __all__ = [
     "line_max_curvature",
     "offset_lane",
     "align_line",
+    "merge_near_xy_points",
+    "connect_split_lines",
     "get_start_vector",
     "get_end_vector",
 ]
@@ -191,8 +196,8 @@ def connect_line_string_bezier_4_t_point(
     if has_multiple_turns(line_xy):
         line_xy = LineString([p0, p3])
     if has_z_coords:
-        z_start = line1.coords[-1][2]
-        z_end = line2.coords[0][2]
+        z_start = line1.coords[-1][2]  # type: ignore
+        z_end = line2.coords[0][2]  # type: ignore
         coords_z = np.linspace(z_start, z_end, len(line_xy.coords))
         coords_xy = np.array([c[:2] for c in line_xy.coords])
         return LineString(zip(*coords_xy.T, coords_z))
@@ -211,8 +216,8 @@ def connect_line_string_straight(line1: LineString, line2: LineString) -> LineSt
     p3 = np.array(line2.coords[0][:2])
     line_xy = LineString([p0, p3])
     if has_z_coords:
-        z_start = line1.coords[-1][2]
-        z_end = line2.coords[0][2]
+        z_start = line1.coords[-1][2]  # type: ignore
+        z_end = line2.coords[0][2]  # type: ignore
         coords_z = np.linspace(z_start, z_end, len(line_xy.coords))
         coords_xy = np.array([c[:2] for c in line_xy.coords])
         return LineString(zip(*coords_xy.T, coords_z))
@@ -236,11 +241,11 @@ def offset_lane(line: LineString, distance: float) -> LineString:
     offset_line = line_xy.offset_curve(distance)
     if offset_line:
         if not has_z_coords:
-            return offset_line
+            return offset_line  # type: ignore
         else:
             coords_xy = np.array([c[:2] for c in offset_line.coords])
-            z_start = line.coords[0][2]
-            z_end = line.coords[-1][2]
+            z_start = line.coords[0][2]  # type: ignore
+            z_end = line.coords[-1][2]  # type: ignore
             coords_z = np.linspace(z_start, z_end, len(offset_line.coords))
             return LineString(zip(*coords_xy.T, coords_z))
     else:
@@ -309,7 +314,139 @@ def align_line(line1: LineString, line2: LineString) -> LineString:
         clip_p_start, clip_p_end = clip_p_end, clip_p_start
     clipped_line = clip_line(line1, clip_p_start, clip_p_end)
     clipped_line = clipped_line.simplify(0.001)
-    return clipped_line
+    return clipped_line  # type: ignore
+
+
+def merge_near_xy_points(
+    orig_points: List[Tuple[float, float]], merge_gate: float = 100
+) -> List[Tuple[float, float]]:
+    """
+    Return merged coordinates of input points coordinates
+    """
+    merged_points = [tuple(c[:2]) for c in orig_points]
+    orig_points = np.array(orig_points)  # type: ignore
+    tree = KDTree(orig_points)
+    for _, cur_point in enumerate(orig_points):
+        _, indexes = tree.query(
+            cur_point, k=len(orig_points), distance_upper_bound=merge_gate
+        )
+        indexes_set = {j for j in indexes if -1 < j < len(orig_points)}
+        merge_coords = [c for i, c in enumerate(orig_points) if i in indexes_set]
+        avg_coord = np.mean(merge_coords, axis=0)
+        for j in indexes_set:
+            merged_points[j] = avg_coord
+    return merged_points  # type: ignore
+
+
+def connect_split_lines(
+    lines: List[LineString],
+    start_point: Optional[Point] = None,
+    max_line_length: float = 10_000,
+) -> List:
+    """
+    Connect split lines (especially for `way` items in OSM) as one line.
+    """
+    merge_geo = linemerge(lines)
+    if isinstance(merge_geo, LineString):
+        return list(merge_geo.coords)
+
+    def _remove_outlier_points(
+        line: LineString,
+        lines: List[LineString],
+        distance_threshold: float = 20,
+        max_line_length: float = 5000,
+        angle_gate: float = np.pi / 2,
+    ):
+        coords = list(line.coords)
+        line_tree = STRtree(lines)
+        outlier_indexes = set()
+        for idx in range(len(coords) - 1):
+            pre_coord = coords[idx - 1]
+            cur_coord = coords[idx]
+            next_coord = coords[idx + 1]
+            pre_line = LineString([pre_coord, cur_coord])
+            cur_line = LineString([cur_coord, next_coord])
+            delta_angle = abs_delta_angle(
+                get_line_angle(pre_line), get_line_angle(cur_line)
+            )
+            split_points = [
+                cur_line.interpolate(ratio, normalized=True)
+                for ratio in np.linspace(0.1, 0.9, 10)
+            ]
+            has_near_points = []
+            for p in split_points:
+                tree_ids = line_tree.query_nearest(
+                    geometry=p,
+                    max_distance=distance_threshold,
+                    return_distance=False,
+                )
+                if len(tree_ids) > 0:
+                    has_near_points.append(p)
+            if not len(has_near_points) / len(split_points) >= 0.5 or (
+                cur_line.length > max_line_length
+                and len(cur_line.coords) == 2
+                and delta_angle > angle_gate
+            ):
+                outlier_indexes.add(idx + 1)
+        if len(outlier_indexes) > 0:
+            coords = coords[: list(outlier_indexes)[0]]
+        return coords
+
+    def _find_farthest_adjacent_points_and_rebase(
+        coords: List, max_substring_length: float = 1500
+    ):
+        assert len(coords) >= 2
+        pos_list = [
+            (new_idx, cur_pos, next_pos, Point(cur_pos).distance(Point(next_pos)))
+            for new_idx, (cur_pos, next_pos) in enumerate(
+                zip(coords, coords[1:] + coords[:1]), start=1
+            )
+        ]
+        new_index, _, _, max_distance = max(pos_list, key=lambda x: x[3])
+        if max_distance > max_substring_length:
+            return LineString(coords[:new_index] + coords[new_index + 1 :])
+        else:
+            return LineString(coords)
+
+    lines = [l for l in lines if l.length < max_line_length]
+    best_lines = []
+    for reverse_flag in [True, False]:
+        connected = []
+        remaining = lines.copy()
+        if start_point is not None:
+            remaining = sorted(remaining, key=lambda x: start_point.distance(x))
+        start_line = remaining.pop(0)
+        if reverse_flag:
+            start_line = LineString(start_line.coords[::-1])
+        connected.append(start_line)
+        while remaining:
+            last_line = connected[-1]
+            last_end_p = Point(last_line.coords[-1])
+            sorted_lines = sorted(
+                [(i, line) for i, line in enumerate(remaining)],
+                key=lambda x: x[1].distance(last_line),
+            )
+            (i, line) = sorted_lines[0]
+            proj_s = line.project(last_end_p, normalized=True)
+            if proj_s < 1:
+                connected.append(substring(line, proj_s * line.length, line.length))
+            else:
+                reverse_line = LineString(line.coords[::-1])
+                reverse_proj_s = reverse_line.project(last_end_p, normalized=True)
+                if reverse_proj_s < 1:
+                    connected.append(
+                        substring(
+                            reverse_line,
+                            reverse_proj_s * reverse_line.length,
+                            reverse_line.length,
+                        )
+                    )
+            del remaining[i]
+        res_coords = [c for l in connected for c in l.coords]
+        best_lines.append(_find_farthest_adjacent_points_and_rebase(res_coords))
+    res = [_remove_outlier_points(l, lines) for l in best_lines]
+    best_res = max(res, key=lambda x: len(x))
+    return best_res
 
 
 def merge_line_start_end(line_start: LineString, line_end: LineString) -> LineString:
