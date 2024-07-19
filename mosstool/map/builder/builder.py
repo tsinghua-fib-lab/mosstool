@@ -29,7 +29,10 @@ from .._map_util.convert_aoi import convert_aoi, convert_poi
 from .._map_util.format_checker import (geojson_format_check,
                                         output_format_check)
 from .._map_util.gen_traffic_light import generate_traffic_light
-from .._map_util.junctionutils import add_driving_groups, add_overlaps
+from .._map_util.junctionutils import (add_driving_groups, add_overlaps,
+                                       check_1_n_available_turns,
+                                       check_n_n_available_turns,
+                                       classify_main_auxiliary_wid)
 from .._map_util.map_aois_matchers import match_map_aois
 from .._util.angle import abs_delta_angle, delta_angle
 from .._util.line import (align_line, connect_line_string, get_line_angle,
@@ -1383,56 +1386,6 @@ class Builder:
         logging.info(f"Creating junction for 1 in and N out")
         keys = []
 
-        def classify_main_auxiliary_wid(wids, way_angle, group_type):
-            """
-            Return the main road and auxiliary road in wids according to in_way_group/out_way_group
-            """
-            if group_type == "in_ways":
-                vec = np.array(
-                    [
-                        np.cos(way_angle + np.pi / 2),
-                        np.sin(way_angle + np.pi / 2),
-                    ]
-                )
-                right_lanes = {wid: self.map_roads[wid]["lanes"][-1] for wid in wids}
-                right_vecs = [
-                    {
-                        "wid": wid,
-                        "vec": np.array(l.coords[-1][:2]),
-                    }
-                    for wid, l in right_lanes.items()
-                ]
-                # The smaller the inner product, the closer it is to the right
-                sorted_wids = [
-                    vec["wid"]
-                    for vec in sorted(right_vecs, key=lambda x: -np.dot(x["vec"], vec))
-                ]
-            elif group_type == "out_ways":
-                vec = np.array(
-                    [
-                        np.cos(way_angle + np.pi / 2),
-                        np.sin(way_angle + np.pi / 2),
-                    ]
-                )
-                left_lanes = {wid: self.map_roads[wid]["lanes"][0] for wid in wids}
-                left_vecs = [
-                    {
-                        "wid": wid,
-                        "vec": np.array(l.coords[0][:2]),
-                    }
-                    for wid, l in left_lanes.items()
-                ]
-                sorted_wids = [
-                    vec["wid"]
-                    for vec in sorted(left_vecs, key=lambda x: -np.dot(x["vec"], vec))
-                ]
-            else:
-                raise ValueError(f"Invalid group_type:{group_type}")
-            return (
-                sorted_wids[0],
-                sorted_wids[1:],
-            )
-
         for in_count, out_count in self.junction_types.keys():
             if in_count == 1:
                 keys.append((in_count, out_count))
@@ -1548,7 +1501,7 @@ class Builder:
                         wids=in_way_ids, junc_type=key, junc_id=jid, way_type="main"
                     )
                     in_main_wid, in_auxiliary_wids = classify_main_auxiliary_wid(
-                        in_way_ids, in_angle, "in_ways"
+                        in_way_ids, in_angle, "in_ways", self.map_roads
                     )
                     # Connect lanes
                     in_main_lanes = self.map_roads[in_main_wid]["lanes"]
@@ -1726,13 +1679,129 @@ class Builder:
                         auxiliary_around_lane_num = default_auxiliary_around_lane_num
                         auxiliary_left_lane_num = default_auxiliary_left_lane_num
                         auxiliary_right_lane_num = default_auxiliary_right_lane_num
+                    if not USE_TURN_CONFIG:
+                        # reset connecting lanes according to `turns_dict` when no `turn_configs` provided
+                        turns_dict = check_1_n_available_turns(
+                            in_main_lanes,
+                            in_auxiliary_lanes,
+                            in_straight_main_lanes,
+                            in_straight_auxiliary_lanes,
+                            out_main_group,
+                            out_left_groups,
+                            out_right_groups,
+                            self.map_roads,
+                            main_left_lane_num,
+                            auxiliary_left_lane_num,
+                            main_right_lane_num,
+                            auxiliary_right_lane_num,
+                        )
+                        # 1. only one turn type
+                        ## main
+                        ### main straight
+                        if (
+                            turns_dict["main"]["stragiht"]
+                            and not turns_dict["main"]["left"]
+                            and not turns_dict["main"]["right"]
+                        ):
+                            in_straight_main_lanes = in_main_lanes
+                        ### main left
+                        if (
+                            turns_dict["main"]["left"]
+                            and not turns_dict["main"]["stragiht"]
+                            and not turns_dict["main"]["right"]
+                        ):
+                            main_left_lane_num = len(in_main_lanes)
+                        ### main right
+                        if (
+                            turns_dict["main"]["right"]
+                            and not turns_dict["main"]["left"]
+                            and not turns_dict["main"]["stragiht"]
+                        ):
+                            main_right_lane_num = len(in_main_lanes)
+                        ## auxiliary
+                        ### auxiliary straight
+                        if (
+                            turns_dict["auxiliary"]["stragiht"]
+                            and not turns_dict["auxiliary"]["left"]
+                            and not turns_dict["auxiliary"]["right"]
+                        ):
+                            in_straight_auxiliary_lanes = in_auxiliary_lanes
+                        ### auxiliary left
+                        if (
+                            turns_dict["auxiliary"]["left"]
+                            and not turns_dict["auxiliary"]["stragiht"]
+                            and not turns_dict["auxiliary"]["right"]
+                        ):
+                            auxiliary_left_lane_num = len(in_auxiliary_lanes)
+                        ### auxiliary right
+                        if (
+                            turns_dict["auxiliary"]["right"]
+                            and not turns_dict["auxiliary"]["left"]
+                            and not turns_dict["auxiliary"]["stragiht"]
+                        ):
+                            auxiliary_right_lane_num = len(in_auxiliary_lanes)
+                        # 2. two turn types
+                        ## main
+                        ### left & right
+                        if (
+                            not turns_dict["main"]["stragiht"]
+                            and turns_dict["main"]["right"]
+                            and turns_dict["main"]["left"]
+                        ):
+                            # left over right
+                            main_left_lane_num = max(
+                                main_left_lane_num,
+                                len(in_main_lanes) - main_right_lane_num,
+                            )
+                        ### left & straight
+                        if (
+                            not turns_dict["main"]["right"]
+                            and turns_dict["main"]["left"]
+                            and turns_dict["main"]["stragiht"]
+                        ):
+                            # straight over right
+                            in_straight_main_lanes = in_main_lanes
+                        ### straight & right
+                        if (
+                            not turns_dict["main"]["left"]
+                            and turns_dict["main"]["straight"]
+                            and turns_dict["main"]["right"]
+                        ):
+                            # straight over left
+                            in_straight_main_lanes = in_main_lanes
+                        ## auxiliary
+                        ### left & right
+                        if (
+                            not turns_dict["auxiliary"]["stragiht"]
+                            and turns_dict["auxiliary"]["right"]
+                            and turns_dict["auxiliary"]["left"]
+                        ):
+                            # left over right
+                            auxiliary_left_lane_num = max(
+                                auxiliary_left_lane_num,
+                                len(in_auxiliary_lanes) - auxiliary_right_lane_num,
+                            )
+                        ### left & straight
+                        if (
+                            not turns_dict["auxiliary"]["right"]
+                            and turns_dict["auxiliary"]["left"]
+                            and turns_dict["auxiliary"]["stragiht"]
+                        ):
+                            # straight over right
+                            in_straight_auxiliary_lanes = in_auxiliary_lanes
+                        ### straight & right
+                        if (
+                            not turns_dict["auxiliary"]["left"]
+                            and turns_dict["auxiliary"]["straight"]
+                            and turns_dict["auxiliary"]["right"]
+                        ):
+                            # straight over left
+                            in_straight_auxiliary_lanes = in_auxiliary_lanes
                     # All lanes connecting incoming and outgoing main roads
-                    MAIN_HAS_STRAIGHT_LANES = False
-                    AUXILIARY_HAS_STRAIGHT_LANES = False
                     if out_main_group is not None:
                         out_angle, out_way_ids = out_main_group
                         out_main_wid, out_auxiliary_wids = classify_main_auxiliary_wid(
-                            out_way_ids, out_angle, "out_ways"
+                            out_way_ids, out_angle, "out_ways", self.map_roads
                         )
                         out_main_lanes = self.map_roads[out_main_wid]["lanes"]
                         out_auxiliary_lanes = [
@@ -1742,7 +1811,6 @@ class Builder:
                         ]
                         # main road to main road
                         if len(in_straight_main_lanes) > 0 and len(out_main_lanes) > 0:
-                            MAIN_HAS_STRAIGHT_LANES = True
                             junc_lanes += self._connect_lane_group(
                                 in_lanes=in_straight_main_lanes,
                                 out_lanes=out_main_lanes,
@@ -1755,7 +1823,6 @@ class Builder:
                             len(in_straight_auxiliary_lanes) > 0
                             and len(out_auxiliary_lanes) > 0
                         ):
-                            AUXILIARY_HAS_STRAIGHT_LANES = True
                             junc_lanes += self._connect_lane_group(
                                 in_lanes=in_straight_auxiliary_lanes,
                                 out_lanes=out_auxiliary_lanes,
@@ -1797,7 +1864,7 @@ class Builder:
                                 out_main_wid,
                                 out_auxiliary_wids,
                             ) = classify_main_auxiliary_wid(
-                                out_way_ids, out_angle, "out_ways"
+                                out_way_ids, out_angle, "out_ways", self.map_roads
                             )
                             out_main_lanes = self.map_roads[out_main_wid]["lanes"]
                             out_auxiliary_lanes = [
@@ -1884,24 +1951,12 @@ class Builder:
 
                     # Connect left ramp
                     if len(out_left_groups) > 0:
-                        # ATTENTION: add # of left lanes when no turn configs provided
-                        if not USE_TURN_CONFIG:
-                            if not MAIN_HAS_STRAIGHT_LANES:
-                                main_left_lane_num = max(
-                                    main_left_lane_num,
-                                    len(in_main_lanes) - main_right_lane_num,
-                                )
-                            if not AUXILIARY_HAS_STRAIGHT_LANES:
-                                auxiliary_left_lane_num = max(
-                                    auxiliary_left_lane_num,
-                                    len(in_auxiliary_lanes) - auxiliary_right_lane_num,
-                                )
                         for out_angle, out_way_ids in out_left_groups:
                             (
                                 out_main_wid,
                                 out_auxiliary_wids,
                             ) = classify_main_auxiliary_wid(
-                                out_way_ids, out_angle, "out_ways"
+                                out_way_ids, out_angle, "out_ways", self.map_roads
                             )
                             out_main_lanes = self.map_roads[out_main_wid]["lanes"]
                             out_auxiliary_lanes = [
@@ -1970,7 +2025,7 @@ class Builder:
                                 out_main_wid,
                                 out_auxiliary_wids,
                             ) = classify_main_auxiliary_wid(
-                                out_way_ids, out_angle, "out_ways"
+                                out_way_ids, out_angle, "out_ways", self.map_roads
                             )
                             out_main_lanes = self.map_roads[out_main_wid]["lanes"]
                             out_auxiliary_lanes = [
@@ -2108,56 +2163,6 @@ class Builder:
             if not in_count == 1
         ]
 
-        def classify_main_auxiliary_wid(wids, way_angle, group_type):
-            """
-            Return the main road and auxiliary road in wids according to in_way_group/out_way_group
-            """
-            if group_type == "in_ways":
-                vec = np.array(
-                    [
-                        np.cos(way_angle + np.pi / 2),
-                        np.sin(way_angle + np.pi / 2),
-                    ]
-                )
-                right_lanes = {wid: self.map_roads[wid]["lanes"][-1] for wid in wids}
-                right_vecs = [
-                    {
-                        "wid": wid,
-                        "vec": np.array(l.coords[-1][:2]),
-                    }
-                    for wid, l in right_lanes.items()
-                ]
-                # The smaller the inner product, the closer it is to the right
-                sorted_wids = [
-                    vec["wid"]
-                    for vec in sorted(right_vecs, key=lambda x: -np.dot(x["vec"], vec))
-                ]
-            elif group_type == "out_ways":
-                vec = np.array(
-                    [
-                        np.cos(way_angle + np.pi / 2),
-                        np.sin(way_angle + np.pi / 2),
-                    ]
-                )
-                left_lanes = {wid: self.map_roads[wid]["lanes"][0] for wid in wids}
-                left_vecs = [
-                    {
-                        "wid": wid,
-                        "vec": np.array(l.coords[0][:2]),
-                    }
-                    for wid, l in left_lanes.items()
-                ]
-                sorted_wids = [
-                    vec["wid"]
-                    for vec in sorted(left_vecs, key=lambda x: -np.dot(x["vec"], vec))
-                ]
-            else:
-                raise ValueError(f"Invalid group_type:{group_type}")
-            return (
-                sorted_wids[0],
-                sorted_wids[1:],
-            )
-
         for key in keys_n_n:
             jid_index = 0
             list_jids = list(self.junction_types[key])
@@ -2189,7 +2194,7 @@ class Builder:
                         wids=in_way_ids, junc_type=key, junc_id=jid, way_type="main"
                     )
                     in_main_wid, in_auxiliary_wids = classify_main_auxiliary_wid(
-                        in_way_ids, in_angle, "in_ways"
+                        in_way_ids, in_angle, "in_ways", self.map_roads
                     )
                     # Connect lanes
                     in_main_lanes = self.map_roads[in_main_wid]["lanes"]
@@ -2396,10 +2401,73 @@ class Builder:
                             main_count = default_main_count
                             main_out_start = default_main_out_start
                             main_out_end = default_main_out_end
-                        # connect lanes
-                        MAIN_HAS_STRAIGHT_LANES = False
+                        # connect lanes# reset connecting lanes according to `turns_dict` when no `turn_configs` provided
+                        if not USE_TURN_CONFIG:
+                            turns_dict = {
+                                in_type: defaultdict(bool)
+                                for in_type in ["main", "auxiliary"]
+                            }
+                            if main_count > 0 and out_main_group:
+                                turns_dict["main"]["stragiht"] = True
+                            if left_count > 0:
+                                turns_dict["main"]["left"] = True
+                            if right_count > 0:
+                                turns_dict["main"]["right"] = True
+                            # 1. only one turn type
+                            ## main
+                            ### main straight
+                            if (
+                                turns_dict["main"]["stragiht"]
+                                and not turns_dict["main"]["left"]
+                                and not turns_dict["main"]["right"]
+                            ):
+                                main_count = len(in_main_lanes)
+                                main_out_start, main_out_end = 0, len(in_main_lanes)
+                            ### main left
+                            if (
+                                turns_dict["main"]["left"]
+                                and not turns_dict["main"]["stragiht"]
+                                and not turns_dict["main"]["right"]
+                            ):
+                                left_count = len(in_main_lanes)
+                            ### main right
+                            if (
+                                turns_dict["main"]["right"]
+                                and not turns_dict["main"]["left"]
+                                and not turns_dict["main"]["stragiht"]
+                            ):
+                                right_count = len(in_main_lanes)
+                            # 2. two turn types
+                            ## main
+                            ### left & right
+                            if (
+                                not turns_dict["main"]["stragiht"]
+                                and turns_dict["main"]["right"]
+                                and turns_dict["main"]["left"]
+                            ):
+                                # left over right
+                                left_count = max(
+                                    left_count, len(in_main_lanes) - right_count
+                                )
+                            ### left & straight
+                            if (
+                                not turns_dict["main"]["right"]
+                                and turns_dict["main"]["left"]
+                                and turns_dict["main"]["stragiht"]
+                            ):
+                                # straight over right
+                                main_count += len(in_main_lanes) - main_out_end
+                                main_out_end = len(in_main_lanes)
+                            ### straight & right
+                            if (
+                                not turns_dict["main"]["left"]
+                                and turns_dict["main"]["straight"]
+                                and turns_dict["main"]["right"]
+                            ):
+                                # straight over left
+                                main_count += main_out_start
+                                main_out_start = 0
                         if main_count > 0 and out_main_group:
-                            MAIN_HAS_STRAIGHT_LANES = True
                             out_road = self.map_roads[out_main_group[1][0]]
                             junc_lanes += self._connect_lane_group(
                                 in_lanes=in_main_lanes[main_out_start:main_out_end],
@@ -2425,15 +2493,11 @@ class Builder:
                                     out_road = self.map_roads[wid]
                                     junc_lanes += self._connect_lane_group(
                                         in_lanes=in_main_lanes[-right_count:],
-                                        out_lanes=[out_road["lanes"][-1]],
+                                        out_lanes=out_road["lanes"][-right_count:],
                                         lane_turn=mapv2.LANE_TURN_RIGHT,
                                         lane_type=mapv2.LANE_TYPE_DRIVING,
                                         junc_id=j_uid,
                                     )
-                        if not USE_TURN_CONFIG and not MAIN_HAS_STRAIGHT_LANES:
-                            left_count = max(
-                                left_count, len(in_main_lanes) - right_count
-                            )
                         if left_count > 0:
                             for out_angle, out_way_ids in out_left_groups:
                                 for wid in out_way_ids:
@@ -2551,7 +2615,7 @@ class Builder:
                             main_out_start = default_main_out_start
                             main_out_end = default_main_out_end
 
-                        # secondary road
+                        # auxiliary road
                         # Default turn annotation
                         # Go straight
                         default_auxiliary_main_count = (
@@ -2686,8 +2750,138 @@ class Builder:
                             auxiliary_main_out_start = default_auxiliary_main_out_start
                             auxiliary_main_out_end = default_auxiliary_main_out_end
                         # connect lanes
-                        MAIN_HAS_STRAIGHT_LANES = False
-                        AUXILIARY_HAS_STRAIGHT_LANES = False
+                        if not USE_TURN_CONFIG:
+                            # reset connecting lanes according to `turns_dict` when no `turn_configs` provided
+                            turns_dict = check_n_n_available_turns(
+                                in_main_lanes,
+                                in_auxiliary_lanes,
+                                main_count,
+                                auxiliary_main_count,
+                                main_out_start,
+                                main_out_end,
+                                auxiliary_main_out_start,
+                                auxiliary_main_out_end,
+                                left_count,
+                                auxiliary_left_count,
+                                right_count,
+                                auxiliary_right_count,
+                                out_main_group,
+                                out_left_groups,
+                                out_right_groups,
+                                self.map_roads,
+                            )
+                            # 1. only one turn type
+                            ## main
+                            ### main straight
+                            if (
+                                turns_dict["main"]["stragiht"]
+                                and not turns_dict["main"]["left"]
+                                and not turns_dict["main"]["right"]
+                            ):
+                                main_count = len(in_main_lanes)
+                                main_out_start, main_out_end = 0, len(in_main_lanes)
+                            ### main left
+                            if (
+                                turns_dict["main"]["left"]
+                                and not turns_dict["main"]["stragiht"]
+                                and not turns_dict["main"]["right"]
+                            ):
+                                left_count = len(in_main_lanes)
+                            ### main right
+                            if (
+                                turns_dict["main"]["right"]
+                                and not turns_dict["main"]["left"]
+                                and not turns_dict["main"]["stragiht"]
+                            ):
+                                right_count = len(in_main_lanes)
+                            ## auxiliary
+                            ### auxiliary straight
+                            if (
+                                turns_dict["auxiliary"]["stragiht"]
+                                and not turns_dict["auxiliary"]["left"]
+                                and not turns_dict["auxiliary"]["right"]
+                            ):
+                                auxiliary_main_count = len(in_auxiliary_lanes)
+                                auxiliary_main_out_start, auxiliary_main_out_end = (
+                                    0,
+                                    len(in_auxiliary_lanes),
+                                )
+                            ### auxiliary left
+                            if (
+                                turns_dict["auxiliary"]["left"]
+                                and not turns_dict["auxiliary"]["stragiht"]
+                                and not turns_dict["auxiliary"]["right"]
+                            ):
+                                auxiliary_left_count = len(in_auxiliary_lanes)
+                            ### auxiliary right
+                            if (
+                                turns_dict["auxiliary"]["right"]
+                                and not turns_dict["auxiliary"]["left"]
+                                and not turns_dict["auxiliary"]["stragiht"]
+                            ):
+                                auxiliary_right_count = len(in_auxiliary_lanes)
+                            # 2. two turn types
+                            ## main
+                            ### left & right
+                            if (
+                                not turns_dict["main"]["stragiht"]
+                                and turns_dict["main"]["right"]
+                                and turns_dict["main"]["left"]
+                            ):
+                                # left over right
+                                left_count = max(
+                                    left_count, len(in_main_lanes) - right_count
+                                )
+                            ### left & straight
+                            if (
+                                not turns_dict["main"]["right"]
+                                and turns_dict["main"]["left"]
+                                and turns_dict["main"]["stragiht"]
+                            ):
+                                # straight over right
+                                main_count += len(in_main_lanes) - main_out_end
+                                main_out_end = len(in_main_lanes)
+                            ### straight & right
+                            if (
+                                not turns_dict["main"]["left"]
+                                and turns_dict["main"]["straight"]
+                                and turns_dict["main"]["right"]
+                            ):
+                                # straight over left
+                                main_count += main_out_start
+                                main_out_start = 0
+                            ## auxiliary
+                            ### left & right
+                            if (
+                                not turns_dict["auxiliary"]["stragiht"]
+                                and turns_dict["auxiliary"]["right"]
+                                and turns_dict["auxiliary"]["left"]
+                            ):
+                                # left over right
+                                auxiliary_left_count = max(
+                                    auxiliary_left_count,
+                                    len(in_auxiliary_lanes) - auxiliary_right_count,
+                                )
+                            ### left & straight
+                            if (
+                                not turns_dict["auxiliary"]["right"]
+                                and turns_dict["auxiliary"]["left"]
+                                and turns_dict["auxiliary"]["stragiht"]
+                            ):
+                                # straight over right
+                                auxiliary_main_count += (
+                                    len(in_auxiliary_lanes) - auxiliary_main_out_end
+                                )
+                                auxiliary_main_out_end = len(in_auxiliary_lanes)
+                            ### straight & right
+                            if (
+                                not turns_dict["auxiliary"]["left"]
+                                and turns_dict["auxiliary"]["straight"]
+                                and turns_dict["auxiliary"]["right"]
+                            ):
+                                # straight over left
+                                auxiliary_main_count += auxiliary_main_out_start
+                                auxiliary_main_out_start = 0
                         if main_count > 0 and out_main_group is not None:
                             assert (
                                 out_main_group is not None
@@ -2697,7 +2891,7 @@ class Builder:
                                 out_main_wid,
                                 out_auxiliary_wids,
                             ) = classify_main_auxiliary_wid(
-                                out_way_ids, out_angle, "out_ways"
+                                out_way_ids, out_angle, "out_ways", self.map_roads
                             )
                             out_main_lanes = self.map_roads[out_main_wid]["lanes"]
                             out_auxiliary_lanes = [
@@ -2709,7 +2903,6 @@ class Builder:
                             if (
                                 len(in_main_lanes[main_out_start:main_out_end])
                             ) > 0 and len(out_main_lanes) > 0:
-                                MAIN_HAS_STRAIGHT_LANES = True
                                 junc_lanes += self._connect_lane_group(
                                     in_lanes=in_main_lanes[main_out_start:main_out_end],
                                     out_lanes=out_main_lanes,
@@ -2727,7 +2920,6 @@ class Builder:
                                 > 0
                                 and len(out_auxiliary_lanes) > 0
                             ):
-                                AUXILIARY_HAS_STRAIGHT_LANES = True
                                 junc_lanes += self._connect_lane_group(
                                     in_lanes=in_auxiliary_lanes[
                                         auxiliary_main_out_start:auxiliary_main_out_end
@@ -2743,7 +2935,6 @@ class Builder:
                                 and len(out_auxiliary_lanes) > 0
                                 and len(in_main_lanes[main_out_start:main_out_end]) > 0
                             ):
-                                MAIN_HAS_STRAIGHT_LANES = True
                                 junc_lanes += self._connect_lane_group(
                                     in_lanes=in_main_lanes[main_out_start:main_out_end],
                                     out_lanes=out_auxiliary_lanes,
@@ -2762,7 +2953,6 @@ class Builder:
                                 and not len(out_auxiliary_lanes) > 0
                                 and len(out_main_lanes) > 0
                             ):
-                                AUXILIARY_HAS_STRAIGHT_LANES = True
                                 junc_lanes += self._connect_lane_group(
                                     in_lanes=in_auxiliary_lanes[
                                         auxiliary_main_out_start:auxiliary_main_out_end
@@ -2779,7 +2969,10 @@ class Builder:
                                         out_main_wid,
                                         out_auxiliary_wids,
                                     ) = classify_main_auxiliary_wid(
-                                        out_way_ids, out_angle, "out_ways"
+                                        out_way_ids,
+                                        out_angle,
+                                        "out_ways",
+                                        self.map_roads,
                                     )
                                     out_main_lanes = self.map_roads[out_main_wid][
                                         "lanes"
@@ -2827,7 +3020,10 @@ class Builder:
                                         out_main_wid,
                                         out_auxiliary_wids,
                                     ) = classify_main_auxiliary_wid(
-                                        out_way_ids, out_angle, "out_ways"
+                                        out_way_ids,
+                                        out_angle,
+                                        "out_ways",
+                                        self.map_roads,
                                     )
                                     out_main_lanes = self.map_roads[out_main_wid][
                                         "lanes"
@@ -2891,7 +3087,7 @@ class Builder:
                                     out_main_wid,
                                     out_auxiliary_wids,
                                 ) = classify_main_auxiliary_wid(
-                                    out_way_ids, out_angle, "out_ways"
+                                    out_way_ids, out_angle, "out_ways", self.map_roads
                                 )
                                 out_main_lanes = self.map_roads[out_main_wid]["lanes"]
                                 out_auxiliary_lanes = [
@@ -2945,24 +3141,13 @@ class Builder:
                                         lane_type=mapv2.LANE_TYPE_DRIVING,
                                         junc_id=j_uid,
                                     )
-                        # ATTENTION: add # of left lanes when no turn configs provided
-                        if not USE_TURN_CONFIG:
-                            if not MAIN_HAS_STRAIGHT_LANES:
-                                left_count = max(
-                                    left_count, len(in_main_lanes) - right_count
-                                )
-                            if not AUXILIARY_HAS_STRAIGHT_LANES:
-                                auxiliary_left_count = max(
-                                    auxiliary_left_count,
-                                    len(in_auxiliary_lanes) - auxiliary_right_count,
-                                )
                         if left_count > 0:
                             for out_angle, out_way_ids in out_left_groups:
                                 (
                                     out_main_wid,
                                     out_auxiliary_wids,
                                 ) = classify_main_auxiliary_wid(
-                                    out_way_ids, out_angle, "out_ways"
+                                    out_way_ids, out_angle, "out_ways", self.map_roads
                                 )
                                 out_main_lanes = self.map_roads[out_main_wid]["lanes"]
                                 out_auxiliary_lanes = [

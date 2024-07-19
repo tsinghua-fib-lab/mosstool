@@ -1000,6 +1000,16 @@ class TripGenerator:
     ) -> List[Person]:
         """
         Generate person schedules.
+
+        Args:
+        - input_persons (List[Person]): Input Person objects.
+        - od_matrix (numpy.ndarray): The OD matrix.
+        - areas (GeoDataFrame): The area data.
+        - departure_time_curve (list[float]): The departure time of a day (24h). The resolution must >=1h.
+        - seed (int): The random seed.
+
+        Returns:
+        - List[Person]: The person objects with generated schedules.
         """
         # init
         self.area_shapes = []

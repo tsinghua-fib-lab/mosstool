@@ -1814,8 +1814,10 @@ def _add_aoi(aois, stops, workers, merge_aoi: bool = False):
         aois_stop.append(stop)
     # multiprocessing
     logging.info("Multiprocessing to match aoi to lanes")
-    logging.info(f"aois_poly, aois_stop:{len(aois_poly)},{len(aois_stop)}")
-    logging.info(f"lanes: {len(d_matcher) + len(w_matcher)}")
+    logging.info(
+        f"# of raw polygon AOIs:{len(aois_poly)}, # of raw stop AOIs:{len(aois_stop)}"
+    )
+    logging.info(f"# of matching lanes:{len(d_matcher) + len(w_matcher)}")
 
     # bus stop first
     args = [(aoi, AoiType.AOI_TYPE_BUS_STATION) for aoi in aois_stop]

@@ -480,7 +480,6 @@ class TransitlandPublicTransport:
                 "tags": d_tags,
             }
         GTFS_format_data = {}
-        ALL_REL_COORDS = []
         ref_id2routes = defaultdict(list)
         for rel_id, rel in _rels.items():
             ref_id = rel.get("tags", {}).get("ref")
@@ -541,7 +540,6 @@ class TransitlandPublicTransport:
                 rel_coords.append(avg_pos)
                 if idx == len(rel_coords_xy) - 2:
                     rel_coords.append(next_pos)
-            ALL_REL_COORDS.append(rel_coords)
             if any(
                 [
                     "railway" in way["tags"]

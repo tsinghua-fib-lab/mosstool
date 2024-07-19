@@ -14,6 +14,304 @@ from .._util.angle import abs_delta_angle, delta_angle
 from .._util.line import get_line_angle, get_start_vector
 
 
+def classify_main_auxiliary_wid(
+    wids: List[int],
+    way_angle: float,
+    group_type: Union[Literal["in_ways"], Literal["out_ways"]],
+    map_roads: dict,
+):
+    """
+    Return the main road and auxiliary road in wids according to in_way_group/out_way_group
+    """
+    if group_type == "in_ways":
+        vec = np.array(
+            [
+                np.cos(way_angle + np.pi / 2),
+                np.sin(way_angle + np.pi / 2),
+            ]
+        )
+        right_lanes = {wid: map_roads[wid]["lanes"][-1] for wid in wids}
+        right_vecs = [
+            {
+                "wid": wid,
+                "vec": np.array(l.coords[-1][:2]),
+            }
+            for wid, l in right_lanes.items()
+        ]
+        # The smaller the inner product, the closer it is to the right
+        sorted_wids = [
+            vec["wid"]
+            for vec in sorted(right_vecs, key=lambda x: -np.dot(x["vec"], vec))
+        ]
+    elif group_type == "out_ways":
+        vec = np.array(
+            [
+                np.cos(way_angle + np.pi / 2),
+                np.sin(way_angle + np.pi / 2),
+            ]
+        )
+        left_lanes = {wid: map_roads[wid]["lanes"][0] for wid in wids}
+        left_vecs = [
+            {
+                "wid": wid,
+                "vec": np.array(l.coords[0][:2]),
+            }
+            for wid, l in left_lanes.items()
+        ]
+        sorted_wids = [
+            vec["wid"]
+            for vec in sorted(left_vecs, key=lambda x: -np.dot(x["vec"], vec))
+        ]
+    else:
+        raise ValueError(f"Invalid group_type:{group_type}")
+    return (
+        sorted_wids[0],
+        sorted_wids[1:],
+    )
+
+
+def check_1_n_available_turns(
+    in_main_lanes: list,
+    in_auxiliary_lanes: list,
+    in_straight_main_lanes: list,
+    in_straight_auxiliary_lanes: list,
+    out_main_group,
+    out_left_groups: list,
+    out_right_groups: list,
+    map_roads: dict,
+    main_left_lane_num: int,
+    auxiliary_left_lane_num: int,
+    main_right_lane_num,
+    auxiliary_right_lane_num: int,
+):
+    res = {in_type: defaultdict(bool) for in_type in ["main", "auxiliary"]}
+    # Straight
+    if out_main_group is not None:
+        out_angle, out_way_ids = out_main_group
+        out_main_wid, out_auxiliary_wids = classify_main_auxiliary_wid(
+            out_way_ids, out_angle, "out_ways", map_roads
+        )
+        out_main_lanes = map_roads[out_main_wid]["lanes"]
+        out_auxiliary_lanes = [
+            l for wid in out_auxiliary_wids for l in map_roads[wid]["lanes"]
+        ]
+        # main road to main road
+        if len(in_straight_main_lanes) > 0 and len(out_main_lanes) > 0:
+            res["main"]["straight"] = True
+        # auxiliary road to auxiliary road
+        if len(in_straight_auxiliary_lanes) > 0 and len(out_auxiliary_lanes) > 0:
+            res["auxiliary"]["straight"] = True
+        # When there is no in auxiliary road, connect the in main road to the out auxiliary road
+        if (
+            not len(in_straight_auxiliary_lanes) > 0
+            and len(out_auxiliary_lanes) > 0
+            and len(in_straight_main_lanes) > 0
+        ):
+            res["main"]["straight"] = True
+        # When there is no out auxiliary road, connect the in auxiliary road to the main road
+        if (
+            len(in_straight_auxiliary_lanes) > 0
+            and not len(out_auxiliary_lanes) > 0
+            and len(out_main_lanes) > 0
+        ):
+            res["auxiliary"]["straight"] = True
+    # Left
+    if len(out_left_groups) > 0:
+        for out_angle, out_way_ids in out_left_groups:
+            (
+                out_main_wid,
+                out_auxiliary_wids,
+            ) = classify_main_auxiliary_wid(
+                out_way_ids, out_angle, "out_ways", map_roads
+            )
+            out_main_lanes = map_roads[out_main_wid]["lanes"]
+            out_auxiliary_lanes = [
+                l for wid in out_auxiliary_wids for l in map_roads[wid]["lanes"]
+            ]
+            # main road to main road
+            if len(in_main_lanes[:main_left_lane_num]) > 0 and len(out_main_lanes) > 0:
+                res["main"]["left"] = True
+            # auxiliary road to auxiliary road
+            if (
+                len(in_auxiliary_lanes[:auxiliary_left_lane_num]) > 0
+                and len(out_auxiliary_lanes) > 0
+            ):
+                res["auxiliary"]["left"] = True
+            # When there is no in auxiliary road, connect the in main road to the out auxiliary road
+            if (
+                not len(in_auxiliary_lanes[:main_left_lane_num]) > 0
+                and len(out_auxiliary_lanes) > 0
+                and len(in_main_lanes[:main_left_lane_num]) > 0
+            ):
+                res["main"]["left"] = True
+            # When there is no out auxiliary road, connect the in auxiliary road to the main road
+            if (
+                len(in_auxiliary_lanes[:auxiliary_left_lane_num]) > 0
+                and not len(out_auxiliary_lanes) > 0
+                and len(out_main_lanes) > 0
+            ):
+                res["auxiliary"]["left"] = True
+    # Right
+    if len(out_right_groups) > 0:
+        for out_angle, out_way_ids in out_right_groups:
+            (
+                out_main_wid,
+                out_auxiliary_wids,
+            ) = classify_main_auxiliary_wid(
+                out_way_ids, out_angle, "out_ways", map_roads
+            )
+            out_main_lanes = map_roads[out_main_wid]["lanes"]
+            out_auxiliary_lanes = [
+                l for wid in out_auxiliary_wids for l in map_roads[wid]["lanes"]
+            ]
+            # main road to main road
+            if (
+                len(in_main_lanes[-main_right_lane_num:]) > 0
+                and len(out_main_lanes) > 0
+            ):
+                res["main"]["right"] = True
+            # auxiliary road to auxiliary road
+            if (
+                len(in_auxiliary_lanes[-auxiliary_right_lane_num:]) > 0
+                and len(out_auxiliary_lanes) > 0
+            ):
+                res["auxiliary"]["right"] = True
+            # When there is no in auxiliary road, connect the in main road to the out auxiliary road
+            if (
+                not len(in_auxiliary_lanes[-main_right_lane_num:]) > 0
+                and len(out_auxiliary_lanes) > 0
+                and len(in_main_lanes[-main_right_lane_num:]) > 0
+            ):
+                res["main"]["right"] = True
+            # When there is no out auxiliary road, connect the in auxiliary road to the main road
+            if (
+                len(in_auxiliary_lanes[-auxiliary_right_lane_num:]) > 0
+                and not len(out_auxiliary_lanes) > 0
+                and len(out_main_lanes) > 0
+            ):
+                res["auxiliary"]["right"] = True
+    return res
+
+
+def check_n_n_available_turns(
+    in_main_lanes: list,
+    in_auxiliary_lanes: list,
+    main_count: int,
+    auxiliary_main_count: int,
+    main_out_start: int,
+    main_out_end: int,
+    auxiliary_main_out_start: int,
+    auxiliary_main_out_end: int,
+    left_count: int,
+    auxiliary_left_count: int,
+    right_count: int,
+    auxiliary_right_count: int,
+    out_main_group,
+    out_left_groups: list,
+    out_right_groups: list,
+    map_roads: dict,
+):
+    res = {in_type: defaultdict(bool) for in_type in ["main", "auxiliary"]}
+    if main_count > 0 and out_main_group is not None:
+        out_angle, out_way_ids = out_main_group
+        (
+            out_main_wid,
+            out_auxiliary_wids,
+        ) = classify_main_auxiliary_wid(out_way_ids, out_angle, "out_ways", map_roads)
+        out_main_lanes = map_roads[out_main_wid]["lanes"]
+        out_auxiliary_lanes = [
+            l for wid in out_auxiliary_wids for l in map_roads[wid]["lanes"]
+        ]
+        # main road to main road
+        if (len(in_main_lanes[main_out_start:main_out_end])) > 0 and len(
+            out_main_lanes
+        ) > 0:
+            res["main"]["straight"] = True
+        # auxiliary road to auxiliary road
+        if (
+            len(in_auxiliary_lanes[auxiliary_main_out_start:auxiliary_main_out_end]) > 0
+            and len(out_auxiliary_lanes) > 0
+        ):
+            res["auxiliary"]["straight"] = True
+        # When there is no in auxiliary road, connect the in main road to the out auxiliary road
+        if (
+            not len(in_auxiliary_lanes) > 0
+            and len(out_auxiliary_lanes) > 0
+            and len(in_main_lanes[main_out_start:main_out_end]) > 0
+        ):
+            res["main"]["straight"] = True
+        # When there is no out auxiliary road, connect the in auxiliary road to the main road
+        if (
+            len(in_auxiliary_lanes[auxiliary_main_out_start:auxiliary_main_out_end]) > 0
+            and not len(out_auxiliary_lanes) > 0
+            and len(out_main_lanes) > 0
+        ):
+            res["auxiliary"]["straight"] = True
+    if right_count > 0:
+        for out_angle, out_way_ids in out_right_groups:
+            (
+                out_main_wid,
+                out_auxiliary_wids,
+            ) = classify_main_auxiliary_wid(
+                out_way_ids, out_angle, "out_ways", map_roads
+            )
+            out_main_lanes = map_roads[out_main_wid]["lanes"]
+            out_auxiliary_lanes = [
+                l for wid in out_auxiliary_wids for l in map_roads[wid]["lanes"]
+            ]
+            # main road to main road
+            if (
+                len(in_main_lanes[-right_count:]) > 0
+                and len(out_main_lanes[-right_count:]) > 0
+            ):
+                res["main"]["right"] = True
+            # auxiliary road to auxiliary road
+            if (
+                len(in_auxiliary_lanes[-auxiliary_right_count:]) > 0
+                and len(out_auxiliary_lanes[-auxiliary_right_count:]) > 0
+            ):
+                res["auxiliary"]["right"] = True
+            # When there is no out auxiliary road, connect the in auxiliary road to the main road
+            if (
+                len(in_auxiliary_lanes[-auxiliary_right_count:]) > 0
+                and not len(out_auxiliary_lanes) > 0
+                and len(out_main_lanes[-right_count:]) > 0
+            ):
+                res["auxiliary"]["right"] = True
+    if left_count > 0:
+        for out_angle, out_way_ids in out_left_groups:
+            (
+                out_main_wid,
+                out_auxiliary_wids,
+            ) = classify_main_auxiliary_wid(
+                out_way_ids, out_angle, "out_ways", map_roads
+            )
+            out_main_lanes = map_roads[out_main_wid]["lanes"]
+            out_auxiliary_lanes = [
+                l for wid in out_auxiliary_wids for l in map_roads[wid]["lanes"]
+            ]
+            # main road to main road
+            if (
+                len(in_main_lanes[:left_count]) > 0
+                and len(out_main_lanes[:left_count]) > 0
+            ):
+                res["main"]["left"] = True
+            # auxiliary road to auxiliary road
+            if (
+                len(in_auxiliary_lanes[:auxiliary_left_count]) > 0
+                and len(out_auxiliary_lanes[:auxiliary_left_count]) > 0
+            ):
+                res["auxiliary"]["left"] = True
+            # When there is no out auxiliary road, connect the in auxiliary road to the main road
+            if (
+                len(in_auxiliary_lanes[:auxiliary_left_count]) > 0
+                and not len(out_auxiliary_lanes) > 0
+                and len(out_main_lanes[:left_count])
+            ):
+                res["auxiliary"]["left"] = True
+    return res
+
+
 def add_overlaps(output_junctions: dict, output_lanes: dict) -> None:
     for _, junc in output_junctions.items():
         junc_poly_lanes = [
