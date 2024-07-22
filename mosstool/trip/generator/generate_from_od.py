@@ -11,17 +11,16 @@ import pyproj
 import shapely.geometry as geometry
 from geojson import Feature, FeatureCollection, Polygon
 from geopandas.geodataframe import GeoDataFrame
-from pycityproto.city.geo.v2.geo_pb2 import AoiPosition, Position
-from pycityproto.city.map.v2.map_pb2 import Map
-from pycityproto.city.person.v1.person_pb2 import (BusAttribute, Person,
+from pycityproto.city.person.v1.person_pb2 import (BusAttribute,
                                                    PersonAttribute,
                                                    PersonProfile, TripStop)
 from pycityproto.city.routing.v2.routing_pb2 import (DrivingJourneyBody,
                                                      Journey, JourneyType)
-from pycityproto.city.trip.v2.trip_pb2 import Schedule, Trip, TripMode
 
 from ...map._map_util.aoiutils import geo_coords
 from ...map._map_util.const import *
+from ...type import (AoiPosition, LanePosition, Map, Person, Position,
+                     Schedule, Trip, TripMode)
 from ...util.format_converter import dict2pb, pb2dict
 from ...util.geo_match_pop import geo2pop
 from ._util.const import *
@@ -853,9 +852,10 @@ class TripGenerator:
                     trip_stop_lane_id_s, trip_stop_aoi_ids
                 ):
                     trip_stop = cast(TripStop, p.trip_stops.add())
-                    trip_stop.lane_id = d_lane_id
-                    trip_stop.s = d_s
-                    trip_stop.aoi_id = aoi_id
+                    trip_stop.lane_position.CopyFrom(
+                        LanePosition(lane_id=d_lane_id, s=d_s)
+                    )
+                    trip_stop.aoi_position.CopyFrom(AoiPosition(aoi_id=aoi_id))
                     trip_stop.duration = stop_duration_time
                 if sl_attributes:
                     p.attribute.CopyFrom(dict2pb(sl_attributes, PersonAttribute()))
@@ -892,6 +892,7 @@ class TripGenerator:
     def _generate_schedules(self, input_persons: List[Person], seed: int):
         global region2aoi, aoi_map, aoi_type2ids
         global home_dist, work_od, other_od, educate_od
+        region2aoi = self.region2aoi
         aoi_map = {d["id"]: d for d in self.aois}
         n_region = len(self.regions)
         home_dist, work_od, educate_od, other_od = extract_HWEO_from_od_matrix(
