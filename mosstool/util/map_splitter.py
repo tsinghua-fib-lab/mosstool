@@ -5,7 +5,7 @@ split map into multiple parts
 import logging
 import os
 import time
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional
 
 import numpy as np
 import pyproj
@@ -51,7 +51,7 @@ def split_map(
     map: Map,
     output_path: Optional[str] = None,
     distance_threshold: float = 50.0,
-) -> List[Map]:
+) -> Dict[Any, Map]:
     """
     Args:
     - geo_data (FeatureCollection): polygon geo files.
@@ -177,4 +177,4 @@ def split_map(
         for poly_id, pb in output_map_pbs.items():
             with open(os.path.join(output_path, f"{map_name}_{poly_id}.pb"), "wb") as f:
                 f.write(pb.SerializeToString())
-    return list(output_map_pbs.values())
+    return output_map_pbs
