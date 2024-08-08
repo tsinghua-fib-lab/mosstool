@@ -188,7 +188,7 @@ async def _fill_public_lines(m: dict, server_address: str):
                             "departure_times": departure_times,
                             "offset_times": offset_times,
                         },
-                        "capacity":STATION_CAPACITY[pub["type"]],
+                        "capacity": STATION_CAPACITY[pub["type"]],
                         "taz_costs": [],
                     }
                 )
@@ -308,6 +308,7 @@ def _get_taz_cost_unit(arg):
 
 
 def _post_compute(m: dict, workers: int):
+    m = deepcopy(m)
     header = m["header"]
     aois = {a["id"]: a for a in m["aois"]}
     lanes = {l["id"]: l for l in m["lanes"]}
@@ -338,7 +339,24 @@ def _post_compute(m: dict, workers: int):
         res += s_end
         return res
 
+    # add subline_driving_lane_pairs
+    for _, aoi in aois.items():
+        aoi["subline_driving_lane_pairs"] = []
+
+    def aoi2driving_lane_id(aoi: dict, road_id: int):
+        road = roads[road_id]
+        rightest_lane_id = [
+            lanes[lid]
+            for lid in road["lane_ids"]
+            if lanes[lid]["type"] == mapv2.LANE_TYPE_DRIVING
+        ][-1]["id"]
+        for gate, pos in zip(aoi["driving_gates"], aoi["driving_positions"]):
+            if pos["lane_id"] == rightest_lane_id:
+                return pos["lane_id"]
+        raise ValueError(f"{rightest_lane_id} not in AOI {aoi['id']} gates")
+
     for subline in sublines_data:
+        subline_id = subline["id"]
         station_aois = {aoi_id: aois[aoi_id] for aoi_id in subline["aoi_ids"]}
         sta_aoi_ids = list(station_aois.keys())
         route_lengths = []
@@ -352,6 +370,12 @@ def _post_compute(m: dict, workers: int):
                 if lane["parent_id"] == road_ids[0]:
                     s_start = d["s"]
                     break
+            aoi_start["subline_driving_lane_pairs"].append(
+                {
+                    "subline_id": subline_id,
+                    "driving_lane_id": aoi2driving_lane_id(aoi_start, road_ids[0]),
+                }
+            )
             aoi_end = station_aois[sta_aoi_ids[i + 1]]
             s_end = 0
             for d in aoi_end["driving_positions"]:
@@ -359,6 +383,13 @@ def _post_compute(m: dict, workers: int):
                 if lane["parent_id"] == road_ids[-1]:
                     s_end = d["s"]
                     break
+            if i + 1 == len(sta_aoi_ids) - 1:
+                aoi_end["subline_driving_lane_pairs"].append(
+                    {
+                        "subline_id": subline_id,
+                        "driving_lane_id": aoi2driving_lane_id(aoi_end, road_ids[-1]),
+                    }
+                )
             route_lengths.append(_station_distance(road_ids, s_start, s_end))
         arg = (subline, station_aois, (x_min, x_step, y_min, y_step), route_lengths)
         taz_cost_args.append(arg)
@@ -373,14 +404,6 @@ def _post_compute(m: dict, workers: int):
     for subline in sublines_data:
         subline_id = subline["id"]
         subline["taz_costs"] = subline_id2taz_costs[subline_id]
-    # for sl in sublines_data:
-    #     if not sl["type"] == mapv2.SUBLINE_TYPE_SUBWAY:
-    #         continue
-    #     transfer_stations = []
-    #     for aid in sl["aoi_ids"]:
-    #         station = aois[aid]
-    #         if len(station["subline_ids"]) > 1:
-    #             transfer_stations.append(station)
 
     return m
 

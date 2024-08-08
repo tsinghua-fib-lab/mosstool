@@ -1,16 +1,25 @@
 from multiprocessing import Pool, cpu_count
-from typing import Dict, List
+from typing import Dict, List, Literal, Optional, Set, Tuple, Union, cast
 
 import numpy as np
+from pycityproto.city.person.v1.person_pb2 import (BusAttribute, BusType,
+                                                   PersonAttribute,
+                                                   PersonProfile)
+from pycityproto.city.routing.v2.routing_pb2 import (DrivingJourneyBody,
+                                                     Journey, JourneyType)
+from pycityproto.city.trip.v2.trip_pb2 import TripStop
 
 from ....map._map_util.const import *
-from ....type import Consumption, Education, TripMode
+from ....type import (AoiPosition, Consumption, Education, LanePosition, Map,
+                      Person, Position, Schedule, Trip, TripMode)
+from ....util.format_converter import dict2pb, pb2dict
 from .const import *
 
 __all__ = [
     "is_walking",
     "gen_profiles",
     "recalculate_trip_mode_prob",
+    "gen_bus_drivers",
 ]
 
 
@@ -230,3 +239,134 @@ def extract_HWEO_from_od_matrix(
     other_od = np.nan_to_num(other_od)
     other_od[np.where(sum_other_od_j == 0)] = 1
     return home_dist, work_od, educate_od, other_od
+
+
+def gen_bus_drivers(
+    person_id: int,
+    person_template: Person,
+    depart_times: List[float],
+    stop_duration_time: float,
+    road_aoi_id2d_pos: Dict[Tuple[int, int], geov2.LanePosition],
+    subline,
+) -> Tuple[int, List[Person]]:
+    def _transfer_conn_road_ids(
+        station_connection_road_ids: List[List[int]],
+    ) -> List[int]:
+        assert (
+            len(station_connection_road_ids) > 0
+            and len(station_connection_road_ids[0]) > 0
+        ), f"Bad conn_road_ids {station_connection_road_ids}"
+        route_road_ids = []
+        for next_road_ids in station_connection_road_ids:
+            if len(route_road_ids) > 0 and route_road_ids[-1] == next_road_ids[0]:
+                route_road_ids += next_road_ids[1:]
+            else:
+                route_road_ids += next_road_ids
+        return route_road_ids
+
+    def _aoi_road_ids(station_connection_road_ids) -> List[int]:
+        cur_road_ids = [rids[0] for rids in station_connection_road_ids]
+        # road that connect to the end station
+        cur_road_ids.append(station_connection_road_ids[-1][-1])
+        return cur_road_ids
+
+    sl_id = subline.id
+    # basic attributes
+    sl_type = subline.type
+    bus_type = BusType.BUS_TYPE_UNSPECIFIED
+    if sl_type == mapv2.SUBLINE_TYPE_BUS:
+        sl_capacity = STATION_CAPACITY["BUS"]
+        sl_attributes = PT_DRIVER_ATTRIBUTES["BUS"]
+        bus_type = BusType.BUS_TYPE_BUS
+    elif sl_type == mapv2.SUBLINE_TYPE_SUBWAY:
+        sl_capacity = STATION_CAPACITY["SUBWAY"]
+        sl_attributes = PT_DRIVER_ATTRIBUTES["SUBWAY"]
+        bus_type = BusType.BUS_TYPE_SUBWAY
+    elif sl_type == mapv2.SUBLINE_TYPE_UNSPECIFIED:
+        sl_capacity = STATION_CAPACITY["UNSPECIFIED"]
+        sl_attributes = PT_DRIVER_ATTRIBUTES["UNSPECIFIED"]
+        bus_type = BusType.BUS_TYPE_UNSPECIFIED
+    else:
+        raise ValueError(f"Bad Subline Type {sl_type}")
+    # road ids
+    station_connection_road_ids = [
+        [rid for rid in rids.road_ids] for rids in subline.station_connection_road_ids
+    ]
+    route_road_ids = _transfer_conn_road_ids(station_connection_road_ids)
+    trip_stop_road_ids = _aoi_road_ids(
+        station_connection_road_ids
+    )  # stop road ids during the trip
+    # trip stops
+    aoi_ids = list(subline.aoi_ids)
+    home_aoi_id, end_aoi_id = aoi_ids[0], aoi_ids[-1]
+    trip_stop_aoi_ids = aoi_ids  # stop aoi ids during the trip
+    trip_stop_lane_id_s = []
+    for cur_road_id, cur_aoi_id in zip(trip_stop_road_ids, trip_stop_aoi_ids):
+        road_aoi_key = (cur_road_id, cur_aoi_id)
+        if road_aoi_key not in road_aoi_id2d_pos:
+            raise ValueError(f"bad road and AOI pair {road_aoi_key}")
+        d_pos = road_aoi_id2d_pos[road_aoi_key]
+        d_lane_id, d_s = d_pos.lane_id, d_pos.s
+        trip_stop_lane_id_s.append((d_lane_id, d_s))
+    assert len(trip_stop_lane_id_s) == len(
+        trip_stop_aoi_ids
+    ), f"Bad PublicTransport Route at {aoi_ids}"
+    p_trip_stops = []
+    # bus attribute
+    p_bus_attr = BusAttribute(
+        subline_id=sl_id, capacity=sl_capacity, type=bus_type, model=""
+    )
+    for (d_lane_id, d_s), aoi_id in zip(trip_stop_lane_id_s, trip_stop_aoi_ids):
+        trip_stop = TripStop()
+        trip_stop.lane_position.CopyFrom(LanePosition(lane_id=d_lane_id, s=d_s))
+        trip_stop.aoi_position.CopyFrom(AoiPosition(aoi_id=aoi_id))
+        trip_stop.duration = stop_duration_time
+        p_trip_stops.append(trip_stop)
+    # eta for bus journey
+    bus_eta = sum(subline.schedules.offset_times)
+    sl_drivers = []
+    if bus_type == BusType.BUS_TYPE_BUS:
+        for tm in depart_times:
+            p = Person()
+            p.CopyFrom(person_template)
+            p.id = person_id
+            if sl_attributes:
+                p.attribute.CopyFrom(dict2pb(sl_attributes, PersonAttribute()))
+            p.bus_attribute.CopyFrom(p_bus_attr)
+            p.home.CopyFrom(Position(aoi_position=AoiPosition(aoi_id=home_aoi_id)))
+            schedule = cast(Schedule, p.schedules.add())
+            schedule.departure_time = tm
+            schedule.loop_count = 1
+            trip = Trip(
+                mode=cast(
+                    TripMode,
+                    CAR,
+                ),
+                end=Position(aoi_position=AoiPosition(aoi_id=end_aoi_id)),
+                activity="",
+                model="",
+                trip_stops=p_trip_stops,
+                routes=[
+                    Journey(
+                        driving=DrivingJourneyBody(
+                            road_ids=route_road_ids, eta=bus_eta
+                        ),
+                        type=JourneyType.JOURNEY_TYPE_DRIVING,
+                    )
+                ],
+            )
+            schedule.trips.append(trip)
+            person_id += 1
+            sl_drivers.append(p)
+    elif bus_type == BusType.BUS_TYPE_SUBWAY:
+        # empty schedule
+        p = Person()
+        p.CopyFrom(person_template)
+        p.id = person_id
+        if sl_attributes:
+            p.attribute.CopyFrom(dict2pb(sl_attributes, PersonAttribute()))
+        p.bus_attribute.CopyFrom(p_bus_attr)
+        p.home.CopyFrom(Position(aoi_position=AoiPosition(aoi_id=home_aoi_id)))
+        person_id += 1
+        sl_drivers.append(p)
+    return (person_id, sl_drivers)
