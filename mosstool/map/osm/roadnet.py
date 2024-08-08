@@ -95,6 +95,16 @@ class RoadNet:
         xy = [[node["x"], node["y"]] for node in (self.nodes[i] for i in way["nodes"])]
         return sum(hypot(i[0] - j[0], i[1] - j[1]) for i, j in zip(xy, xy[1:]))
 
+    def _way_coords_xy(self, way):
+        xy = [[node["x"], node["y"]] for node in (self.nodes[i] for i in way["nodes"])]
+        return xy
+
+    def _way_coords_lonlat(self, way):
+        xy = [
+            [node["lon"], node["lat"]] for node in (self.nodes[i] for i in way["nodes"])
+        ]
+        return xy
+
     def _update_node_ways(self):
         """
         Build node_ways(node_id -> list[way_id]) from ways
@@ -175,7 +185,9 @@ class RoadNet:
         geos = []
         jid_to_in_ways = defaultdict(list)
         jid_to_out_ways = defaultdict(list)
-        links = {}  # (start_jid, end_jid) -> way_id, used to check whether there are multiple paths between junctions
+        links = (
+            {}
+        )  # (start_jid, end_jid) -> way_id, used to check whether there are multiple paths between junctions
         for way in self.ways.values():
             geos.append(
                 Feature(
@@ -247,6 +259,8 @@ class RoadNet:
             if doc["type"] != "node":
                 continue
             if "lon" in doc and "lat" in doc:
+                # Latitude and longitude are specified with a precision of six decimal places.
+                doc["lon"], doc["lat"] = round(doc["lon"], 6), round(doc["lat"], 6)
                 doc["x"], doc["y"] = self.projector(doc["lon"], doc["lat"])
                 self.nodes[doc["id"]] = doc
         # all ways
@@ -310,6 +324,7 @@ class RoadNet:
         }
         # Ensure that all way IDs are correct
         self._assert_ways()
+
     # Intermediate processing operations
 
     def _remove_redundant_ways(self):
@@ -317,7 +332,7 @@ class RoadNet:
         Some nodes are connected by multiple paths, remove these redundant paths;
         """
         # Some nodes are connected by multiple paths, remove these redundant paths.
-        connects = defaultdict(set) # (start, end) -> way_id list
+        connects = defaultdict(set)  # (start, end) -> way_id list
         for way_id, way in self.ways.items():
             start = way["nodes"][0]
             end = way["nodes"][-1]
@@ -336,7 +351,9 @@ class RoadNet:
                     key=lambda wid: (
                         # Ascending order, two-way road first (not true -> false)
                         not self.ways[wid]["oneway"],
-                        self._way_length(self.ways[wid]), #Ascending order, smaller length first
+                        self._way_length(
+                            self.ways[wid]
+                        ),  # Ascending order, smaller length first
                     )
                 )
                 marked_ids.add(way_id_list[0])
@@ -345,6 +362,20 @@ class RoadNet:
                     removed_ids.add(way_id)
         for wid in marked_ids:
             self.ways[wid]["remove_redundant_ways"] = "same-start-end"
+        for wid in removed_ids:
+            del self.ways[wid]
+
+        self._assert_ways()
+
+    def _remove_invalid_ways(self):
+        """
+        Some ways has non-shapely coordinates; remove them
+        """
+        removed_ids = set()
+        for way_id, way in self.ways.items():
+            coords_lonlat = self._way_coords_lonlat(way)
+            if len({tuple(c) for c in coords_lonlat}) <= 1:
+                removed_ids.add(way_id)
         for wid in removed_ids:
             del self.ways[wid]
 
@@ -369,7 +400,7 @@ class RoadNet:
             ai, bi = list(way_ids)
             if ai == bi:
                 logging.warning(f"node {node_id} is isolated")
-                continue # beijingbigger way 992244675 is a circle
+                continue
             a, b = self.ways[ai], self.ways[bi]
             assert a["nodes"][0] == node_id or a["nodes"][-1] == node_id
             assert b["nodes"][0] == node_id or b["nodes"][-1] == node_id
@@ -415,17 +446,23 @@ class RoadNet:
             degree_one_count = 0
             degree_two_count = 0
             for node in component:
-                if g.degree(node) == 1: # type: ignore
+                if g.degree(node) == 1:  # type: ignore
                     degree_one_count += 1
-                elif g.degree(node) == 2: # type: ignore
+                elif g.degree(node) == 2:  # type: ignore
                     degree_two_count += 1
                 else:
-                    raise AssertionError("The degree of the node does not meet the requirements")
-            assert degree_one_count == 2, "The number of nodes with degree 1 is incorrect"
-            assert degree_two_count == len(component) - 2, "The number of nodes with degree 2 is incorrect"
+                    raise AssertionError(
+                        "The degree of the node does not meet the requirements"
+                    )
+            assert (
+                degree_one_count == 2
+            ), "The number of nodes with degree 1 is incorrect"
+            assert (
+                degree_two_count == len(component) - 2
+            ), "The number of nodes with degree 2 is incorrect"
             # Select a node with degree 1 and calculate the path to another node with degree 1
             degree_one_nodes = [
-                node for node in component if g.degree(node) == 1 # type: ignore
+                node for node in component if g.degree(node) == 1  # type: ignore
             ]
             start_node = degree_one_nodes[0]
             end_node = degree_one_nodes[1]
@@ -500,6 +537,7 @@ class RoadNet:
             new_nodes.append(nodes[-1])
             new_way["nodes"] = new_nodes
             self.ways[new_way["id"]] = new_way
+
     def _remove_out_of_roadnet(self):
         """
         Remove isolated roads outside the main road network, that is, only retain the largest connected component
@@ -570,7 +608,7 @@ class RoadNet:
         If there are only two roads at the intersection, one in and one out, then delete the intersection and join the two roads.
         """
         # Remove duplicate roads
-        links = defaultdict(list) # (start_junc, end_junc) -> way_ids
+        links = defaultdict(list)  # (start_junc, end_junc) -> way_ids
         for way in self.ways.values():
             start_junc = self.node2junction[way["nodes"][0]]
             end_junc = self.node2junction[way["nodes"][-1]]
@@ -628,6 +666,7 @@ class RoadNet:
             for node in self.junction2nodes[c]:
                 del self.node2junction[node]
             del self.junction2nodes[c]
+
     def create_road_net(self, output_path: Optional[str] = None):
         """
         Create Road net from OpenStreetMap.
@@ -646,21 +685,16 @@ class RoadNet:
         # 1. Remove redundant ways/nodes
         self._remove_redundant_ways()
         self._remove_simple_joints()
-        # self.dump_as_geojson("cache/2.geojson")
+        self._remove_invalid_ways()
         # 2. Convert all ways to one-way streets
         self._make_all_one_way()
-        # self.dump_as_geojson("cache/3.geojson")
         # 3. Remove isolated roads outside the main road network
         self._remove_out_of_roadnet()
-        # self.dump_as_geojson("cache/3_1.geojson")
         self._init_junctions()
-        # self.dump_as_geojson("cache/4.geojson")
         # 3. Build junction
         self._merge_junction_by_motif()
-        # self.dump_as_geojson("cache/5.geojson")
         # 4. Delete redundant content
         self._clean_topo()
-        # self.dump_as_geojson("cache/6.geojson")
         # 5. Save topology
         topo = self.to_topo()
         if output_path is not None:
