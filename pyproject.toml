@@ -29,6 +29,7 @@ levenshtein = "^0.25.0"
 bs4 = "^0.0.2"
 matplotlib = "^3.8.3"
 generate-od = "^0.1"
+path4gmns = "^0.9.8"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.1.1"
