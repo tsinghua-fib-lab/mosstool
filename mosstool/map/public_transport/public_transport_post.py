@@ -73,7 +73,8 @@ async def _fill_public_lines(m: dict, server_address: str):
         return res
 
     # Filter sublines that are reachable in the map
-    for pub in tqdm(pub_data):
+    # for pub in tqdm(pub_data):
+    for pub in pub_data:
         for subline in pub["sublines"]:
             if pub["type"] == "BUS":
                 station_connection_road_ids = subline["station_connection_road_ids"]
