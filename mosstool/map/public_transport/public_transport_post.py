@@ -348,7 +348,8 @@ def _post_compute(m: dict, workers: int):
         rightest_lane_id = [
             lanes[lid]
             for lid in road["lane_ids"]
-            if lanes[lid]["type"] == mapv2.LANE_TYPE_DRIVING
+            if lanes[lid]["type"]
+            in {mapv2.LANE_TYPE_DRIVING, mapv2.LANE_TYPE_RAIL_TRANSIT}
         ][-1]["id"]
         for gate, pos in zip(aoi["driving_gates"], aoi["driving_positions"]):
             if pos["lane_id"] == rightest_lane_id:

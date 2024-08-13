@@ -5,8 +5,7 @@ from collections import defaultdict
 from copy import deepcopy
 from math import atan2
 from multiprocessing import cpu_count
-from typing import (Callable, Dict, List, Literal, Optional, Set, Tuple, Union,
-                    cast)
+from typing import Callable, Dict, List, Literal, Optional, Set, Tuple, Union, cast
 
 import matplotlib.pyplot as plt
 import networkx as nx
@@ -26,18 +25,27 @@ from .._map_util.aoi_matcher import add_aoi_to_map
 from .._map_util.aoiutils import generate_aoi_poi
 from .._map_util.const import *
 from .._map_util.convert_aoi import convert_aoi, convert_poi
-from .._map_util.format_checker import (geojson_format_check,
-                                        output_format_check)
+from .._map_util.format_checker import geojson_format_check, output_format_check
 from .._map_util.gen_traffic_light import generate_traffic_light
-from .._map_util.junctionutils import (add_driving_groups, add_overlaps,
-                                       check_1_n_available_turns,
-                                       check_n_n_available_turns,
-                                       classify_main_auxiliary_wid)
+from .._map_util.junctionutils import (
+    add_driving_groups,
+    add_overlaps,
+    check_1_n_available_turns,
+    check_n_n_available_turns,
+    classify_main_auxiliary_wid,
+)
 from .._map_util.map_aois_matchers import match_map_aois
 from .._util.angle import abs_delta_angle, delta_angle
-from .._util.line import (align_line, connect_line_string, get_line_angle,
-                          get_start_vector, line_extend, line_max_curvature,
-                          merge_line_start_end, offset_lane)
+from .._util.line import (
+    align_line,
+    connect_line_string,
+    get_line_angle,
+    get_start_vector,
+    line_extend,
+    line_max_curvature,
+    merge_line_start_end,
+    offset_lane,
+)
 
 __all__ = ["Builder"]
 
@@ -3846,7 +3854,7 @@ class Builder:
                     "in": [],
                     "out": [],
                     "max_speed": DEFAULT_MAX_SPEED["SUBWAY"],
-                    "type": mapv2.LANE_TYPE_DRIVING,
+                    "type": mapv2.LANE_TYPE_RAIL_TRANSIT,
                     "turn": mapv2.LANE_TURN_STRAIGHT,
                     "width": lane_width,
                     "left_lane_ids": [],
@@ -3882,7 +3890,7 @@ class Builder:
                         in_lanes=new_lanes[i : i + 1],
                         out_lanes=new_lanes[i + 1 : i + 2],
                         lane_turn=mapv2.LANE_TURN_STRAIGHT,
-                        lane_type=mapv2.LANE_TYPE_DRIVING,
+                        lane_type=mapv2.LANE_TYPE_RAIL_TRANSIT,
                         junc_id=self.junc_uid,
                     ),
                     "uid": self.junc_uid,
@@ -3981,6 +3989,7 @@ class Builder:
                 "length": geo.length,
             }
             for geo in d_right_lanes
+            if self.lane2data[geo]["type"] == mapv2.LANE_TYPE_DRIVING
         ]
         w_lanes = [
             l for l, d in self.lane2data.items() if d["type"] == mapv2.LANE_TYPE_WALKING
@@ -4027,6 +4036,7 @@ class Builder:
                 "length": geo.length,
             }
             for geo in d_right_lanes
+            if self.lane2data[geo]["type"] == mapv2.LANE_TYPE_DRIVING
         ]
         w_lanes = [
             l
