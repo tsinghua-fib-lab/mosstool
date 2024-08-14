@@ -1607,11 +1607,10 @@ def _add_pois(aois, pois, projstr):
         poi = pois[poi_id]
         x, y = poi["coords"][0]
         external = poi["external"]
-        poi_name = external.get("name", "")
         out_pois[poi_uid] = {
             "id": poi_uid,
-            "name": poi_name,
-            "category": poi.get("catg", ""),
+            "name": poi.get("name", ""),
+            "category": poi.get("category", ""),
             "position": {"x": x, "y": y},
             "aoi_id": poi_id_to_aoi_id[poi_id],
             "external": {

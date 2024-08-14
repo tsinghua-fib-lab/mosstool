@@ -103,6 +103,8 @@ def convert_poi(geos: FeatureCollection, projstr: str) -> list:
                     {
                         "id": poi_id,
                         "coords": [projector(*coords)],
+                        "name": name,
+                        "category": catg,
                         "external": {
                             "name": name,
                             "catg": catg,
@@ -163,6 +165,8 @@ def convert_sumo_aoi_poi(
                         {
                             "id": poly_id,
                             "coords": [projector(lon, lat) for (lon, lat) in geo],
+                            "name": "",
+                            "category": poly_type,
                             "external": {
                                 "name": "",  # SUMO's POI does not have a name field
                                 "catg": poly_type,
@@ -222,6 +226,8 @@ def convert_sumo_aoi_poi(
                     {
                         "id": poi_id,
                         "coords": [projector(lon, lat) for (lon, lat) in [gps_loc]],
+                        "name": "",
+                        "category": poi_type,
                         "external": {
                             "name": "",  # SUMO's POI does not have a name field
                             "catg": poi_type,
