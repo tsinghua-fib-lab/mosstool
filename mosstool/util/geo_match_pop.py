@@ -15,7 +15,7 @@ from geojson import FeatureCollection
 from geopandas.geodataframe import GeoDataFrame
 from shapely.geometry import MultiPolygon, Point, Polygon
 
-from ..map._map_util.aoiutils import geo_coords
+from ..map._map_util.aois.utils import geo_coords
 from ..map._map_util.const import *
 
 __all__ = ["geo2pop"]

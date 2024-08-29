@@ -12,7 +12,7 @@ from coord_convert.transform import gcj2wgs
 from lxml import etree
 from shapely.geometry import LineString, MultiPoint, Point, Polygon
 
-from .._map_util.aoiutils import geo_coords
+from .._map_util.aois.utils import geo_coords
 
 __all__ = [
     "AmapSubway",

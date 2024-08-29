@@ -12,7 +12,7 @@ import shapely.geometry as geometry
 from geojson import Feature, FeatureCollection, Polygon
 from geopandas.geodataframe import GeoDataFrame
 
-from ...map._map_util.aoiutils import geo_coords
+from ...map._map_util.aois.utils import geo_coords
 from ...map._map_util.const import *
 from ...type import (AoiPosition, LanePosition, Map, Person, PersonProfile,
                      Position, Schedule, Trip, TripMode)

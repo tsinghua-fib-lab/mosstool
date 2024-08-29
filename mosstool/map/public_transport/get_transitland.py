@@ -12,9 +12,13 @@ import requests
 from shapely.geometry import LineString, MultiPoint, Point, Polygon
 
 from ...map._map_util.const import *
-from .._map_util.aoiutils import geo_coords
-from .._util.line import (clip_line, connect_split_lines, merge_near_xy_points,
-                          offset_lane)
+from .._map_util.aois.utils import geo_coords
+from .._util.line import (
+    clip_line,
+    connect_split_lines,
+    merge_near_xy_points,
+    offset_lane,
+)
 
 __all__ = [
     "TransitlandPublicTransport",
