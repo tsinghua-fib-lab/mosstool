@@ -10,7 +10,7 @@ logging.basicConfig(
     format="%(asctime)s %(levelname)s %(message)s",
 )
 s2m = MapConverter(
-    net_path="data/sumo/shenzhen_simple.net.xml",
+    net_path="data/sumo/shenzhen.net.xml",
     traffic_light_path="data/sumo/trafficlight.xml",
     poly_path="data/sumo/poly.xml",
 )

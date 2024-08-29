@@ -5,7 +5,8 @@ from collections import defaultdict
 from copy import deepcopy
 from math import atan2
 from multiprocessing import cpu_count
-from typing import Callable, Dict, List, Literal, Optional, Set, Tuple, Union, cast
+from typing import (Callable, Dict, List, Literal, Optional, Set, Tuple, Union,
+                    cast)
 
 import matplotlib.pyplot as plt
 import networkx as nx
@@ -20,32 +21,21 @@ from shapely.geometry import LineString, MultiPoint, Point
 from sklearn.cluster import KMeans
 
 from ...type import Map
-from .._map_util.add_aoi_pop import add_aoi_pop
-from .._map_util.aoi_matcher import add_aoi_to_map
-from .._map_util.aoiutils import generate_aoi_poi
+from .._map_util.aois import add_aoi_pop, add_aoi_to_map, generate_aoi_poi
+from .._map_util.aois.convert_aoi_poi import convert_aoi, convert_poi
+from .._map_util.aois.reuse_aois_matchers import match_map_aois
 from .._map_util.const import *
-from .._map_util.convert_aoi import convert_aoi, convert_poi
-from .._map_util.format_checker import geojson_format_check, output_format_check
-from .._map_util.gen_traffic_light import generate_traffic_light
-from .._map_util.junctionutils import (
-    add_driving_groups,
-    add_overlaps,
-    check_1_n_available_turns,
-    check_n_n_available_turns,
-    classify_main_auxiliary_wid,
-)
-from .._map_util.map_aois_matchers import match_map_aois
+from .._map_util.format_checker import (geojson_format_check,
+                                        output_format_check)
+from .._map_util.junctions import (add_driving_groups, add_overlaps,
+                                   check_1_n_available_turns,
+                                   check_n_n_available_turns,
+                                   classify_main_auxiliary_wid,
+                                   generate_traffic_light)
 from .._util.angle import abs_delta_angle, delta_angle
-from .._util.line import (
-    align_line,
-    connect_line_string,
-    get_line_angle,
-    get_start_vector,
-    line_extend,
-    line_max_curvature,
-    merge_line_start_end,
-    offset_lane,
-)
+from .._util.line import (align_line, connect_line_string, get_line_angle,
+                          get_start_vector, line_extend, line_max_curvature,
+                          merge_line_start_end, offset_lane)
 
 __all__ = ["Builder"]
 

@@ -693,11 +693,26 @@ class RouteConverter:
         for t in self._trips:
             if t.hasAttribute("type"):
                 trip_type = t.getAttribute("type")
-                self.agent_attribute, self.vehicle_attribute = self._vtype[trip_type]
+                (
+                    self.agent_attribute,
+                    self.vehicle_attribute,
+                    self.pedestrian_attribute,
+                    self.bike_attribute,
+                    self.agent_type,
+                ) = self._vtype[trip_type]
             else:
-                self.agent_attribute, self.vehicle_attribute = (
+                (
+                    self.agent_attribute,
+                    self.vehicle_attribute,
+                    self.pedestrian_attribute,
+                    self.bike_attribute,
+                    self.agent_type,
+                ) = (
                     DEFAULT_AGENT_ATTRIBUTE,
                     DEFAULT_VEHICLE_ATTRIBUTE,
+                    DEFAULT_PEDESTRIAN_ATTRIBUTE,
+                    DEFAULT_BIKE_ATTRIBUTE,
+                    DEFAULT_AGENT_TYPE,
                 )
             (TRIP_MODE, SPEED, ROAD_LANE_TYPE) = self._process_agent_type()
             trip_id = t.getAttribute("id")
@@ -876,11 +891,26 @@ class RouteConverter:
                 continue
             if f.hasAttribute("type"):
                 flow_type = f.getAttribute("type")
-                self.agent_attribute, self.vehicle_attribute = self._vtype[flow_type]
+                (
+                    self.agent_attribute,
+                    self.vehicle_attribute,
+                    self.pedestrian_attribute,
+                    self.bike_attribute,
+                    self.agent_type,
+                ) = self._vtype[flow_type]
             else:
-                self.agent_attribute, self.vehicle_attribute = (
+                (
+                    self.agent_attribute,
+                    self.vehicle_attribute,
+                    self.pedestrian_attribute,
+                    self.bike_attribute,
+                    self.agent_type,
+                ) = (
                     DEFAULT_AGENT_ATTRIBUTE,
                     DEFAULT_VEHICLE_ATTRIBUTE,
+                    DEFAULT_PEDESTRIAN_ATTRIBUTE,
+                    DEFAULT_BIKE_ATTRIBUTE,
+                    DEFAULT_AGENT_TYPE,
                 )
             (TRIP_MODE, SPEED, ROAD_LANE_TYPE) = self._process_agent_type()
             if not f.hasAttribute("from") or not f.hasAttribute("to"):
@@ -909,13 +939,26 @@ class RouteConverter:
                     continue
                 if f.hasAttribute("type"):
                     flow_type = f.getAttribute("type")
-                    self.agent_attribute, self.vehicle_attribute = self._vtype[
-                        flow_type
-                    ]
+                    (
+                        self.agent_attribute,
+                        self.vehicle_attribute,
+                        self.pedestrian_attribute,
+                        self.bike_attribute,
+                        self.agent_type,
+                    ) = self._vtype[flow_type]
                 else:
-                    self.agent_attribute, self.vehicle_attribute = (
+                    (
+                        self.agent_attribute,
+                        self.vehicle_attribute,
+                        self.pedestrian_attribute,
+                        self.bike_attribute,
+                        self.agent_type,
+                    ) = (
                         DEFAULT_AGENT_ATTRIBUTE,
                         DEFAULT_VEHICLE_ATTRIBUTE,
+                        DEFAULT_PEDESTRIAN_ATTRIBUTE,
+                        DEFAULT_BIKE_ATTRIBUTE,
+                        DEFAULT_AGENT_TYPE,
                     )
                 (TRIP_MODE, SPEED, ROAD_LANE_TYPE) = self._process_agent_type()
                 if not f.hasAttribute("from") or not f.hasAttribute("to"):

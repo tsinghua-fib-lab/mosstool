@@ -95,6 +95,7 @@ async def _fill_public_lines(m: dict, server_address: str):
                         for p in aois[aoi_start]["driving_positions"]
                     ]
                     res_conn_road_ids = []
+                    res_pair_lane_ids = []
                     res_aoi_ids = [aoi_start]
                     res_etas = []
                     for aoi_end in aoi_ids[1:]:
@@ -138,14 +139,20 @@ async def _fill_public_lines(m: dict, server_address: str):
                             min_loop_res = min(
                                 loop_res, key=lambda r: r["route_length"]
                             )
-                            aoi_id2route_position[aoi_start].append(
-                                min_loop_res["route_start"]
+                            min_route_start, min_route_end = (
+                                min_loop_res["route_start"],
+                                min_loop_res["route_end"],
                             )
-                            aoi_id2route_position[aoi_end].append(
-                                min_loop_res["route_end"]
-                            )
+                            aoi_id2route_position[aoi_start].append(min_route_start)
+                            aoi_id2route_position[aoi_end].append(min_route_end)
                             road_ids = min_loop_res["road_ids"]
-                            start_positions = [min_loop_res["route_end"]]
+                            res_pair_lane_ids.append(
+                                [
+                                    route_pos["lane_position"]["lane_id"]
+                                    for route_pos in [min_route_start, min_route_end]
+                                ]
+                            )
+                            start_positions = [min_route_end]
                             aoi_start = aoi_end
                             res_conn_road_ids.append(
                                 {
@@ -158,6 +165,7 @@ async def _fill_public_lines(m: dict, server_address: str):
                             pass
                     if len(res_aoi_ids) >= 2:
                         subline["station_connection_road_ids"] = res_conn_road_ids
+                        subline["route_pair_lane_ids"] = res_pair_lane_ids
                         subline["aoi_ids"] = res_aoi_ids
                         subline["etas"] = res_etas
             if len(subline["station_connection_road_ids"]) > 0:
@@ -175,6 +183,7 @@ async def _fill_public_lines(m: dict, server_address: str):
                 aoi_ids = subline["aoi_ids"]
                 for aoi_id in aoi_ids:
                     aois[aoi_id]["subline_ids"].append(public_line_id)
+                default_pair_lane_ids = [[None, None] for _ in range(len(aoi_ids) - 1)]
                 sublines_data.append(
                     {
                         "id": public_line_id,
@@ -189,11 +198,13 @@ async def _fill_public_lines(m: dict, server_address: str):
                             "departure_times": departure_times,
                             "offset_times": offset_times,
                         },
+                        "route_pair_lane_ids": subline.get(
+                            "route_pair_lane_ids", default_pair_lane_ids
+                        ),
                         "capacity": STATION_CAPACITY[pub["type"]],
                         "taz_costs": [],
                     }
                 )
-
                 public_line_id += 1
     for aoi_id, aoi in aois.items():
         if len(aoi["subline_ids"]) == 0:
@@ -225,16 +236,16 @@ async def _fill_public_lines(m: dict, server_address: str):
             ]
         if aoi_id not in aoi_id2route_position:
             continue
-        route_lane_ids = {
-            p["lane_position"]["lane_id"] for p in aoi_id2route_position[aoi_id]
-        }
+        # route_lane_ids = {
+        #     p["lane_position"]["lane_id"] for p in aoi_id2route_position[aoi_id]
+        # }
         # update driving_positions driving_gates
         d_pos = aoi["driving_positions"]
         d_gates = aoi["driving_gates"]
         d_idxs = []
         for i, pos in enumerate(d_pos):
-            if pos["lane_id"] in route_lane_ids:
-                d_idxs.append(i)
+            # if pos["lane_id"] in route_lane_ids:
+            d_idxs.append(i)
         aoi["driving_positions"] = [d for i, d in enumerate(d_pos) if i in d_idxs]
         aoi["driving_gates"] = [d for i, d in enumerate(d_gates) if i in d_idxs]
         external = aoi["external"]
@@ -344,7 +355,9 @@ def _post_compute(m: dict, workers: int):
     for _, aoi in aois.items():
         aoi["subline_driving_lane_pairs"] = []
 
-    def aoi2driving_lane_id(aoi: dict, road_id: int):
+    def aoi2driving_lane_id(aoi: dict, lane_id: int, road_id: int):
+        if lane_id:
+            return lane_id
         road = roads[road_id]
         rightest_lane_id = [
             lanes[lid]
@@ -355,16 +368,33 @@ def _post_compute(m: dict, workers: int):
         for gate, pos in zip(aoi["driving_gates"], aoi["driving_positions"]):
             if pos["lane_id"] == rightest_lane_id:
                 return pos["lane_id"]
-        raise ValueError(f"{rightest_lane_id} not in AOI {aoi['id']} gates")
+        raise ValueError(
+            f"{rightest_lane_id} at {road_id} not in AOI {aoi['id']} gates"
+        )
+
+    # def rightest_lane_id(road_id:int):
+    #     road = roads[road_id]
+    #     road_lids = set(road["lane_ids"])
+    #     if len(road_lids)==0:
+    #         raise ValueError(f"No lane at road {road_id}!")
+    #     rightest_lane_id = [
+    #         lanes[lid]
+    #         for lid in road_lids
+    #         if lanes[lid]["type"]
+    #         in {mapv2.LANE_TYPE_DRIVING, mapv2.LANE_TYPE_RAIL_TRANSIT}
+    #     ][-1]["id"]
+    #     return rightest_lane_id
 
     for subline in sublines_data:
         subline_id = subline["id"]
         station_aois = {aoi_id: aois[aoi_id] for aoi_id in subline["aoi_ids"]}
-        sta_aoi_ids = list(station_aois.keys())
+        sta_aoi_ids = subline["aoi_ids"]
+        route_pair_lane_ids = subline["route_pair_lane_ids"]
         route_lengths = []
         sta_conn_rids = [d["road_ids"] for d in subline["station_connection_road_ids"]]
         for i in range(len(sta_aoi_ids) - 1):
             road_ids = sta_conn_rids[i]
+            start_lid, end_lid = route_pair_lane_ids[i]
             aoi_start = station_aois[sta_aoi_ids[i]]
             s_start = 0
             for d in aoi_start["driving_positions"]:
@@ -375,7 +405,9 @@ def _post_compute(m: dict, workers: int):
             aoi_start["subline_driving_lane_pairs"].append(
                 {
                     "subline_id": subline_id,
-                    "driving_lane_id": aoi2driving_lane_id(aoi_start, road_ids[0]),
+                    "driving_lane_id": aoi2driving_lane_id(
+                        aoi_start, start_lid, road_ids[0]
+                    ),
                 }
             )
             aoi_end = station_aois[sta_aoi_ids[i + 1]]
@@ -389,7 +421,9 @@ def _post_compute(m: dict, workers: int):
                 aoi_end["subline_driving_lane_pairs"].append(
                     {
                         "subline_id": subline_id,
-                        "driving_lane_id": aoi2driving_lane_id(aoi_end, road_ids[-1]),
+                        "driving_lane_id": aoi2driving_lane_id(
+                            aoi_end, end_lid, road_ids[-1]
+                        ),
                     }
                 )
             route_lengths.append(_station_distance(road_ids, s_start, s_end))
@@ -406,7 +440,6 @@ def _post_compute(m: dict, workers: int):
     for subline in sublines_data:
         subline_id = subline["id"]
         subline["taz_costs"] = subline_id2taz_costs[subline_id]
-
     return m
 
 

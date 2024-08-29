@@ -6,7 +6,7 @@ import shapely.ops as ops
 from shapely.affinity import scale
 from shapely.geometry import MultiPoint, MultiPolygon, Point, Polygon
 
-from .._map_util.const import *
+from ..const import *
 
 __all__ = [
     "generate_aoi_poi",

@@ -5,7 +5,7 @@ from mosstool.map.vis import VisMap
 from mosstool.type import Map
 from mosstool.util.format_converter import dict2pb
 
-with open("data/geojson/extended_net_with_z.geojson", "r") as f:
+with open("data/geojson/net.geojson", "r") as f:
     net = geojson.load(f)
 
 builder = Builder(

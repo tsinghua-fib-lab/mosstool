@@ -70,6 +70,8 @@ async def pre_route(
                 # Set departure time invalid
                 departure_time = None
                 continue
+            if start == trip.end:
+                continue
             # build request
             res = await client.GetRoute(
                 GetRouteRequest(
@@ -79,7 +81,7 @@ async def pre_route(
                     time=departure_time,
                 )
             )
-            if len(res.journeys) == 0:
+            if res is None or len(res.journeys) == 0:
                 logging.warning("No route found")
                 departure_time = last_departure_time
             else:

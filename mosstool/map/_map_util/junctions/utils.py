@@ -9,9 +9,9 @@ import numpy as np
 import pycityproto.city.map.v2.map_pb2 as mapv2
 from shapely.geometry import LineString, MultiPoint, Point
 
-from .._map_util.const import *
-from .._util.angle import abs_delta_angle, delta_angle
-from .._util.line import get_line_angle, get_start_vector
+from ..const import *
+from ..._util.angle import abs_delta_angle, delta_angle
+from ..._util.line import get_line_angle, get_start_vector
 
 
 def classify_main_auxiliary_wid(

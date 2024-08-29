@@ -15,16 +15,16 @@ from shapely.geometry import (LineString, MultiLineString, MultiPoint,
                               MultiPolygon, Point, Polygon)
 from shapely.strtree import STRtree
 
-from ...type import AoiType
-from .._util.angle import abs_delta_angle, delta_angle
-from .._util.line import (connect_line_string, get_line_angle,
-                          get_start_vector, line_extend, offset_lane)
-from .aoiutils import geo_coords
+from ....type import AoiType
+from ..._util.angle import abs_delta_angle, delta_angle
+from ..._util.line import (connect_line_string, get_line_angle,
+                           get_start_vector, line_extend, offset_lane)
+from .utils import geo_coords
 
 # ATTENTION: In order to achieve longer distance POI merging, the maximum recursion depth needs to be modified.
 sys.setrecursionlimit(50000)
 
-from .const import *
+from ..const import *
 
 
 def _split_merged_poi_unit(points):

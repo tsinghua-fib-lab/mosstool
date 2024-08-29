@@ -1,7 +1,6 @@
 import logging
 import time
 from collections import defaultdict
-from math import atan2
 from multiprocessing import cpu_count
 from typing import Optional
 from xml.dom.minidom import parse
@@ -11,14 +10,13 @@ import pycityproto.city.map.v2.map_pb2 as mapv2
 import shapely.ops as ops
 from shapely.geometry import LineString, MultiPoint, Point, Polygon
 
-from .._map_util.aoi_matcher import add_sumo_aoi_to_map
-from .._map_util.aoiutils import generate_sumo_aoi_poi
+from .._map_util.aois import add_sumo_aoi_to_map, generate_sumo_aoi_poi
+from .._map_util.aois.convert_aoi_poi import (convert_sumo_aoi_poi,
+                                              convert_sumo_stops)
 from .._map_util.const import *
-from .._map_util.convert_aoi import convert_sumo_aoi_poi, convert_sumo_stops
-from .._map_util.gen_traffic_light import convert_traffic_light
-from .._map_util.junctionutils import add_driving_groups, add_overlaps
-from .._util.angle import abs_delta_angle
-from .._util.line import connect_line_string, get_line_angle, get_start_vector
+from .._map_util.junctions import (add_driving_groups, add_overlaps,
+                                   convert_traffic_light)
+from .._util.line import connect_line_string
 
 __all__ = ["MapConverter"]
 

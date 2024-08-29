@@ -8,7 +8,7 @@ import numpy as np
 import pyproj
 from geojson import FeatureCollection
 
-from .._util.line import offset_lane
+from ..._util.line import offset_lane
 
 __all__ = [
     "convert_aoi",

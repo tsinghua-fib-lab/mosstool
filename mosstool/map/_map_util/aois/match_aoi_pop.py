@@ -7,12 +7,10 @@ import pyproj
 import rasterio
 from shapely.geometry import MultiPolygon, Point, Polygon
 
-from .._map_util.aoiutils import geo_coords
-from .const import *
+from ..const import *
+from .utils import geo_coords
 
 __all__ = ["add_aoi_pop"]
-
-
 
 
 def _gps_distance(

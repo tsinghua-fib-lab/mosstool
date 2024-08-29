@@ -11,12 +11,11 @@ import pyproj
 import shapely.geometry as geometry
 from geojson import Feature, FeatureCollection, Polygon
 from geopandas.geodataframe import GeoDataFrame
-from pycityproto.city.person.v1.person_pb2 import BusType, PersonProfile
 
 from ...map._map_util.aoiutils import geo_coords
 from ...map._map_util.const import *
-from ...type import (AoiPosition, LanePosition, Map, Person, Position,
-                     Schedule, Trip, TripMode)
+from ...type import (AoiPosition, LanePosition, Map, Person, PersonProfile,
+                     Position, Schedule, Trip, TripMode)
 from ...util.format_converter import dict2pb, pb2dict
 from ...util.geo_match_pop import geo2pop
 from ._util.const import *
@@ -49,7 +48,7 @@ def _get_mode_with_distribution(
     subway_duration = distance / SUBWAY_SPEED + SUBWAY_PENALTY
     bus_duration = distance / BUS_SPEED + BUS_PENALTY
     bicycle_duration = distance / BIKE_SPEED + BIKE_PENALTY
-    parking_fee = 20
+    parking_fee = PARKING_FEE
     age = 0.384  # proportion of ages from 18 to 35 population
     income = 0.395  # proportion of low-income population
     if bus_expense > 0:
@@ -394,6 +393,7 @@ class TripGenerator:
         pop_tif_path: Optional[str] = None,
         activity_distributions: Optional[dict] = None,
         driving_speed: float = 30 / 3.6,
+        parking_fee: float = 20.0,
         driving_penalty: float = 0.0,
         subway_speed: float = 35 / 3.6,
         subway_penalty: float = 600.0,
@@ -413,10 +413,11 @@ class TripGenerator:
         - pop_tif_path (str): path to population tif file.
         - activity_distributions (dict): human mobility mode and its probability. e.g. {"HWH": 18.0, "HWH+": 82.0,}. H for go home, W for go to work, O or + for other activities
         - driving_speed (float): vehicle speed(m/s) for traffic mode assignment.
+        - parking_fee (float): money cost(￥) of parking a car for traffic mode assignment.
         - driving_penalty (float): extra cost(s) of vehicle for traffic mode assignment.
         - subway_speed (float): subway speed(m/s) for traffic mode assignment.
         - subway_penalty (float): extra cost(s) of subway for traffic mode assignment.
-        - subway_expense (float): money  cost(￥) of subway for traffic mode assignment.
+        - subway_expense (float): money cost(￥) of subway for traffic mode assignment.
         - bus_speed (float): bus speed(m/s) for traffic mode assignment.
         - bus_penalty (float): extra cost(s) of bus for traffic mode assignment.
         - bus_expense (float): money  cost(￥) of bus for traffic mode assignment.
@@ -426,9 +427,13 @@ class TripGenerator:
         - add_pop (bool): Add population to aois.
         - workers (int): number of workers.
         """
-        global SUBWAY_EXPENSE, BUS_EXPENSE, DRIVING_SPEED, DRIVING_PENALTY, SUBWAY_SPEED, SUBWAY_PENALTY, BUS_SPEED, BUS_PENALTY, BIKE_SPEED, BIKE_PENALTY
+        global SUBWAY_EXPENSE, BUS_EXPENSE, DRIVING_SPEED, DRIVING_PENALTY, SUBWAY_SPEED, SUBWAY_PENALTY, BUS_SPEED, BUS_PENALTY, BIKE_SPEED, BIKE_PENALTY, PARKING_FEE
         SUBWAY_EXPENSE, BUS_EXPENSE = subway_expense, bus_expense
-        DRIVING_SPEED, DRIVING_PENALTY = driving_speed, driving_penalty
+        DRIVING_SPEED, DRIVING_PENALTY, PARKING_FEE = (
+            driving_speed,
+            driving_penalty,
+            parking_fee,
+        )
         SUBWAY_SPEED, SUBWAY_PENALTY = subway_speed, subway_penalty
         BUS_SPEED, BUS_PENALTY = bus_speed, bus_penalty
         BIKE_SPEED, BIKE_PENALTY = bike_speed, bike_penalty
@@ -702,7 +707,7 @@ class TripGenerator:
         """
         Args:
         - od_matrix (numpy.ndarray): The OD matrix.
-        - areas (GeoDataFrame): The area data.
+        - areas (GeoDataFrame): The area data. Must contain a 'geometry' column with geometric information and a defined `crs` string.
         - departure_time_curve (list[float]): The departure time of a day (24h). The resolution must >=1h.
         - area_pops (list): list of populations in each area. If is not None, # of the persons departs from each home position is exactly equal to the given pop num.
         - person_profiles (list[dict]): list of profiles in dict format.
@@ -916,7 +921,7 @@ class TripGenerator:
         Args:
         - input_persons (List[Person]): Input Person objects.
         - od_matrix (numpy.ndarray): The OD matrix.
-        - areas (GeoDataFrame): The area data.
+        - areas (GeoDataFrame): The area data. Must contain a 'geometry' column with geometric information and a defined `crs` string.
         - departure_time_curve (list[float]): The departure time of a day (24h). The resolution must >=1h.
         - seed (int): The random seed.
 

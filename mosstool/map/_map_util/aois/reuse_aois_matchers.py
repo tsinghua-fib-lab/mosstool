@@ -8,10 +8,10 @@ from multiprocessing import Pool
 from shapely.geometry import Polygon
 from shapely.strtree import STRtree
 
-from ...type import Map
-from ...util.format_converter import pb2dict
-from .aoi_matcher import _process_matched_result, _str_tree_matcher_unit
-from .const import *
+from ....type import Map
+from ....util.format_converter import pb2dict
+from .append_aois_matcher import _process_matched_result, _str_tree_matcher_unit
+from ..const import *
 
 
 def _map_aoi2geo(aoi: dict) -> Polygon:

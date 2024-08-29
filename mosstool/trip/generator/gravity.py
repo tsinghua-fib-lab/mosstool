@@ -35,7 +35,7 @@ class GravityGenerator:
         Load the area data.
 
         Args:
-        - area (gpd.GeoDataFrame): The area data.
+        - area (gpd.GeoDataFrame): The area data. Must contain a 'geometry' column with geometric information and a defined `crs` string.
         """
         self._area = area
 

@@ -1,5 +1,6 @@
 test.py
 ignore/
+checkpoints/
 cache/
 *.html
 *.json

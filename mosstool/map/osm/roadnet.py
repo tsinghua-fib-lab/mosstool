@@ -9,6 +9,7 @@ import networkx as nx
 import pyproj
 import requests
 from geojson import Feature, FeatureCollection, LineString, MultiPoint, dump
+from shapely.geometry import LineString as sLineString
 from tqdm import tqdm
 
 from .._map_util.osm_const import *
@@ -130,14 +131,14 @@ class RoadNet:
         for way in self.ways.values():
             used_nodes.add(way["nodes"][0])
             used_nodes.add(way["nodes"][-1])
+            _way_coords = [
+                (self.nodes[node_id]["lon"], self.nodes[node_id]["lat"])
+                for node_id in way["nodes"]
+            ]
+            _way_coords = sLineString(_way_coords).simplify(1e-6).coords
             geos.append(
                 Feature(
-                    geometry=LineString(
-                        [
-                            (self.nodes[node_id]["lon"], self.nodes[node_id]["lat"])
-                            for node_id in way["nodes"]
-                        ]
-                    ),
+                    geometry=LineString(_way_coords),
                     properties=way,
                 )
             )
@@ -189,15 +190,15 @@ class RoadNet:
             {}
         )  # (start_jid, end_jid) -> way_id, used to check whether there are multiple paths between junctions
         for way in self.ways.values():
+            _way_coords = [
+                (self.nodes[node_id]["lon"], self.nodes[node_id]["lat"])
+                for node_id in way["nodes"]
+            ]
+            _way_coords = sLineString(_way_coords).simplify(1e-6).coords
             geos.append(
                 Feature(
                     id=way["id"],
-                    geometry=LineString(
-                        [
-                            (self.nodes[node_id]["lon"], self.nodes[node_id]["lat"])
-                            for node_id in way["nodes"]
-                        ]
-                    ),
+                    geometry=LineString(_way_coords),
                     properties={
                         "id": way["id"],
                         "lanes": way["lanes"],

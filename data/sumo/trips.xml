@@ -1,41 +1,35 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
-<!-- generated on 2023-12-28 19:16:07.635061 by randomTrips.py v1_17_0+0000-737931d58da
-<configuration>
-    <net-file value="E:\FIBLAB\SUMO2MAP\20231226\shenzhen_simple.net.xml"/>
-    <output-trip-file value="E:\FIBLAB\SUMO2MAP\20231226\trip.trips.xml"/>
-</configuration>
--->
-
-<routes xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://sumo.dlr.de/xsd/routes_file.xsd">
-    <vType id="type1" accel="0.8" decel="4.5" sigma="0.5" length="5" maxSpeed="70"/>
-    <vehicle id="0" type="type1" depart="110" color="1,0,0">
-      <route edges="3207 -3207 3207" repeat="3">
-      <stop busStop="myStop" duration="20"/>
-      </route>
-    </vehicle>
-    <trip id="0" depart="0.00" from="4176" to="1082"/>
-    <trip id="2" depart="2.00" from="4661" to="4363"/>
-    <trip id="3" depart="3.00" from="5439" to="14"/>
-    <trip id="4" depart="4.00" from="3086" to="1107"/>
-    <trip id="5" depart="5.00" from="2065" to="3511"/>
-    <trip id="7" depart="7.00" from="4229" to="3711"/>
-    <trip id="8" depart="8.00" from="2074" to="3931"/>
-    <trip id="9" depart="9.00" from="5025" to="-721"/>
-    <trip id="10" depart="10.00" from="5008" to="4472"/>
-    <trip id="11" depart="11.00" from="2675" to="1747"/>
-    <trip id="13" depart="13.00" from="1427" to="1448"/>
-    <trip id="14" depart="14.00" from="5216" to="4001"/>
-    <trip id="15" depart="15.00" from="5014" to="4630"/>
-    <trip id="16" depart="16.00" from="3659" to="864"/>
-    <trip id="18" depart="18.00" from="5125" to="4075"/>
-    <trip id="19" depart="19.00" from="5288" to="3873"/>
-    <trip id="21" depart="21.00" from="2111" to="2422"/>
-    <trip id="22" depart="22.00" from="1361" to="2137"/>
-    <trip id="23" depart="23.00" from="1470" to="2364"/>
-    <trip id="24" depart="24.00" from="4158" to="2804"/>
-    <trip id="25" depart="25.00" from="2826" to="202"/>
-    <trip id="26" depart="26.00" from="2307" to="681"/>
-    <trip id="27" depart="27.00" from="4219" to="4029"/>
-    <trip id="30" depart="30.00" from="943" to="4181"/>
-    </routes>
+<routes xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xsi:noNamespaceSchemaLocation="http://sumo.dlr.de/xsd/routes_file.xsd">
+  <vType id="type1" accel="0.8" decel="4.5" sigma="0.5" length="5" maxSpeed="70" />
+  <vehicle id="0" type="type1" depart="110" color="1,0,0">
+    <route edges="3207 -3207 3207" repeat="3">
+      <stop busStop="myStop" duration="20" />
+    </route>
+  </vehicle>
+  <trip id="0" depart="0.00" from="4176" to="1082" />
+  <trip id="2" depart="2.00" from="4661" to="4363" />
+  <trip id="3" depart="3.00" from="5439" to="14" />
+  <trip id="4" depart="4.00" from="3086" to="1107" />
+  <trip id="5" depart="5.00" from="2065" to="3511" />
+  <trip id="7" depart="7.00" from="4229" to="3711" />
+  <trip id="8" depart="8.00" from="2074" to="3931" />
+  <trip id="9" depart="9.00" from="5025" to="-721" />
+  <trip id="10" depart="10.00" from="5008" to="4472" />
+  <trip id="11" depart="11.00" from="2675" to="1747" />
+  <trip id="13" depart="13.00" from="1427" to="1448" />
+  <trip id="14" depart="14.00" from="5216" to="4001" />
+  <trip id="15" depart="15.00" from="5014" to="4630" />
+  <trip id="16" depart="16.00" from="3659" to="864" />
+  <trip id="18" depart="18.00" from="5125" to="4075" />
+  <trip id="19" depart="19.00" from="5288" to="3873" />
+  <trip id="21" depart="21.00" from="2111" to="2422" />
+  <trip id="22" depart="22.00" from="1361" to="2137" />
+  <trip id="23" depart="23.00" from="1470" to="2364" />
+  <trip id="24" depart="24.00" from="4158" to="2804" />
+  <trip id="25" depart="25.00" from="2826" to="202" />
+  <trip id="26" depart="26.00" from="2307" to="681" />
+  <trip id="27" depart="27.00" from="4219" to="4029" />
+  <trip id="30" depart="30.00" from="943" to="4181" />
+</routes>
