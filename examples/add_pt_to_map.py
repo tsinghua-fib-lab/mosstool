@@ -1,35 +1,39 @@
 import json
 import logging
+import pickle
 
-from mosstool.map.public_transport.public_transport_post import \
-    public_transport_process
-from mosstool.util.format_converter import dict2pb, pb2dict
+from mosstool.map.builder import Builder
+from mosstool.type import Map
+from mosstool.util.format_converter import dict2pb
 
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s %(levelname)s %(message)s",
 )
-from mosstool.map.builder import Builder
-from mosstool.type import Map, Persons
-
-with open("data/temp/wuhan_pt.json", "r") as f:
-    pt = json.load(f)
+# input
+PT_PATH = "./data/geojson/wuhan_pt.json"
 # map build from `./examples/build_map.py`
-with open(f"data/temp/map.pb", "rb") as f:
+ORIG_MAP_PATH = f"./data/temp/map.pb"
+# output
+MAP_PB_PATH = "./data/temp/srt.raw_pt_map.pb"
+MAP_PKL_PATH = "./data/temp/srt.raw_pt_map.pkl"
+with open(PT_PATH, "r") as f:
+    pt = json.load(f)
+# map build from `./map_generation/build_map.py`
+with open(ORIG_MAP_PATH, "rb") as f:
     net = Map()
     net.ParseFromString(f.read())
 builder = Builder(
     net=net,
     public_transport=pt,
-    proj_str="+proj=tmerc +lat_0=30.491 +lon_0=114.504",
+    proj_str=net.header.projection,
     gen_sidewalk_speed_limit=50 / 3.6,
     aoi_mode="append",
     road_expand_mode="M",
 )
 m_dict = builder.build("test")
-# pre-route
-# run: ./routing -map data/temp/map.pb
-new_m = public_transport_process(m_dict, "http://localhost:52101")
-pb = dict2pb(new_m, Map())
-with open("data/temp/map_with_pt.pb", "wb") as f:
+
+pickle.dump(m_dict, open(MAP_PKL_PATH, "wb"))
+with open(MAP_PB_PATH, "wb") as f:
+    pb = dict2pb(m_dict, Map())
     f.write(pb.SerializeToString())

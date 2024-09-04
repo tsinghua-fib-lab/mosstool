@@ -3,7 +3,6 @@ ignore/
 checkpoints/
 cache/
 *.html
-*.json
 *.pkl
 *.ipynb
 # Byte-compiled / optimized / DLL files

@@ -1,8 +1,8 @@
 from mosstool.trip.generator.generate_from_od import TripGenerator
 from mosstool.type import Map, Persons
 
-# map from `./examples/add_pt_to_map.py`
-with open("data/temp/map_with_pt.pb", "rb") as f:
+# map from `./examples/add_pt_to_map.py` and `./examples/add_pt_post_process.py`
+with open("data/temp/srt.map_with_pt.pb", "rb") as f:
     m = Map()
     m.ParseFromString(f.read())
 tg = TripGenerator(
