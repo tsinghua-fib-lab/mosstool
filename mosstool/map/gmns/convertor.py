@@ -20,6 +20,9 @@ class Convertor:
     def __init__(self, m: Map):
         self.m = m
         self.projector = Proj(self.m.header.projection)
+        self._roads = {road.id: road for road in self.m.roads}
+        self._road2nodes: Dict[int, Tuple[str, str]] = {}
+        """road id -> (from node, to node)"""
         self._lanes = {lane.id: lane for lane in self.m.lanes}
         self._lane_shapelys: Dict[int, shapely.geometry.LineString] = {}
         for lane in self.m.lanes:
@@ -155,6 +158,8 @@ class Convertor:
         """
         # links name,link_id,from_node_id,to_node_id,facility_type,dir_flag,length,lanes,capacity,free_speed,link_type,cost,VDF_fftt1,VDF_cap1,VDF_alpha1,VDF_beta1,VDF_PHF1,VDF_gamma1,VDF_mu1
         data = []
+        # add virtual nodes for road without predecessors or successors
+        virtual_nodes = []
         for road in self.m.roads:
             dls = [i for i in road.lane_ids if i in self._driving_lane_ids]
             lane = self._lanes[dls[0]]
@@ -171,12 +176,38 @@ class Convertor:
                     to_lane_id = l0.successors[0].id
                     break
 
-            # print(from_lane, to_lane)
-            if from_lane_id is None or to_lane_id is None:
-                continue
+            if from_lane_id is None:
+                lng, lat = self._lane_shapelys[dls[0]].coords[0]
+                from_node = f"{road.id}-start"
+                virtual_nodes.append(
+                    {
+                        "name": from_node,
+                        "node_id": from_node,
+                        "zone_id": from_node,
+                        "x_coord": lng,
+                        "y_coord": lat,
+                        "geometry": f"POINT({lng} {lat})",
+                    }
+                )
+            else:
+                from_node = str(self._lanes[from_lane_id].parent_id)
 
-            from_node = self._lanes[from_lane_id].parent_id
-            to_node = self._lanes[to_lane_id].parent_id
+            if to_lane_id is None:
+                lng, lat = self._lane_shapelys[dls[0]].coords[-1]
+                to_node = f"{road.id}-end"
+                virtual_nodes.append(
+                    {
+                        "name": to_node,
+                        "node_id": to_node,
+                        "zone_id": to_node,
+                        "x_coord": lng,
+                        "y_coord": lat,
+                        "geometry": f"POINT({lng} {lat})",
+                    }
+                )
+            else:
+                to_node = str(self._lanes[to_lane_id].parent_id)
+
             length = lane.length / 1609.34  ## convert to miles
             geometry = "LINESTRING("
             for xy in lane.center_line.nodes:
@@ -192,8 +223,8 @@ class Convertor:
                 {
                     "name": str(road.id),
                     "link_id": str(road.id),
-                    "from_node_id": str(from_node),
-                    "to_node_id": str(to_node),
+                    "from_node_id": from_node,
+                    "to_node_id": to_node,
                     "length": length,
                     "lanes": n_lane,
                     "free_speed": speed,
@@ -202,6 +233,7 @@ class Convertor:
                     "link_type": 1,  # 1: one direction, 2: two way
                 }
             )
+            self._road2nodes[road.id] = (from_node, to_node)
         # link aoi-start to the driving positions to the successor junction
         # link aoi-end to the driving positions to the predecessor junction
         for id, a in self._aois.items():
@@ -256,8 +288,10 @@ class Convertor:
                         }
                     )
         data.sort(key=lambda x: x["name"])
+        virtual_nodes.sort(key=lambda x: x["name"])
         df = pd.DataFrame(data)
-        return df
+        virtual_nodes_df = pd.DataFrame(virtual_nodes)
+        return df, virtual_nodes_df
 
     def save(self, work_dir: str):
         """
@@ -267,6 +301,7 @@ class Convertor:
         - work_dir (str): work directory
         """
         nodes = self._to_nodes()
+        lines, virtual_nodes = self._to_lines()
+        nodes = pd.concat([nodes, virtual_nodes], ignore_index=True)
         nodes.to_csv(os.path.join(work_dir, "node.csv"), index=False)
-        lines = self._to_lines()
         lines.to_csv(os.path.join(work_dir, "link.csv"), index=False)

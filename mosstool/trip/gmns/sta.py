@@ -47,10 +47,10 @@ class STA:
             oid = f"{start.aoi_position.aoi_id}-start"
         elif start.HasField("lane_position"):
             lane = self._map_convertor._lanes[start.lane_position.lane_id]
-            if len(lane.successors) == 0:
-                raise ValueError(f"lane {lane.id} has no successor")
-            next_junc_id = self._map_convertor._lanes[lane.successors[0].id].parent_id
-            oid = str(next_junc_id)
+            if lane.parent_id not in self._map_convertor._road2nodes:
+                raise ValueError(f"lane {lane.id} has invalid parent node")
+            # choose the successor node as oid
+            _, oid = self._map_convertor._road2nodes[lane.parent_id]
         else:
             raise ValueError("start position is invalid")
 
@@ -58,10 +58,10 @@ class STA:
             did = f"{end.aoi_position.aoi_id}-end"
         elif end.HasField("lane_position"):
             lane = self._map_convertor._lanes[end.lane_position.lane_id]
-            if len(lane.predecessors) == 0:
-                raise ValueError(f"lane {lane.id} has no predecessor")
-            pre_junc_id = self._map_convertor._lanes[lane.predecessors[0].id].parent_id
-            did = str(pre_junc_id)
+            if lane.parent_id not in self._map_convertor._road2nodes:
+                raise ValueError(f"lane {lane.id} has invalid parent node")
+            # choose the predecessor node as did
+            did, _ = self._map_convertor._road2nodes[lane.parent_id]
         else:
             raise ValueError("end position is invalid")
 
