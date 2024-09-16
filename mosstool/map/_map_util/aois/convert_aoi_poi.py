@@ -31,11 +31,13 @@ def _shape2geo(shape_str):
 
 
 def convert_aoi(
-    geos: FeatureCollection, public_transport_data: Dict[str, dict], projstr: str
+    geos: FeatureCollection,
+    public_transport_data: Dict[str, dict],
+    projstr: Optional[str] = None,
 ) -> Tuple[list, list]:
     aois = []
     stops = []
-    projector = pyproj.Proj(projstr)
+    projector = pyproj.Proj(projstr) if projstr is not None else None
     if geos["features"] is not None:
         for i, feature in enumerate(geos["features"]):
             if not feature["geometry"]["type"] == "Polygon":
@@ -50,7 +52,11 @@ def convert_aoi(
             aois.append(
                 {
                     "id": aoi_id,
-                    "coords": [projector(*c) for c in coords],
+                    "coords": (
+                        [projector(*c) for c in coords]
+                        if projector is not None
+                        else coords
+                    ),
                     "external": {
                         "population": 0,
                         "inner_poi": [],
@@ -86,9 +92,9 @@ def convert_aoi(
     return (aois, stops)
 
 
-def convert_poi(geos: FeatureCollection, projstr: str) -> list:
+def convert_poi(geos: FeatureCollection, projstr: Optional[str] = None) -> list:
     pois = []
-    projector = pyproj.Proj(projstr)
+    projector = pyproj.Proj(projstr) if projstr is not None else None
     if geos["features"] is not None:
         for feature in geos["features"]:
             if not feature["geometry"]["type"] == "Point":
@@ -102,7 +108,9 @@ def convert_poi(geos: FeatureCollection, projstr: str) -> list:
                 pois.append(
                     {
                         "id": poi_id,
-                        "coords": [projector(*coords)],
+                        "coords": (
+                            [projector(*coords)] if projector is not None else [coords]
+                        ),
                         "name": name,
                         "category": catg,
                         "external": {

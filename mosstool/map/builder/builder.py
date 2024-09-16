@@ -34,7 +34,7 @@ from .._map_util.junctions import (add_driving_groups, add_overlaps,
                                    generate_traffic_light)
 from .._util.angle import abs_delta_angle, delta_angle
 from .._util.line import (align_line, connect_line_string, get_line_angle,
-                          get_start_vector, line_extend, line_max_curvature,
+                          line_extend, line_max_curvature,
                           merge_line_start_end, offset_lane)
 
 __all__ = ["Builder"]
@@ -48,7 +48,7 @@ class Builder:
     def __init__(
         self,
         net: Union[FeatureCollection, Map],
-        proj_str: str,
+        proj_str: Optional[str] = None,
         aois: Optional[FeatureCollection] = None,
         pois: Optional[FeatureCollection] = None,
         public_transport: Optional[Dict[str, List]] = None,
@@ -69,7 +69,7 @@ class Builder:
         """
         Args:
         - net (FeatureCollection | Map): road network
-        - proj_str (str): projection string
+        - proj_str (str): projection string, if not provided, all coordinates in input geojson files will be seen as xyz coords.
         - aois (FeatureCollection): area of interest
         - pois (FeatureCollection): point of interest
         - public_transport (Dict[str, List]): public transports in json format
@@ -103,7 +103,7 @@ class Builder:
         self.junc_uid = JUNC_START_ID
         self.public_transport_uid = PUBLIC_LINE_START_ID
         self.proj_str = proj_str
-        self.projector = pyproj.Proj(proj_str)
+        self.projector = pyproj.Proj(proj_str) if proj_str is not None else None
         self.pop_tif_path = pop_tif_path
         self.landuse_shp_path = landuse_shp_path
         self.traffic_light_min_direction_group = traffic_light_min_direction_group
@@ -136,11 +136,11 @@ class Builder:
         """There is no way id for the right sidewalk"""
         self.public_transport_data = {"lines": {}, "stations": {}}
         self.from_pb = False
-        # Perform coordinate conversion
-        all_coords_lonlat = []
         if net_type == FeatureCollection:
             self.net = FeatureCollection(deepcopy(net))
             geojson_format_check(self.net)
+            # Perform coordinate conversion
+            all_coords_lonlat = []
             for feature in self.net["features"]:
                 if feature["geometry"]["type"] not in ("MultiPoint", "LineString"):
                     raise ValueError("bad geometry type: " + feature)
@@ -148,17 +148,26 @@ class Builder:
                     raise ValueError("no properties in feature: " + feature)
                 if "id" not in feature:
                     feature["id"] = feature["properties"]["id"]
-                all_coords_lonlat.extend(
-                    [c[:2] for c in feature["geometry"]["coordinates"]]
-                )
                 coords = np.array(feature["geometry"]["coordinates"], dtype=np.float64)
-                z_coords = (
-                    coords[:, 2]
-                    if coords.shape[1] > 2
-                    else np.zeros((coords.shape[0], 1), dtype=np.float64)
-                )
-                xy_coords = np.stack(self.projector(*coords.T[:2]), axis=1)  # (N, 2)
-                xyz_coords = np.column_stack([xy_coords, z_coords])  # (N, 3)
+                if self.projector is not None:
+                    z_coords = (
+                        coords[:, 2]
+                        if coords.shape[1] > 2
+                        else np.zeros((coords.shape[0], 1), dtype=np.float64)
+                    )
+                    all_coords_lonlat.extend(
+                        [c[:2] for c in feature["geometry"]["coordinates"]]
+                    )
+                    xy_coords = np.stack(
+                        self.projector(*coords.T[:2]), axis=1
+                    )  # (N, 2)
+                    xyz_coords = np.column_stack([xy_coords, z_coords])  # (N, 3)
+                else:
+                    xy_coords = np.array(
+                        [c[:2] for c in feature["geometry"]["coordinates"]],
+                        dtype=np.float64,
+                    )
+                    xyz_coords = coords
                 feature["geometry"]["coordinates_xy"] = xy_coords
                 feature["geometry"]["coordinates_xyz"] = xyz_coords
                 if feature["geometry"]["type"] == "LineString":
@@ -174,8 +183,12 @@ class Builder:
                     feature["uid"] = self.junc_uid
                     self.junc_uid += 1
             all_coords_lonlat = np.array(all_coords_lonlat)
-            self.min_lon, self.min_lat = np.min(all_coords_lonlat, axis=0)
-            self.max_lon, self.max_lat = np.max(all_coords_lonlat, axis=0)
+            self.min_lon, self.min_lat = (
+                np.min(all_coords_lonlat, axis=0) if self.projector else (-180, -90)
+            )
+            self.max_lon, self.max_lat = (
+                np.max(all_coords_lonlat, axis=0) if self.projector else (180, 90)
+            )
             # Classify and store
             self.junctions = {}
             """id -> junction data"""
@@ -288,6 +301,7 @@ class Builder:
                 }
             self.junc_uid = max(pb_junc_uids) + 1
             # bbox
+            assert self.projector is not None, "building from pb must provide projstr!"
             self.max_lon, self.max_lat = self.projector(
                 net.header.east, net.header.north, inverse=True
             )
@@ -3786,8 +3800,14 @@ class Builder:
         )
 
     def _add_public_transport(self) -> Set[int]:
+        if self.public_transport is None:
+            return set()
         logging.info("Adding public transport to map")
         public_road_uids = set()
+        projector = self.projector
+        assert (
+            projector is not None
+        ), "building with public_transport must provide projstr!"
 
         def create_subway_connections(geos: list, stas: list) -> List[List[int]]:
             # Create new subway lane road and junction
@@ -3894,7 +3914,6 @@ class Builder:
                 next_junc_id += 1
             return station_connection_road_ids
 
-        projector = self.projector
         public_transport = self.public_transport
         raw_stations = (
             public_transport["stations"] if public_transport is not None else []

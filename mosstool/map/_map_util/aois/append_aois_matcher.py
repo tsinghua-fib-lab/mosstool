@@ -906,7 +906,7 @@ def _add_aoi_land_use(aois, shp_path: Optional[str], bbox, projstr):
         }
         return mapper.get(euluc, 12)
 
-    if not shp_path:
+    if not shp_path or not projstr:
         for _, aoi in aois.items():
             aoi["land_use"] = map_land_use(-1)
         return aois
@@ -1559,12 +1559,11 @@ def _add_aoi_name(aois):
     return aois
 
 
-def _add_pois(aois, pois, projstr):
+def _add_pois(aois, pois):
     """
     add POIs
     Add poi ids information to aoi
     """
-    projector = pyproj.Proj(projstr)
     # 读取poi原始数据，构建poi数据
     # {
     #   "id": "10001234807567065271",
@@ -1769,9 +1768,17 @@ def _add_aoi(aois, stops, workers, merge_aoi: bool = False):
                     value = tags["building"]
                     if not "yes" in value:
                         external["land_types"]["building|" + value] += geo.area
-                if "name" in tags:
-                    value = tags["name"]
-                    external["names"][value] += geo.area
+                for _name_key in ["name", "name:zh", "name:en"]:
+                    if _name_key in tags:
+                        value = tags[_name_key]
+                        external["names"][value] += geo.area
+                        break
+                else:
+                    for _k, value in tags.items():
+                        if "name" in _k:
+                            external["names"][value] += geo.area
+                            break
+
             aois_poly.append(aoi)
         else:
             x, y = aoi["coords"][0][:2]
@@ -1859,8 +1866,8 @@ def add_aoi_to_map(
     input_pois: list,
     input_stops: list,
     bbox,
-    projstr: str,
-    shp_path: Optional[str],
+    projstr: Optional[str] = None,
+    shp_path: Optional[str] = None,
     workers: int = 32,
 ):
     """match AOIs to lanes"""
@@ -1885,7 +1892,7 @@ def add_aoi_to_map(
     aois = _add_aoi_land_use(aois, shp_path, bbox, projstr)
     aois = _add_aoi_name(aois)
     aois = _add_aoi_urban_land_use(aois)
-    (aois, pois) = _add_pois(aois, raw_pois, projstr)
+    (aois, pois) = _add_pois(aois, raw_pois)
     return (aois, pois)
 
 
@@ -1934,5 +1941,5 @@ def add_sumo_aoi_to_map(
     logging.info(f"Added POI num: {len(added_ex_pois)}")
     # Post-compute
     logging.info("Post Compute")
-    (aois, pois) = _add_pois(aois, raw_pois, projstr)
+    (aois, pois) = _add_pois(aois, raw_pois)
     return (aois, pois)
