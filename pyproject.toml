@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "mosstool"
-version = "0.2.36"
+version = "0.2.37"
 description = "MObility Simulation System toolbox "
 authors = ["Jun Zhang <zhangjun990222@qq.com>"]
 license = "MIT"
@@ -35,6 +35,7 @@ path4gmns = "^0.9.8"
 pytest = "^8.1.1"
 pytest-dotenv = "^0.5.2"
 ipykernel = "^6.29.3"
+pdoc = "^14.7.0"
 
 [build-system]
 requires = ["poetry-core"]
