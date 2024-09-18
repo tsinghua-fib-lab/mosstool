@@ -1,0 +1,13 @@
+.github/
+.pytest_cache/
+.venv/
+.vscode/
+data/
+dist/
+examples/
+htmlcov/
+ignores/
+.coverage
+.env
+.gitignore
+.gitlab-ci.yml

@@ -5,16 +5,17 @@ variables:
 
 stages:
   - build
-  - deploy
 
-release-pypi:
-  # 以开发镜像作为执行环境
-  image: registry.fiblab.net/general/dev:latest
+build-docker-image:
+  # default image of runner with tag dind
+  # image: docker:dind
+  tags:
+    - dind
   stage: build
   rules:
     - if: $CI_COMMIT_TAG =~ $VERSION_REGEX
   script:
-    - poetry git-version
-    - poetry config repositories.gitlab "${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/pypi"
-    - poetry config http-basic.gitlab gitlab-ci-token "$CI_JOB_TOKEN"
-    - poetry publish -r gitlab --build --no-interaction -v
+    - docker login -u ${CI_REGISTRY_USER} -p ${CI_REGISTRY_PASSWORD} ${CI_REGISTRY}
+    - docker build -t ${CI_REGISTRY_IMAGE}:${CI_COMMIT_TAG} -t ${CI_REGISTRY_IMAGE}:latest .
+    - docker push ${CI_REGISTRY_IMAGE}:${CI_COMMIT_TAG}
+    - docker push ${CI_REGISTRY_IMAGE}:latest
