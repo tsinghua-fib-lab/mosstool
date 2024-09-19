@@ -3,7 +3,6 @@ import logging
 import time
 from collections import defaultdict
 from copy import deepcopy
-from math import atan2
 from multiprocessing import cpu_count
 from typing import (Callable, Dict, List, Literal, Optional, Set, Tuple, Union,
                     cast)
@@ -4350,6 +4349,12 @@ class Builder:
             for i in j[k]["nodes"]
         ]
         x, y = [*zip(*xy)]
+        _header_proj_str = self.proj_str
+        if _header_proj_str is None:
+            logging.warning(
+                f"Empty proj_str provided, projection in header is set as fake projcetion str: {DEFAULT_PROJ_STR}"
+            )
+            _header_proj_str = DEFAULT_PROJ_STR
         header = {
             "name": name,
             "date": time.strftime("%a %b %d %H:%M:%S %Y"),
@@ -4357,7 +4362,7 @@ class Builder:
             "south": min(y),
             "west": min(x),
             "east": max(x),
-            "projection": self.proj_str,
+            "projection": _header_proj_str,
         }
         logging.info(
             f"{len(self.output_lanes)} Lanes  {len(self.output_roads)} Roads  {len(self.output_junctions)} Juncions"

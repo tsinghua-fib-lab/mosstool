@@ -6,6 +6,8 @@ import numpy as np
 
 EPS = 1e-4
 
+DEFAULT_PROJ_STR = "+proj=tmerc +lat_0=0.0 +lon_0=-128.0"
+
 LANE_START_ID = 0_0000_0000
 ROAD_START_ID = 2_0000_0000
 JUNC_START_ID = 3_0000_0000
