@@ -826,7 +826,17 @@ class TripGenerator:
         for idx, p in enumerate(orig_persons):
             try:
                 p_home = p.home.aoi_position.aoi_id
+                if not p_home >= AOI_START_ID:
+                    logging.warning(
+                        f"Person {p.id} has no home AOI ID, use random home instead!"
+                    )
+                    p_home = rng.choice(self.aoi_type2ids["home"])
                 p_work = p.work.aoi_position.aoi_id
+                if not p_work >= AOI_START_ID:
+                    logging.warning(
+                        f"Person {p.id} has no work AOI ID, use random work instead!"
+                    )
+                    p_work = rng.choice(self.aoi_type2ids["other"])
                 p_profile = pb2dict(p.profile)
                 person_args.append(
                     [
