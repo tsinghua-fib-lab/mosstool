@@ -9,8 +9,7 @@ import pycityproto.city.map.v2.map_pb2 as mapv2
 from pycityproto.city.routing.v2.routing_service_pb2 import GetRouteRequest
 from tqdm import tqdm
 
-from mosstool.trip.route import RoutingClient
-
+from ...trip.route import RoutingClient
 from .._map_util.const import *
 
 __all__ = [

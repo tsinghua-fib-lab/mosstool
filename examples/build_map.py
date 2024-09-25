@@ -1,7 +1,6 @@
 import geojson
 
 from mosstool.map.builder import Builder
-from mosstool.map.vis import VisMap
 from mosstool.type import Map
 from mosstool.util.format_converter import dict2pb
 
@@ -18,9 +17,3 @@ m = builder.build("test")
 pb = dict2pb(m, Map())
 with open("data/temp/map.pb", "wb") as f:
     f.write(pb.SerializeToString())
-vis_map = VisMap(pb)
-fc = vis_map.feature_collection
-with open("data/temp/map.geojson", "w") as f:
-    geojson.dump(fc, f, ensure_ascii=False, indent=2)
-deck = vis_map.visualize()
-deck.to_html("data/temp/map.html")

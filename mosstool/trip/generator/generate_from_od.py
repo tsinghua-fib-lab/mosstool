@@ -17,12 +17,13 @@ from ...map._map_util.const import *
 from ...type import (AoiPosition, LanePosition, Map, Person, PersonProfile,
                      Position, Schedule, Trip, TripMode)
 from ...util.format_converter import dict2pb, pb2dict
-from ...util.geo_match_pop import geo2pop
 from ._util.const import *
 from ._util.utils import (extract_HWEO_from_od_matrix, gen_bus_drivers,
                           gen_departure_times, gen_profiles,
                           recalculate_trip_mode_prob)
 from .template import DEFAULT_PERSON
+
+# from ...util.geo_match_pop import geo2pop
 
 
 # determine trip mode
@@ -510,28 +511,31 @@ class TripGenerator:
             aoi["external"]["catg"] = get_aoi_catg(aoi["external"]["urban_land_use"])
         # population
         if self.add_pop and self.pop_tif_path is not None:
-            geos = []
-            for aoi_data in aois:
-                geos.append(
-                    Feature(
-                        geometry=Polygon([[list(c) for c in aoi_data["geo"]]]),
-                        properties={
-                            "id": aoi_data["id"],
-                        },
-                    )
-                )
-            geos = FeatureCollection(geos)
-            geos = geo2pop(geos, self.pop_tif_path)
+            raise NotImplementedError(
+                "Adding population to AOIs in trip_generator has been removed!"
+            )
+            # geos = []
+            # for aoi_data in aois:
+            #     geos.append(
+            #         Feature(
+            #             geometry=Polygon([[list(c) for c in aoi_data["geo"]]]),
+            #             properties={
+            #                 "id": aoi_data["id"],
+            #             },
+            #         )
+            #     )
+            # geos = FeatureCollection(geos)
+            # geos = geo2pop(geos, self.pop_tif_path)
 
-            geos = cast(FeatureCollection, geos)
-            aoi_id2pop = defaultdict(int)
-            for feature in geos["features"]:
-                aoi_id = feature["properties"]["id"]
-                pop = feature["properties"]["population"]
-                aoi_id2pop[aoi_id] = pop
-            for aoi in aois:
-                aoi_id = aoi["id"]
-                aoi["external"]["population"] = aoi_id2pop.get(aoi_id, 0)
+            # geos = cast(FeatureCollection, geos)
+            # aoi_id2pop = defaultdict(int)
+            # for feature in geos["features"]:
+            #     aoi_id = feature["properties"]["id"]
+            #     pop = feature["properties"]["population"]
+            #     aoi_id2pop[aoi_id] = pop
+            # for aoi in aois:
+            #     aoi_id = aoi["id"]
+            #     aoi["external"]["population"] = aoi_id2pop.get(aoi_id, 0)
         else:
             for aoi in aois:
                 aoi["external"]["population"] = aoi["external"]["area"]
