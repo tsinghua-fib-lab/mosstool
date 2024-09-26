@@ -10,13 +10,24 @@ import pyproj
 import requests
 from coord_convert.transform import gcj2wgs
 from lxml import etree
-from shapely.geometry import LineString, MultiPoint, Point, Polygon
-
-from .._map_util.aois.utils import geo_coords
+from shapely.geometry import (LineString, MultiPoint, MultiPolygon, Point,
+                              Polygon)
 
 __all__ = [
     "AmapSubway",
 ]
+
+
+def geo_coords(geo):
+    if isinstance(geo, Polygon):
+        return list(geo.exterior.coords)
+    elif isinstance(geo, MultiPolygon):
+        all_coords = []
+        for p_geo in geo.geoms:
+            all_coords.extend(geo_coords(p_geo))
+        return all_coords
+    else:
+        return list(geo.coords)
 
 
 class AmapSubway:

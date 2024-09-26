@@ -9,10 +9,8 @@ from typing import Dict, List, Literal, Optional, Set, Tuple, Union, cast
 import numpy as np
 import pyproj
 import shapely.geometry as geometry
-from geojson import Feature, FeatureCollection, Polygon
 from geopandas.geodataframe import GeoDataFrame
 
-from ...map._map_util.aois.utils import geo_coords
 from ...map._map_util.const import *
 from ...type import (AoiPosition, LanePosition, Map, Person, PersonProfile,
                      Position, Schedule, Trip, TripMode)
@@ -23,7 +21,18 @@ from ._util.utils import (extract_HWEO_from_od_matrix, gen_bus_drivers,
                           recalculate_trip_mode_prob)
 from .template import DEFAULT_PERSON
 
+
 # from ...util.geo_match_pop import geo2pop
+def geo_coords(geo):
+    if isinstance(geo, geometry.Polygon):
+        return list(geo.exterior.coords)
+    elif isinstance(geo, geometry.MultiPolygon):
+        all_coords = []
+        for p_geo in geo.geoms:
+            all_coords.extend(geo_coords(p_geo))
+        return all_coords
+    else:
+        return list(geo.coords)
 
 
 # determine trip mode

@@ -15,11 +15,21 @@ from geojson import FeatureCollection
 from geopandas.geodataframe import GeoDataFrame
 from shapely.geometry import MultiPolygon, Point, Polygon
 
-from ..map._map_util.aois.utils import geo_coords
 from ..map._map_util.const import *
 
 __all__ = ["geo2pop"]
 
+
+def geo_coords(geo):
+    if isinstance(geo, Polygon):
+        return list(geo.exterior.coords)
+    elif isinstance(geo, MultiPolygon):
+        all_coords = []
+        for p_geo in geo.geoms:
+            all_coords.extend(geo_coords(p_geo))
+        return all_coords
+    else:
+        return list(geo.coords)
 
 
 def _gps_distance(
@@ -391,7 +401,9 @@ def geo2pop(
     if geo_type == GeoDataFrame:
         # add population column
         geo_data = cast(GeoDataFrame, orig_geo_data)
-        geo_data = geo_data.assign(population=[idx2pop[i] for i in range(len(geo_data.geometry))]) # type:ignore 
+        geo_data = geo_data.assign(
+            population=[idx2pop[i] for i in range(len(geo_data.geometry))]
+        )  # type:ignore
     elif geo_type == FeatureCollection:
         # add properties.population
         geo_data = cast(FeatureCollection, orig_geo_data)

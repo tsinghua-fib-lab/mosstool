@@ -9,7 +9,7 @@ from pycityproto.city.trip.v2.trip_pb2 import Schedule, Trip, TripMode
 
 from ._util.utils import is_walking
 from .template import DEFAULT_PERSON
-from ...map import JUNC_START_ID
+from ...map._map_util.const import JUNC_START_ID
 
 __all__ = ["PositionMode", "RandomGenerator"]
 

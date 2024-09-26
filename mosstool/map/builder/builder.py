@@ -59,6 +59,11 @@ class Builder:
         expand_roads: bool = False,
         road_expand_mode: Union[Literal["L"], Literal["M"], Literal["R"]] = "R",
         aoi_mode: Union[Literal["append"], Literal["overwrite"]] = "overwrite",
+        traffic_light_mode: Union[
+            Literal["green_red"],
+            Literal["green_yellow_red"],
+            Literal["green_yellow_clear_red"],
+        ] = "green_yellow_clear_red",
         green_time: float = 30.0,
         yellow_time: float = 5.0,
         strict_mode: bool = False,
@@ -80,6 +85,7 @@ class Builder:
         - expand_roads (bool): expand roads according to junction type
         - road_expand_mode (str): road expand mode
         - aoi_mode (str): aoi appending mode. `append` takes effect when the input `net` is Map, incrementally adding the input AOIs; `overwrite` only adds the input AOIs, ignoring existing ones.
+        - traffic_light_mode (str): fixed time traffic-light generation mode. `green_red` means only green and red light will be generated, `green_yellow_red` means there will be yellow light between green and red light, `green_yellow_clear_red` add extra pedestrian clear red light.
         - green_time (float): green time
         - strict_mode (bool): when enabled, causes the program to exit whenever a warning occurs
         - output_lane_length_check (bool): when enabled, will do value checks lane lengths in output map.
@@ -109,6 +115,11 @@ class Builder:
         self.strict_mode = strict_mode
         self.output_lane_length_check = output_lane_length_check
         self.workers = workers
+        self.traffic_light_mode: Union[
+            Literal["green_red"],
+            Literal["green_yellow_red"],
+            Literal["green_yellow_clear_red"],
+        ] = traffic_light_mode
         # id mapping relationship
         self.uid_mapping = {}
         """
@@ -3795,7 +3806,13 @@ class Builder:
         yellow_time = self.yellow_time
         min_direction_group = self.traffic_light_min_direction_group
         generate_traffic_light(
-            lanes, roads, juncs, green_time, yellow_time, min_direction_group
+            lanes,
+            roads,
+            juncs,
+            green_time,
+            yellow_time,
+            min_direction_group,
+            self.traffic_light_mode,
         )
 
     def _add_public_transport(self) -> Set[int]:
