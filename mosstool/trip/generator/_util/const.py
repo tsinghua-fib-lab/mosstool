@@ -4,7 +4,7 @@ OD generate constants
 
 import pycityproto.city.geo.v2.geo_pb2 as geov2
 import pycityproto.city.map.v2.map_pb2 as mapv2
-import pycityproto.city.person.v1.person_pb2 as personv1
+import pycityproto.city.person.v2.person_pb2 as personv2
 import pycityproto.city.trip.v2.trip_pb2 as tripv2
 
 DIS_CAR = 1000
@@ -37,13 +37,13 @@ ALL_TRIP_MODES = [
 ]
 PT_START_ID = 1_0000_0000
 PRIMARY_SCHOOL, JUNIOR_HIGH_SCHOOL, HIGH_SCHOOL, COLLEGE, BACHELOR, MASTER, DOCTOR = (
-    personv1.EDUCATION_PRIMARY_SCHOOL,
-    personv1.EDUCATION_JUNIOR_HIGH_SCHOOL,
-    personv1.EDUCATION_HIGH_SCHOOL,
-    personv1.EDUCATION_COLLEGE,
-    personv1.EDUCATION_BACHELOR,
-    personv1.EDUCATION_MASTER,
-    personv1.EDUCATION_DOCTOR,
+    personv2.EDUCATION_PRIMARY_SCHOOL,
+    personv2.EDUCATION_JUNIOR_HIGH_SCHOOL,
+    personv2.EDUCATION_HIGH_SCHOOL,
+    personv2.EDUCATION_COLLEGE,
+    personv2.EDUCATION_BACHELOR,
+    personv2.EDUCATION_MASTER,
+    personv2.EDUCATION_DOCTOR,
 )
 EDUCATION_LEVELS = [
     PRIMARY_SCHOOL,
@@ -57,19 +57,19 @@ EDUCATION_LEVELS = [
 # probabilities
 EDUCATION_STATS = [1 / len(EDUCATION_LEVELS) for _ in range(len(EDUCATION_LEVELS))]
 CONSUMPTION_LEVELS = [
-    personv1.CONSUMPTION_LOW,
-    personv1.CONSUMPTION_RELATIVELY_LOW,
-    personv1.CONSUMPTION_MEDIUM,
-    personv1.CONSUMPTION_RELATIVELY_HIGH,
-    personv1.CONSUMPTION_HIGH,
+    personv2.CONSUMPTION_LOW,
+    personv2.CONSUMPTION_RELATIVELY_LOW,
+    personv2.CONSUMPTION_MEDIUM,
+    personv2.CONSUMPTION_RELATIVELY_HIGH,
+    personv2.CONSUMPTION_HIGH,
 ]
 # probabilities
 CONSUMPTION_STATS = [
     1 / len(CONSUMPTION_LEVELS) for _ in range(len(CONSUMPTION_LEVELS))
 ]
 GENDERS = [
-    personv1.GENDER_FEMALE,
-    personv1.GENDER_MALE,
+    personv2.GENDER_FEMALE,
+    personv2.GENDER_MALE,
 ]
 # probabilities
 GENDER_STATS = [1 / len(GENDERS) for _ in range(len(GENDERS))]

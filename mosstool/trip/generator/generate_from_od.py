@@ -13,13 +13,14 @@ from geopandas.geodataframe import GeoDataFrame
 
 from ...map._map_util.const import *
 from ...type import (AoiPosition, LanePosition, Map, Person, PersonProfile,
-                     Position, Schedule, Trip, TripMode)
+                     Position, Schedule, Trip, TripMode, v1Person,
+                     v1PersonProfile)
 from ...util.format_converter import dict2pb, pb2dict
 from ._util.const import *
 from ._util.utils import (extract_HWEO_from_od_matrix, gen_bus_drivers,
                           gen_departure_times, gen_profiles,
                           recalculate_trip_mode_prob)
-from .template import DEFAULT_PERSON
+from .template import V1_DEFAULT_PERSON, V2_DEFAULT_PERSON
 
 
 # from ...util.geo_match_pop import geo2pop
@@ -413,7 +414,8 @@ class TripGenerator:
         bus_expense: float = 5.0,
         bike_speed: float = 10 / 3.6,
         bike_penalty: float = 0.9,
-        template: Person = DEFAULT_PERSON,
+        template=None,  #: Person = DEFAULT_PERSON,
+        person_version: Union[Literal["v1"], Literal["v2"]] = "v1",
         add_pop: bool = False,
         workers: int = cpu_count(),
     ):
@@ -437,6 +439,7 @@ class TripGenerator:
         - add_pop (bool): Add population to aois.
         - workers (int): number of workers.
         """
+        self.person_version = person_version
         global SUBWAY_EXPENSE, BUS_EXPENSE, DRIVING_SPEED, DRIVING_PENALTY, SUBWAY_SPEED, SUBWAY_PENALTY, BUS_SPEED, BUS_PENALTY, BIKE_SPEED, BIKE_PENALTY, PARKING_FEE
         SUBWAY_EXPENSE, BUS_EXPENSE = subway_expense, bus_expense
         DRIVING_SPEED, DRIVING_PENALTY, PARKING_FEE = (
@@ -452,6 +455,10 @@ class TripGenerator:
         self.add_pop = add_pop
         self.projector = pyproj.Proj(m.header.projection)
         self.workers = workers
+        if person_version == "v1":
+            template = V1_DEFAULT_PERSON
+        else:
+            template = V2_DEFAULT_PERSON
         self.template = template
         self.template.ClearField("schedules")
         self.template.ClearField("home")
@@ -683,12 +690,18 @@ class TripGenerator:
             activities,
         ) in enumerate(raw_persons):
             times = np.array(times) * 3600  # hour->second
-            p = Person()
+            if self.person_version == "v1":
+                p = v1Person()
+            else:
+                p = Person()
             p.CopyFrom(self.template)
             p.id = agent_id
             p.home.CopyFrom(Position(aoi_position=AoiPosition(aoi_id=person_home)))
             p.work.CopyFrom(Position(aoi_position=AoiPosition(aoi_id=person_work)))
-            p.profile.CopyFrom(dict2pb(a_profile, PersonProfile()))
+            if self.person_version == "v1":
+                p.profile.CopyFrom(dict2pb(a_profile, v1PersonProfile()))
+            else:
+                p.profile.CopyFrom(dict2pb(a_profile, PersonProfile()))
             for time, aoi_id, trip_mode, activity, trip_model in zip(
                 times, aoi_list[1:], trip_modes, activities, trip_models
             ):
@@ -814,6 +827,7 @@ class TripGenerator:
                 stop_duration_time,
                 road_aoi_id2d_pos,
                 sl,
+                self.person_version
             )
             self.persons.extend(generated_drivers)
         return self.persons

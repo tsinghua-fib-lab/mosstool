@@ -67,6 +67,8 @@ class Builder:
         green_time: float = 30.0,
         yellow_time: float = 5.0,
         strict_mode: bool = False,
+        merge_aoi: bool = True,
+        aoi_matching_distance_threshold: float = 30.0,
         output_lane_length_check: bool = False,
         workers: int = cpu_count(),
     ):
@@ -88,7 +90,9 @@ class Builder:
         - traffic_light_mode (str): fixed time traffic-light generation mode. `green_red` means only green and red light will be generated, `green_yellow_red` means there will be yellow light between green and red light, `green_yellow_clear_red` add extra pedestrian clear red light.
         - green_time (float): green time
         - strict_mode (bool): when enabled, causes the program to exit whenever a warning occurs
-        - output_lane_length_check (bool): when enabled, will do value checks lane lengths in output map.
+        - merge_aoi (bool): merge nearby aois
+        - aoi_matching_distance_threshold (float): Only AOIs whose distance to the road network is less than this value will be added to the map.
+        - output_lane_length_check (bool): when enabled, will do value checks lane lengths in output map
         - yellow_time (float): yellow time
         - workers (int): number of workers
         """
@@ -113,6 +117,9 @@ class Builder:
         self.landuse_shp_path = landuse_shp_path
         self.traffic_light_min_direction_group = traffic_light_min_direction_group
         self.strict_mode = strict_mode
+        self.merge_aoi = merge_aoi
+        self.aoi_matching_distance_threshold = aoi_matching_distance_threshold
+        # TODO:加入阈值
         self.output_lane_length_check = output_lane_length_check
         self.workers = workers
         self.traffic_light_mode: Union[
@@ -4106,6 +4113,8 @@ class Builder:
             input_pois=pois,
             input_stops=stops,
             bbox=(self.min_lat, self.min_lon, self.max_lat, self.max_lon),
+            merge_aoi=self.merge_aoi,
+            dis_gate=self.aoi_matching_distance_threshold,
             projstr=self.proj_str,
             shp_path=self.landuse_shp_path,
         )

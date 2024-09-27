@@ -11,14 +11,25 @@ import pyproj
 import shapely.ops as ops
 from scipy.spatial import KDTree
 from shapely.affinity import scale
-from shapely.geometry import (LineString, MultiLineString, MultiPoint,
-                              MultiPolygon, Point, Polygon)
+from shapely.geometry import (
+    LineString,
+    MultiLineString,
+    MultiPoint,
+    MultiPolygon,
+    Point,
+    Polygon,
+)
 from shapely.strtree import STRtree
 
 from ....type import AoiType
 from ..._util.angle import abs_delta_angle, delta_angle
-from ..._util.line import (connect_line_string, get_line_angle,
-                           get_start_vector, line_extend, offset_lane)
+from ..._util.line import (
+    connect_line_string,
+    get_line_angle,
+    get_start_vector,
+    line_extend,
+    offset_lane,
+)
 from .utils import geo_coords
 
 # ATTENTION: In order to achieve longer distance POI merging, the maximum recursion depth needs to be modified.
@@ -1866,12 +1877,17 @@ def add_aoi_to_map(
     input_pois: list,
     input_stops: list,
     bbox,
+    merge_aoi: bool,
+    dis_gate: float = 30.0,
     projstr: Optional[str] = None,
     shp_path: Optional[str] = None,
     workers: int = 32,
 ):
     """match AOIs to lanes"""
     global aoi_uid, d_matcher, w_matcher, road_lane_matcher
+    global D_DIS_GATE, D_HUGE_GATE, W_DIS_GATE, W_HUGE_GATE, LENGTH_PER_DOOR, MAX_DOOR_NUM, AOI_GATE_OFFSET
+    W_DIS_GATE = dis_gate
+    D_DIS_GATE = W_DIS_GATE + EXTRA_DIS_GATE
     d_matcher, w_matcher, road_lane_matcher = (
         matchers["drive"],
         matchers["walk"],
@@ -1882,7 +1898,9 @@ def add_aoi_to_map(
     # raw POIs
     raw_pois = {doc["id"]: doc for doc in input_pois}
 
-    aois = _add_aoi(aois=input_aois, stops=input_stops, workers=workers, merge_aoi=True)
+    aois = _add_aoi(
+        aois=input_aois, stops=input_stops, workers=workers, merge_aoi=merge_aoi
+    )
     added_input_poi = []
     for _, aoi in aois.items():
         added_input_poi.extend(aoi["external"].get("ex_poi_ids", []))
@@ -1903,6 +1921,7 @@ def add_sumo_aoi_to_map(
     input_stops: list,
     projstr: str,
     merge_aoi: bool,
+    dis_gate: float = 30.0,
     workers: int = 32,
 ):
     """for SUMO converter, match AOI to lanes"""
@@ -1914,6 +1933,8 @@ def add_sumo_aoi_to_map(
     )
     global D_DIS_GATE, D_HUGE_GATE, W_DIS_GATE, W_HUGE_GATE, LENGTH_PER_DOOR, MAX_DOOR_NUM, AOI_GATE_OFFSET
     global aoi_uid
+    W_DIS_GATE = dis_gate
+    D_DIS_GATE = W_DIS_GATE + EXTRA_DIS_GATE
     # AOI UID
     aoi_uid = AOI_START_ID
     # projection parameter

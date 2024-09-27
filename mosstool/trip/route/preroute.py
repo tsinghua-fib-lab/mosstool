@@ -1,7 +1,8 @@
 import logging
 from typing import cast
 
-from pycityproto.city.person.v1.person_pb2 import Person
+from pycityproto.city.person.v1.person_pb2 import Person as v1Person
+from pycityproto.city.person.v2.person_pb2 import Person as v2Person
 from pycityproto.city.routing.v2.routing_pb2 import RouteType
 from pycityproto.city.routing.v2.routing_service_pb2 import GetRouteRequest
 from pycityproto.city.trip.v2.trip_pb2 import Schedule, TripMode
@@ -19,8 +20,11 @@ _TYPE_MAP = {
 
 
 async def pre_route(
-    client: RoutingClient, person: Person, in_place: bool = False
-) -> Person:
+    client: RoutingClient,
+    person: v2Person,
+    in_place: bool = False,
+    person_version: str = "v1",
+) -> v2Person:
     """
     Fill in the route of the person's all schedules.
     The function will REMOVE all schedules that can not be routed.
@@ -34,9 +38,12 @@ async def pre_route(
     - None
     """
     if not in_place:
-        p = Person()
-        p.CopyFrom(person)
-        person = p
+        if person_version == "v1":
+            p = v1Person()
+        else:
+            p = v2Person()
+        p.CopyFrom(person)  # type:ignore
+        person = p  # type:ignore
     start = person.home
     departure_time = None
     all_schedules = list(person.schedules)

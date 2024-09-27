@@ -6,7 +6,6 @@ from xml.dom.minidom import parse
 
 import numpy as np
 import pycityproto.city.map.v2.map_pb2 as mapv2
-import pycityproto.city.person.v1.person_pb2 as personv1
 import pycityproto.city.routing.v2.routing_pb2 as routingv2
 import pycityproto.city.trip.v2.trip_pb2 as tripv2
 from pycityproto.city.map.v2.map_pb2 import Map
@@ -136,6 +135,7 @@ class RouteConverter:
             # https://sumo.dlr.de/docs/Definition_of_Vehicles%2C_Vehicle_Types%2C_and_Routes.html#car-following_models
             # model_name = v.getAttribute("carFollowModel") if v.hasAttribute("carFollowModel") else "IDM"
             self._vtype[vid] = (
+                {},
                 {
                     "length": length,
                     "width": width,
@@ -144,8 +144,6 @@ class RouteConverter:
                     "max_braking_acceleration": max_dec,
                     "usual_acceleration": usual_acc,
                     "usual_braking_acceleration": usual_dec,
-                },
-                {
                     "lane_change_length": LC_length,
                     "min_gap": min_gap,
                 },
@@ -659,7 +657,8 @@ class RouteConverter:
 
     def convert_route(self):
         self.agent_uid = 0
-        DEFAULT_AGENT_ATTRIBUTE = {
+        DEFAULT_AGENT_ATTRIBUTE = {}
+        DEFAULT_VEHICLE_ATTRIBUTE = {
             "length": 5,
             "width": 2,
             "max_speed": 41.6666666667,
@@ -667,19 +666,11 @@ class RouteConverter:
             "max_braking_acceleration": -10,
             "usual_acceleration": 2,
             "usual_braking_acceleration": -4.5,
-        }
-        DEFAULT_VEHICLE_ATTRIBUTE = {
             "lane_change_length": 10,
             "min_gap": 1,
         }
-        DEFAULT_PEDESTRIAN_ATTRIBUTE = {
-            "lane_change_length": 10,
-            "min_gap": 1,
-        }
-        DEFAULT_BIKE_ATTRIBUTE = {
-            "lane_change_length": 10,
-            "min_gap": 1,
-        }
+        DEFAULT_PEDESTRIAN_ATTRIBUTE = {"speed": 1.34}
+        DEFAULT_BIKE_ATTRIBUTE = {"speed": 5}
         DEFAULT_AGENT_TYPE = "AGENT_TYPE_PRIVATE_CAR"
 
         # Route contains the edges that all vehicles pass through, that is, the complete trajectory
