@@ -1,6 +1,5 @@
-from mosstool.trip.generator import (PositionMode,
-                                     ProbabilisticTemplateGenerator,
-                                     RandomGenerator)
+from mosstool.trip.generator import (PositionMode, RandomGenerator,
+                                     default_vehicle_template_generator)
 from mosstool.trip.route import RoutingClient, pre_route
 from mosstool.type import Map, Person, Persons, TripMode
 from mosstool.util.format_converter import pb2json
@@ -10,14 +9,11 @@ async def main():
     with open("data/temp/map.pb", "rb") as f:
         m = Map()
         m.ParseFromString(f.read())
-    pg = ProbabilisticTemplateGenerator(
-        headway_values=[1.5, 2, 2.5], headway_probabilities=[1, 1, 1]
-    )
     rg = RandomGenerator(
         m,
         [PositionMode.LANE, PositionMode.LANE],
         TripMode.TRIP_MODE_DRIVE_ONLY,
-        template_func=pg.template_generator,
+        template_func=default_vehicle_template_generator,
     )
     persons = rg.uniform(
         num=100,
