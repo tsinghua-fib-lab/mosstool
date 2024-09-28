@@ -1,8 +1,7 @@
 from pycityproto.city.person.v2.person_pb2 import (BikeAttribute,
                                                    EmissionAttribute,
-                                                   PedestrianAttribute)
-from pycityproto.city.person.v2.person_pb2 import Person as v2Person
-from pycityproto.city.person.v2.person_pb2 import (PersonAttribute,
+                                                   PedestrianAttribute, Person,
+                                                   PersonAttribute,
                                                    VehicleAttribute,
                                                    VehicleEngineEfficiency,
                                                    VehicleEngineType)
@@ -10,7 +9,7 @@ from pycityproto.city.person.v2.person_pb2 import (PersonAttribute,
 __all__ = [
     "DEFAULT_PERSON",
 ]
-DEFAULT_PERSON = v2Person(
+DEFAULT_PERSON = Person(
     attribute=PersonAttribute(),
     vehicle_attribute=VehicleAttribute(
         length=5,

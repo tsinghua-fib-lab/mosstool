@@ -3,7 +3,8 @@ from typing import Dict, List, Literal, Optional, Set, Tuple, Union, cast
 
 import numpy as np
 from pycityproto.city.person.v2.person_pb2 import (BusAttribute, BusType,
-                                                   Person, PersonAttribute)
+                                                   Person, PersonAttribute,
+                                                   VehicleAttribute)
 from pycityproto.city.routing.v2.routing_pb2 import (DrivingJourneyBody,
                                                      Journey, JourneyType)
 from pycityproto.city.trip.v2.trip_pb2 import TripStop
@@ -19,6 +20,8 @@ __all__ = [
     "gen_profiles",
     "recalculate_trip_mode_prob",
     "gen_bus_drivers",
+    "sample_vehicle_attribute",
+    "sample_post_process",
 ]
 
 
@@ -330,7 +333,7 @@ def gen_bus_drivers(
             p.CopyFrom(person_template)
             p.id = person_id
             if sl_attributes:
-                p.attribute.CopyFrom(dict2pb(sl_attributes, PersonAttribute()))
+                p.vehicle_attribute.CopyFrom(dict2pb(sl_attributes, VehicleAttribute()))
             p.bus_attribute.CopyFrom(p_bus_attr)
             p.home.CopyFrom(Position(aoi_position=AoiPosition(aoi_id=home_aoi_id)))
             schedule = cast(Schedule, p.schedules.add())
@@ -369,3 +372,43 @@ def gen_bus_drivers(
         person_id += 1
 
     return (person_id, sl_drivers)
+
+
+def sample_vehicle_attribute(
+    p: Person,
+    rng: np.random.Generator,
+    vehicle_control_type: Union[Literal["human"], Literal["auto"]] = "human",
+) -> Person:
+    if vehicle_control_type not in {"human", "auto"}:
+        raise ValueError(f"Invalid vehicle control type {vehicle_control_type}!")
+    res = Person()
+    res.CopyFrom(p)
+    res.vehicle_attribute.max_acceleration = rng.choice(
+        MAX_ACC_VALUES, p=MAX_ACC_PDF_DICT[vehicle_control_type]
+    )
+    res.vehicle_attribute.usual_braking_acceleration = rng.choice(
+        BRAKE_ACC_VALUES, p=BRAKE_ACC_PDF_DICT[vehicle_control_type]
+    )
+    res.vehicle_attribute.headway = rng.choice(
+        HEADWAY_VALUES, p=HEADWAY_PDF_DICT[vehicle_control_type]
+    )
+    return res
+
+
+def sample_post_process(
+    persons: List[Person],
+    rng: np.random.Generator,
+    vehicle_auto_control_ratio: float = 0.0,
+) -> List[Person]:
+    processed_persons = []
+    for p in persons:
+        if rng.random() < vehicle_auto_control_ratio:
+            _control_type = "auto"
+        else:
+            _control_type = "human"
+        processed_persons.append(
+            sample_vehicle_attribute(
+                p=p, rng=np.random.default_rng(p.id), vehicle_control_type=_control_type
+            )
+        )
+    return processed_persons
