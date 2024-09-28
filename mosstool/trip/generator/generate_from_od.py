@@ -4,7 +4,8 @@ from copy import deepcopy
 from functools import partial
 from math import ceil
 from multiprocessing import Pool, cpu_count
-from typing import Dict, List, Literal, Optional, Set, Tuple, Union, cast
+from typing import (Callable, Dict, List, Literal, Optional, Set, Tuple, Union,
+                    cast)
 
 import numpy as np
 import pyproj
@@ -18,8 +19,8 @@ from ...util.format_converter import dict2pb, pb2dict
 from ._util.const import *
 from ._util.utils import (extract_HWEO_from_od_matrix, gen_bus_drivers,
                           gen_departure_times, gen_profiles,
-                          recalculate_trip_mode_prob, sample_post_process)
-from .template import DEFAULT_PERSON
+                          recalculate_trip_mode_prob)
+from .template import default_vehicle_template_generator
 
 
 # from ...util.geo_match_pop import geo2pop
@@ -413,7 +414,7 @@ class TripGenerator:
         bus_expense: float = 5.0,
         bike_speed: float = 10 / 3.6,
         bike_penalty: float = 0.9,
-        template: Person = DEFAULT_PERSON,
+        template_func: Callable[[], Person] = default_vehicle_template_generator,
         add_pop: bool = False,
         workers: int = cpu_count(),
     ):
@@ -433,7 +434,7 @@ class TripGenerator:
         - bus_expense (float): money  cost(￥) of bus for traffic mode assignment.
         - bike_speed (float): extra cost(s) of bike for traffic mode assignment.
         - bike_penalty (float): money  cost(￥) of bike for traffic mode assignment.
-        - template (Person): The template of generated person object, whose `schedules`, `home` will be replaced and others will be copied.
+        - template_func (Callable[[],Person]): The template function of generated person object, whose `schedules`, `home` will be replaced and others will be copied.
         - add_pop (bool): Add population to aois.
         - workers (int): number of workers.
         """
@@ -452,9 +453,7 @@ class TripGenerator:
         self.add_pop = add_pop
         self.projector = pyproj.Proj(m.header.projection)
         self.workers = workers
-        self.template = template
-        self.template.ClearField("schedules")
-        self.template.ClearField("home")
+        self.template = template_func
         self.persons = []
         # activity proportion
         if activity_distributions is not None:
@@ -684,7 +683,8 @@ class TripGenerator:
         ) in enumerate(raw_persons):
             times = np.array(times) * 3600  # hour->second
             p = Person()
-            p.CopyFrom(self.template)
+            p.CopyFrom(self.template())
+            p.ClearField("schedules")
             p.id = agent_id
             p.home.CopyFrom(Position(aoi_position=AoiPosition(aoi_id=person_home)))
             p.work.CopyFrom(Position(aoi_position=AoiPosition(aoi_id=person_work)))
@@ -715,7 +715,6 @@ class TripGenerator:
         area_pops: Optional[list] = None,
         person_profiles: Optional[list[dict]] = None,
         seed: int = 0,
-        vehicle_auto_control_ratio: float = 0.0,
         agent_num: Optional[int] = None,
     ) -> List[Person]:
         """
@@ -726,7 +725,6 @@ class TripGenerator:
         - area_pops (list): list of populations in each area. If is not None, # of the persons departs from each home position is exactly equal to the given pop num.
         - person_profiles (list[dict]): list of profiles in dict format.
         - seed (int): The random seed.
-        - vehicle_auto_control_ratio (float): ratio of autonomous cars in all persons.
         - agent_num (int): number of agents to generate.
 
         Returns:
@@ -759,9 +757,6 @@ class TripGenerator:
             logging.warning("agent_num should >=1")
             return []
         self._generate_mobi(agent_num, area_pops, person_profiles, seed)
-        self.persons = sample_post_process(
-            self.persons, np.random.default_rng(seed), vehicle_auto_control_ratio
-        )
         return self.persons
 
     def _get_driving_pos_dict(self) -> Dict[Tuple[int, int], geov2.LanePosition]:
@@ -799,13 +794,11 @@ class TripGenerator:
         self,
         stop_duration_time: float = 30.0,
         seed: int = 0,
-        vehicle_auto_control_ratio: float = 0.0,
     ) -> List[Person]:
         """
         Args:
         - stop_duration_time (float): The duration time (in second) for bus at each stop.
         - seed (int): The random seed.
-        - vehicle_auto_control_ratio (float): ratio of autonomous cars in all persons.
 
         Returns:
         - List[Person]: The generated driver objects.
@@ -826,9 +819,6 @@ class TripGenerator:
                 sl,
             )
             self.persons.extend(generated_drivers)
-        self.persons = sample_post_process(
-            self.persons, np.random.default_rng(seed), vehicle_auto_control_ratio
-        )
         return self.persons
 
     def _generate_schedules(self, input_persons: List[Person], seed: int):
@@ -950,7 +940,6 @@ class TripGenerator:
         areas: GeoDataFrame,
         departure_time_curve: Optional[list[float]] = None,
         seed: int = 0,
-        vehicle_auto_control_ratio: float = 0.0,
     ) -> List[Person]:
         """
         Generate person schedules.
@@ -961,7 +950,6 @@ class TripGenerator:
         - areas (GeoDataFrame): The area data. Must contain a 'geometry' column with geometric information and a defined `crs` string.
         - departure_time_curve (list[float]): The departure time of a day (24h). The resolution must >=1h.
         - seed (int): The random seed.
-        - vehicle_auto_control_ratio (float): ratio of autonomous cars in all persons.
 
         Returns:
         - List[Person]: The person objects with generated schedules.
@@ -988,8 +976,5 @@ class TripGenerator:
         self._read_od_matrix()
         self._match_aoi2region()
         self._generate_schedules(input_persons, seed)
-        self.persons = sample_post_process(
-            self.persons, np.random.default_rng(seed), vehicle_auto_control_ratio
-        )
 
         return self.persons

@@ -1,4 +1,5 @@
-from mosstool.trip.generator import (DEFAULT_PERSON, PositionMode,
+from mosstool.trip.generator import (PositionMode,
+                                     ProbabilisticTemplateGenerator,
                                      RandomGenerator)
 from mosstool.trip.route import RoutingClient, pre_route
 from mosstool.type import Map, Person, Persons, TripMode
@@ -9,18 +10,15 @@ async def main():
     with open("data/temp/map.pb", "rb") as f:
         m = Map()
         m.ParseFromString(f.read())
-
-    template = Person()
-    template.CopyFrom(DEFAULT_PERSON)
-    template.vehicle_attribute.model = "normal"
-    template.pedestrian_attribute.model = "normal"
+    pg = ProbabilisticTemplateGenerator(
+        headway_values=[1.5, 2, 2.5], headway_probabilities=[1, 1, 1]
+    )
     rg = RandomGenerator(
         m,
         [PositionMode.LANE, PositionMode.LANE],
         TripMode.TRIP_MODE_DRIVE_ONLY,
-        template=template,
+        template_func=pg.template_generator,
     )
-
     persons = rg.uniform(
         num=100,
         first_departure_time_range=(8 * 3600, 9 * 3600),
@@ -42,6 +40,7 @@ async def main():
     pb = Persons(persons=ok_persons)
     with open("data/temp/persons.json", "w") as f:
         f.write(pb2json(pb))
+
 
 if __name__ == "__main__":
     import asyncio

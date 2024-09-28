@@ -1,5 +1,6 @@
 from multiprocessing import Pool, cpu_count
-from typing import Dict, List, Literal, Optional, Set, Tuple, Union, cast
+from typing import (Callable, Dict, List, Literal, Optional, Set, Tuple, Union,
+                    cast)
 
 import numpy as np
 from pycityproto.city.person.v2.person_pb2 import (BusAttribute, BusType,
@@ -20,8 +21,6 @@ __all__ = [
     "gen_profiles",
     "recalculate_trip_mode_prob",
     "gen_bus_drivers",
-    "sample_vehicle_attribute",
-    "sample_post_process",
 ]
 
 
@@ -245,7 +244,7 @@ def extract_HWEO_from_od_matrix(
 
 def gen_bus_drivers(
     person_id: int,
-    person_template: Person,
+    person_template_generator: Callable[[], Person],
     depart_times: List[float],
     stop_duration_time: float,
     road_aoi_id2d_pos: Dict[Tuple[int, int], geov2.LanePosition],
@@ -278,15 +277,12 @@ def gen_bus_drivers(
     bus_type = BusType.BUS_TYPE_UNSPECIFIED
     if sl_type == mapv2.SUBLINE_TYPE_BUS:
         sl_capacity = STATION_CAPACITY["BUS"]
-        sl_attributes = PT_DRIVER_ATTRIBUTES["BUS"]
         bus_type = BusType.BUS_TYPE_BUS
     elif sl_type == mapv2.SUBLINE_TYPE_SUBWAY:
         sl_capacity = STATION_CAPACITY["SUBWAY"]
-        sl_attributes = PT_DRIVER_ATTRIBUTES["SUBWAY"]
         bus_type = BusType.BUS_TYPE_SUBWAY
     elif sl_type == mapv2.SUBLINE_TYPE_UNSPECIFIED:
         sl_capacity = STATION_CAPACITY["UNSPECIFIED"]
-        sl_attributes = PT_DRIVER_ATTRIBUTES["UNSPECIFIED"]
         bus_type = BusType.BUS_TYPE_UNSPECIFIED
     else:
         raise ValueError(f"Bad Subline Type {sl_type}")
@@ -330,10 +326,8 @@ def gen_bus_drivers(
     if bus_type == BusType.BUS_TYPE_BUS:
         for tm in depart_times:
             p = Person()
-            p.CopyFrom(person_template)
+            p.CopyFrom(person_template_generator())
             p.id = person_id
-            if sl_attributes:
-                p.vehicle_attribute.CopyFrom(dict2pb(sl_attributes, VehicleAttribute()))
             p.bus_attribute.CopyFrom(p_bus_attr)
             p.home.CopyFrom(Position(aoi_position=AoiPosition(aoi_id=home_aoi_id)))
             schedule = cast(Schedule, p.schedules.add())
@@ -363,52 +357,10 @@ def gen_bus_drivers(
     elif bus_type == BusType.BUS_TYPE_SUBWAY:
         # empty schedule
         p = Person()
-        p.CopyFrom(person_template)
+        p.CopyFrom(person_template_generator())
         p.id = person_id
-        if sl_attributes:
-            p.attribute.CopyFrom(dict2pb(sl_attributes, PersonAttribute()))
         p.bus_attribute.CopyFrom(p_bus_attr)
         p.home.CopyFrom(Position(aoi_position=AoiPosition(aoi_id=home_aoi_id)))
         person_id += 1
 
     return (person_id, sl_drivers)
-
-
-def sample_vehicle_attribute(
-    p: Person,
-    rng: np.random.Generator,
-    vehicle_control_type: Union[Literal["human"], Literal["auto"]] = "human",
-) -> Person:
-    if vehicle_control_type not in {"human", "auto"}:
-        raise ValueError(f"Invalid vehicle control type {vehicle_control_type}!")
-    res = Person()
-    res.CopyFrom(p)
-    res.vehicle_attribute.max_acceleration = rng.choice(
-        MAX_ACC_VALUES, p=MAX_ACC_PDF_DICT[vehicle_control_type]
-    )
-    res.vehicle_attribute.usual_braking_acceleration = rng.choice(
-        BRAKE_ACC_VALUES, p=BRAKE_ACC_PDF_DICT[vehicle_control_type]
-    )
-    res.vehicle_attribute.headway = rng.choice(
-        HEADWAY_VALUES, p=HEADWAY_PDF_DICT[vehicle_control_type]
-    )
-    return res
-
-
-def sample_post_process(
-    persons: List[Person],
-    rng: np.random.Generator,
-    vehicle_auto_control_ratio: float = 0.0,
-) -> List[Person]:
-    processed_persons = []
-    for p in persons:
-        if rng.random() < vehicle_auto_control_ratio:
-            _control_type = "auto"
-        else:
-            _control_type = "human"
-        processed_persons.append(
-            sample_vehicle_attribute(
-                p=p, rng=np.random.default_rng(p.id), vehicle_control_type=_control_type
-            )
-        )
-    return processed_persons

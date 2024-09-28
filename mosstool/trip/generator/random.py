@@ -1,5 +1,5 @@
 from enum import Enum
-from typing import List, Literal, Optional, Tuple, Union, cast
+from typing import Callable, List, Literal, Optional, Tuple, Union, cast
 
 import numpy as np
 from pycityproto.city.geo.v2.geo_pb2 import AoiPosition, LanePosition, Position
@@ -8,8 +8,8 @@ from pycityproto.city.person.v2.person_pb2 import Person
 from pycityproto.city.trip.v2.trip_pb2 import Schedule, Trip, TripMode
 
 from ...map._map_util.const import JUNC_START_ID
-from ._util.utils import is_walking, sample_post_process
-from .template import DEFAULT_PERSON
+from ._util.utils import is_walking
+from .template import default_vehicle_template_generator
 
 __all__ = ["PositionMode", "RandomGenerator"]
 
@@ -29,23 +29,21 @@ class RandomGenerator:
         m: Map,
         position_modes: List[PositionMode],
         trip_mode: TripMode,
-        template: Person = DEFAULT_PERSON,
+        template_func: Callable[[], Person] = default_vehicle_template_generator,
     ):
         """
         Args:
         - m (Map): The Map.
         - position_modes (List[PositionMode]): The schedules generated will follow the position modes in this list. For example, if the list is [PositionMode.AOI, PositionMode.LANE, PositionMode.AOI], the generated person will start from an AOI, then go to a lane, and finally go to an AOI.
         - trip_mode (TripMode): The target trip mode.
-        - template (Person): The template of generated person object, whose `schedules`, `home` will be replaced and others will be copied.
+        - template_func (Callable[[],Person]): The template function of generated person object, whose `schedules`, `home` will be replaced and others will be copied.
         """
         self.m = m
         self.modes = position_modes
         if len(self.modes) <= 1:
             raise ValueError("position_modes should have at least 2 elements")
         self.trip_mode = trip_mode
-        self.template = template
-        self.template.ClearField("schedules")
-        self.template.ClearField("home")
+        self.template = template_func
 
         # Pre-process the map to build the randomly selected candidate set
         walk = is_walking(trip_mode)
@@ -83,7 +81,6 @@ class RandomGenerator:
         num: int,
         first_departure_time_range: Tuple[float, float],
         schedule_interval_range: Tuple[float, float],
-        vehicle_auto_control_ratio: float = 0.0,
         seed: Optional[int] = None,
         start_id: Optional[int] = None,
     ) -> List[Person]:
@@ -94,7 +91,6 @@ class RandomGenerator:
         - num (int): The number of person objects to generate.
         - first_departure_time_range (Tuple[float, float]): The range of the first departure time (uniform random sampling).
         - schedule_interval_range (Tuple[float, float]): The range of the interval between schedules (uniform random sampling).
-        - vehicle_auto_control_ratio (float): ratio of autonomous cars in all persons.
         - seed (Optional[int], optional): The random seed. Defaults to None.
         - start_id (Optional[int], optional): The start id of the generated person objects. Defaults to None. If None, the `id` will be NOT set.
 
@@ -106,7 +102,8 @@ class RandomGenerator:
         persons = []
         for i in range(num):
             p = Person()
-            p.CopyFrom(self.template)
+            p.CopyFrom(self.template())
+            p.ClearField("schedules")
             if start_id is not None:
                 p.id = start_id + i
             p.home.CopyFrom(
@@ -132,8 +129,4 @@ class RandomGenerator:
                 schedule.trips.append(trip)
                 departure_time += np.random.uniform(*schedule_interval_range)
             persons.append(p)
-        _seed = seed if seed is not None else 0
-        persons = sample_post_process(
-            persons, np.random.default_rng(_seed), vehicle_auto_control_ratio
-        )
         return persons
