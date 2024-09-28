@@ -26,7 +26,7 @@ async def main():
     with open("data/temp/map.pb", "rb") as f:
         m = Map()
         m.ParseFromString(f.read())
-    for _g, _g_name in zip(_generators, _generator_names):
+    for i, (_g, _g_name) in enumerate(zip(_generators, _generator_names)):
         rg = RandomGenerator(
             m,
             [PositionMode.LANE, PositionMode.LANE],
@@ -37,7 +37,7 @@ async def main():
             num=100,
             first_departure_time_range=(8 * 3600, 9 * 3600),
             schedule_interval_range=(5 * 60, 10 * 60),
-            start_id=0,
+            start_id=100 * i,
         )
 
         # pre-route
@@ -52,6 +52,8 @@ async def main():
         pb = Persons(persons=ok_persons)
         with open(f"data/temp/{_g_name}_persons.json", "w") as f:
             f.write(pb2json(pb))
+        with open(f"data/temp/{_g_name}_persons.pb", "wb") as f:
+            f.write(pb.SerializeToString())
 
 
 if __name__ == "__main__":
