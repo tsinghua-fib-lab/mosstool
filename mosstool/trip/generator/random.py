@@ -4,13 +4,12 @@ from typing import List, Literal, Optional, Tuple, Union, cast
 import numpy as np
 from pycityproto.city.geo.v2.geo_pb2 import AoiPosition, LanePosition, Position
 from pycityproto.city.map.v2.map_pb2 import Aoi, Lane, LaneType, Map
-from pycityproto.city.person.v1.person_pb2 import Person as v1Person
-from pycityproto.city.person.v2.person_pb2 import Person as v2Person
+from pycityproto.city.person.v2.person_pb2 import Person
 from pycityproto.city.trip.v2.trip_pb2 import Schedule, Trip, TripMode
 
 from ...map._map_util.const import JUNC_START_ID
 from ._util.utils import is_walking
-from .template import V1_DEFAULT_PERSON, V2_DEFAULT_PERSON
+from .template import DEFAULT_PERSON
 
 __all__ = ["PositionMode", "RandomGenerator"]
 
@@ -30,9 +29,7 @@ class RandomGenerator:
         m: Map,
         position_modes: List[PositionMode],
         trip_mode: TripMode,
-        template=None,
-        # Person = DEFAULT_PERSON,
-        person_version: Union[Literal["v1"], Literal["v2"]] = "v1",
+        template: Person = DEFAULT_PERSON,
     ):
         """
         Args:
@@ -41,11 +38,6 @@ class RandomGenerator:
         - trip_mode (TripMode): The target trip mode.
         - template (Person): The template of generated person object, whose `schedules`, `home` will be replaced and others will be copied.
         """
-        self.person_version = person_version
-        if person_version == "v1":
-            template = V1_DEFAULT_PERSON
-        else:
-            template = V2_DEFAULT_PERSON
         self.m = m
         self.modes = position_modes
         if len(self.modes) <= 1:
@@ -93,7 +85,7 @@ class RandomGenerator:
         schedule_interval_range: Tuple[float, float],
         seed: Optional[int] = None,
         start_id: Optional[int] = None,
-    ) -> List[v1Person]:
+    ) -> List[Person]:
         """
         Generate a person object by uniform random sampling
 
@@ -111,10 +103,7 @@ class RandomGenerator:
             np.random.seed(seed)
         persons = []
         for i in range(num):
-            if self.person_version == "v1":
-                p = v1Person()
-            else:
-                p = v2Person()
+            p = Person()
             p.CopyFrom(self.template)
             if start_id is not None:
                 p.id = start_id + i

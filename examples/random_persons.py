@@ -1,7 +1,7 @@
-from mosstool.trip.generator import (V1_DEFAULT_PERSON, V2_DEFAULT_PERSON,
-                                     PositionMode, RandomGenerator)
+from mosstool.trip.generator import (DEFAULT_PERSON, PositionMode,
+                                     RandomGenerator)
 from mosstool.trip.route import RoutingClient, pre_route
-from mosstool.type import Map, TripMode, Person, Persons
+from mosstool.type import Map, Person, Persons, TripMode
 from mosstool.util.format_converter import pb2json
 
 
@@ -11,7 +11,7 @@ async def main():
         m.ParseFromString(f.read())
 
     template = Person()
-    template.CopyFrom(V1_DEFAULT_PERSON)
+    template.CopyFrom(DEFAULT_PERSON)
     template.vehicle_attribute.model = "normal"
     template.pedestrian_attribute.model = "normal"
     rg = RandomGenerator(
@@ -42,7 +42,6 @@ async def main():
     pb = Persons(persons=ok_persons)
     with open("data/temp/persons.json", "w") as f:
         f.write(pb2json(pb))
-
 
 if __name__ == "__main__":
     import asyncio
