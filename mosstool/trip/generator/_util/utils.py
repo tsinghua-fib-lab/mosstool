@@ -78,7 +78,9 @@ def _gen_profile_unit(seed: int):
     }
 
 
-def gen_profiles(agent_num: int, workers: int) -> List[Dict]:
+def gen_profiles(
+    agent_num: int, workers: int, multiprocessing_chunk_size: int
+) -> List[Dict]:
     """
     Randomly generate PersonProfile
 
@@ -90,6 +92,7 @@ def gen_profiles(agent_num: int, workers: int) -> List[Dict]:
     - list(dict): List of PersonProfile dict.
     """
     profiles = []
+    MAX_CHUNK_SIZE = multiprocessing_chunk_size
     profile_args = [i for i in range(agent_num)]
     for i in range(0, len(profile_args), MAX_BATCH_SIZE):
         profile_batch = profile_args[i : i + MAX_BATCH_SIZE]
@@ -97,7 +100,7 @@ def gen_profiles(agent_num: int, workers: int) -> List[Dict]:
             profiles += pool.map(
                 _gen_profile_unit,
                 profile_batch,
-                chunksize=min(len(profile_batch) // workers, 500),
+                chunksize=min(len(profile_batch) // workers, MAX_CHUNK_SIZE),
             )
     return profiles
 

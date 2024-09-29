@@ -45,6 +45,7 @@ SUMO_WAY_LEVELS = [
     "footway",
 ]  # TO be converted SUMO road levels
 
+MAX_BATCH_SIZE = 15_0000
 MAX_JUNC_LANE_LENGTH = 500
 MIN_WALK_CONNECTED_COMPONENT = 5  # Minimum length of connected component of sidewalk
 DEFAULT_ROAD_SPLIT_LENGTH = 20  # Default road shortening length
@@ -103,7 +104,6 @@ DEFAULT_STATION_DURATION = {
     "BUS": 100,
     "SUBWAY": 180,
 }
-MAX_BATCH_SIZE = 15_0000
 MIN_HAS_WALK_LANE_LENGTH = 5
 LARGE_LANE_NUM_THRESHOLD = 4
 SMALL_LANE_NUM_THRESHOLD = 2

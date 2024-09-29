@@ -225,7 +225,7 @@ def _get_aoi_pop(aois_point, aois_poly, workers):
             aois_point_result += pool.map(
                 _get_aoi_point_pop_unit,
                 aois_point_batch,
-                chunksize=min(ceil(len(aois_point_batch) / workers), 1000),
+                chunksize=min(ceil(len(aois_point_batch) / workers), MAX_CHUNK_SIZE),
             )
     aois_poly_result = []
     for i in range(0, len(aois_poly), MAX_BATCH_SIZE):
@@ -234,7 +234,7 @@ def _get_aoi_pop(aois_point, aois_poly, workers):
             aois_poly_result += pool.map(
                 _get_aoi_poly_pop_unit,
                 aois_poly_batch,
-                chunksize=min(ceil(len(aois_poly_batch) / workers), 200),
+                chunksize=min(ceil(len(aois_poly_batch) / workers), MAX_CHUNK_SIZE),
             )
     aois_point, aois_poly = aois_point_result, aois_poly_result
     aois_poly, flags = zip(*aois_poly)
@@ -268,6 +268,7 @@ def add_aoi_pop(
     max_latitude: float,
     min_latitude: float,
     proj_str: str,
+    multiprocessing_chunk_size: int = 500,
     upsample_factor: int = 4,
     workers: int = 32,
     tif_path: Optional[str] = None,
@@ -284,7 +285,8 @@ def add_aoi_pop(
     )
     bbox = (min_lon, max_lon, min_lat, max_lat)
     lon_cen, lat_cen = (min_lon + max_lon) / 2, (min_lat + max_lat) / 2
-    global pixel_idx2point_pop, aois_poly_global, x_left, y_upper, x_step, y_step, pixel_area, aoi_point_area, xy_gps_scale2, n_upsample
+    global pixel_idx2point_pop, aois_poly_global, x_left, y_upper, x_step, y_step, pixel_area, aoi_point_area, xy_gps_scale2, n_upsample, MAX_CHUNK_SIZE
+    MAX_CHUNK_SIZE = multiprocessing_chunk_size
     # Preprocess AOI data
     logging.info("Pre-processing aois")
     has_pop = False
@@ -369,7 +371,7 @@ def add_aoi_pop(
                 list_pixel2pop_batch,
                 chunksize=min(
                     ceil(len(list_pixel2pop_batch) / workers),
-                    1000,
+                    MAX_CHUNK_SIZE,
                 ),
             )
     pixel_idx2point_pop = {k: v for x in results for k, v in x}
@@ -389,7 +391,7 @@ def add_aoi_pop(
                 list_pixel2pop_batch,
                 chunksize=min(
                     ceil(len(list_pixel2pop_batch) / workers),
-                    1000,
+                    MAX_CHUNK_SIZE,
                 ),
             )
     pixel_idx2point_pop = {k: v for x in results for k, v in x}

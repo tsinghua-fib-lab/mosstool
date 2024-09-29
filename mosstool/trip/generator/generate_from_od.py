@@ -416,6 +416,7 @@ class TripGenerator:
         bike_penalty: float = 0.9,
         template_func: Callable[[], Person] = default_vehicle_template_generator,
         add_pop: bool = False,
+        multiprocessing_chunk_size: int = 500,
         workers: int = cpu_count(),
     ):
         """
@@ -436,6 +437,7 @@ class TripGenerator:
         - bike_penalty (float): money  cost(￥) of bike for traffic mode assignment.
         - template_func (Callable[[],Person]): The template function of generated person object, whose `schedules`, `home` will be replaced and others will be copied.
         - add_pop (bool): Add population to aois.
+        - multiprocessing_chunk_size (int): the maximum size of each multiprocessing chunk
         - workers (int): number of workers.
         """
         global SUBWAY_EXPENSE, BUS_EXPENSE, DRIVING_SPEED, DRIVING_PENALTY, SUBWAY_SPEED, SUBWAY_PENALTY, BUS_SPEED, BUS_PENALTY, BIKE_SPEED, BIKE_PENALTY, PARKING_FEE
@@ -455,6 +457,8 @@ class TripGenerator:
         self.workers = workers
         self.template = template_func
         self.persons = []
+        global MAX_CHUNK_SIZE
+        MAX_CHUNK_SIZE = multiprocessing_chunk_size
         # activity proportion
         if activity_distributions is not None:
             ori_modes_stat = {
@@ -594,7 +598,7 @@ class TripGenerator:
                 results += pool.map(
                     _match_aoi_unit_with_arg,
                     aois_batch,
-                    chunksize=min(ceil(len(aois_batch) / self.workers), 500),
+                    chunksize=min(ceil(len(aois_batch) / self.workers), MAX_CHUNK_SIZE),
                 )
         results = [r for r in results if r is not None]
         for r in results:
@@ -638,7 +642,7 @@ class TripGenerator:
         if person_profiles is not None:
             a_profiles = person_profiles
         else:
-            a_profiles = gen_profiles(agent_num, self.workers)
+            a_profiles = gen_profiles(agent_num, self.workers, MAX_CHUNK_SIZE)
         a_modes = [self.modes for _ in range(agent_num)]
         a_p_modes = [self.p_mode for _ in range(agent_num)]
         for i, (a_home_region, a_profile, a_mode, a_p_mode) in enumerate(
@@ -668,7 +672,9 @@ class TripGenerator:
                 raw_persons += pool.map(
                     _process_agent_unit_with_arg,
                     agent_args_batch,
-                    chunksize=min(ceil(len(agent_args_batch) / self.workers), 500),
+                    chunksize=min(
+                        ceil(len(agent_args_batch) / self.workers), MAX_CHUNK_SIZE
+                    ),
                 )
         raw_persons = [r for r in raw_persons]
         for agent_id, (
@@ -893,7 +899,9 @@ class TripGenerator:
                 filled_schedules += pool.map(
                     _fill_person_schedule_unit_with_arg,
                     person_args_batch,
-                    chunksize=min(ceil(len(person_args_batch) / self.workers), 500),
+                    chunksize=min(
+                        ceil(len(person_args_batch) / self.workers), MAX_CHUNK_SIZE
+                    ),
                 )
         for (
             aoi_list,

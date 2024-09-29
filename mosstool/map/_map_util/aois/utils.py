@@ -201,7 +201,7 @@ def _merge_aoi(input_aois: list, merge_aoi: bool = False, workers: int = 32):
         aois = pool.map(
             _find_aoi_parent_unit,
             aois,
-            chunksize=min(ceil(len(aois) / workers), 1000),
+            chunksize=min(ceil(len(aois) / workers), MAX_CHUNK_SIZE),
         )
 
     aois_ancestor = []
@@ -257,7 +257,7 @@ def _connect_aoi(input_aois: list, merge_aoi: bool = False, workers: int = 32):
         results = pool.map(
             _connect_aoi_unit1,
             args,
-            chunksize=max(min(ceil(len(args) / workers), 200), 1),
+            chunksize=max(min(ceil(len(args) / workers), MAX_CHUNK_SIZE), 1),
         )
     results = [x for x in results if x]
     clusters = [x[:2] for x in results]
@@ -270,7 +270,7 @@ def _connect_aoi(input_aois: list, merge_aoi: bool = False, workers: int = 32):
         results = pool.map(
             _connect_aoi_unit2,
             clusters,
-            chunksize=max(min(ceil(len(clusters) / workers), 200), 1),
+            chunksize=max(min(ceil(len(clusters) / workers), MAX_CHUNK_SIZE), 1),
         )
     aois_connect = [x for x in results if isinstance(x, dict)]
     aois_other += sum([x for x in results if isinstance(x, list)], [])
@@ -364,7 +364,7 @@ def _match_poi_to_aoi(aois, pois, workers):
                 _match_poi_unit,
                 pois_batch,
                 chunksize=max(
-                    min(ceil(len(pois_batch) / workers), 1000),
+                    min(ceil(len(pois_batch) / workers), MAX_CHUNK_SIZE),
                     1,
                 ),
             )
@@ -413,7 +413,15 @@ def _post_compute_aoi_poi(aois, pois_isolate):
     return aois
 
 
-def generate_aoi_poi(input_aois, input_pois, input_stops, workers: int = 32):
+def generate_aoi_poi(
+    input_aois,
+    input_pois,
+    input_stops,
+    workers: int = 32,
+    multiprocessing_chunk_size: int = 500,
+):
+    global MAX_CHUNK_SIZE
+    MAX_CHUNK_SIZE = multiprocessing_chunk_size
     merge_aoi = False
     input_aois = _fix_aois_poly(input_aois)
     # Process covered AOI
@@ -431,8 +439,15 @@ def generate_aoi_poi(input_aois, input_pois, input_stops, workers: int = 32):
 
 
 def generate_sumo_aoi_poi(
-    input_aois, input_pois, input_stops, workers: int = 32, merge_aoi: bool = False
+    input_aois,
+    input_pois,
+    input_stops,
+    workers: int = 32,
+    merge_aoi: bool = False,
+    multiprocessing_chunk_size: int = 500,
 ):
+    global MAX_CHUNK_SIZE
+    MAX_CHUNK_SIZE = multiprocessing_chunk_size
     input_aois = _fix_aois_poly(input_aois)
     input_aois = _merge_aoi(input_aois, merge_aoi, workers)
     input_aois = _connect_aoi(input_aois, merge_aoi, workers)

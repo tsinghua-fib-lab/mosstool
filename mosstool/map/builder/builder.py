@@ -64,6 +64,7 @@ class Builder:
             Literal["green_yellow_red"],
             Literal["green_yellow_clear_red"],
         ] = "green_yellow_clear_red",
+        multiprocessing_chunk_size: int = 500,
         green_time: float = 30.0,
         yellow_time: float = 5.0,
         strict_mode: bool = False,
@@ -88,6 +89,7 @@ class Builder:
         - road_expand_mode (str): road expand mode
         - aoi_mode (str): aoi appending mode. `append` takes effect when the input `net` is Map, incrementally adding the input AOIs; `overwrite` only adds the input AOIs, ignoring existing ones.
         - traffic_light_mode (str): fixed time traffic-light generation mode. `green_red` means only green and red light will be generated, `green_yellow_red` means there will be yellow light between green and red light, `green_yellow_clear_red` add extra pedestrian clear red light.
+        - multiprocessing_chunk_size (int): the maximum size of each multiprocessing chunk
         - green_time (float): green time
         - strict_mode (bool): when enabled, causes the program to exit whenever a warning occurs
         - merge_aoi (bool): merge nearby aois
@@ -119,7 +121,7 @@ class Builder:
         self.strict_mode = strict_mode
         self.merge_aoi = merge_aoi
         self.aoi_matching_distance_threshold = aoi_matching_distance_threshold
-        # TODO:加入阈值
+        self.multiprocessing_chunk_size = multiprocessing_chunk_size
         self.output_lane_length_check = output_lane_length_check
         self.workers = workers
         self.traffic_light_mode: Union[
@@ -4042,7 +4044,10 @@ class Builder:
         }
         if type(self.net) == Map:
             (reuse_aois, reuse_pois) = match_map_aois(
-                net=self.net, matchers=matchers, workers=self.workers
+                net=self.net,
+                matchers=matchers,
+                workers=self.workers,
+                multiprocessing_chunk_size=self.multiprocessing_chunk_size,
             )
         return (reuse_aois, reuse_pois)
 
@@ -4053,7 +4058,9 @@ class Builder:
             self.raw_aois, self.public_transport_data, self.proj_str
         )
         pois = convert_poi(self.raw_pois, self.proj_str)
-        aois, stops, pois = generate_aoi_poi(aois, pois, stops, self.workers)
+        aois, stops, pois = generate_aoi_poi(
+            aois, pois, stops, self.workers, self.multiprocessing_chunk_size
+        )
         d_right_lanes = [
             w["lanes"][-1]
             for w in self.map_roads.values()
@@ -4117,6 +4124,7 @@ class Builder:
             dis_gate=self.aoi_matching_distance_threshold,
             projstr=self.proj_str,
             shp_path=self.landuse_shp_path,
+            multiprocessing_chunk_size=self.multiprocessing_chunk_size,
         )
         # added_aois = add_aoi_pop(
         #     aois=added_aois,
@@ -4128,6 +4136,7 @@ class Builder:
         #     upsample_factor=UPSAMPLE_FACTOR,
         #     workers=self.workers,
         #     tif_path=self.pop_tif_path,
+        #     multiprocessing_chunk_size=self.multiprocessing_chunk_size,
         # )
         return (added_aois, added_pois)
 

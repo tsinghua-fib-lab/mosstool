@@ -10,8 +10,9 @@ from shapely.strtree import STRtree
 
 from ....type import Map
 from ....util.format_converter import pb2dict
-from .append_aois_matcher import _process_matched_result, _str_tree_matcher_unit
 from ..const import *
+from .append_aois_matcher import (_process_matched_result,
+                                  _str_tree_matcher_unit)
 
 
 def _map_aoi2geo(aoi: dict) -> Polygon:
@@ -36,9 +37,18 @@ def _add_aoi_unit(aoi):
         )
 
 
-def match_map_aois(net: Map, matchers: dict, workers: int):
-    global d_matcher, w_matcher
+def match_map_aois(
+    net: Map,
+    matchers: dict,
+    workers: int,
+    dis_gate: float = 30.0,
+    multiprocessing_chunk_size: int = 500,
+):
+    global d_matcher, w_matcher, D_DIS_GATE, W_DIS_GATE, MAX_CHUNK_SIZE
     global d_tree, w_tree
+    W_DIS_GATE = dis_gate
+    MAX_CHUNK_SIZE = multiprocessing_chunk_size
+    D_DIS_GATE = W_DIS_GATE + EXTRA_DIS_GATE
     net_dict = pb2dict(net)
     orig_aois = net_dict["aois"]
     orig_pois = net_dict["pois"]
@@ -55,7 +65,7 @@ def match_map_aois(net: Map, matchers: dict, workers: int):
             results_aois += pool.map(
                 _add_aoi_unit,
                 args_batch,
-                chunksize=min(ceil(len(args_batch) / workers), 500),
+                chunksize=min(ceil(len(args_batch) / workers), MAX_CHUNK_SIZE),
             )
     aois = [r for r in results_aois if r]
     # filter pois

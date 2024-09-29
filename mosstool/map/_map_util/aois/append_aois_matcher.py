@@ -11,25 +11,14 @@ import pyproj
 import shapely.ops as ops
 from scipy.spatial import KDTree
 from shapely.affinity import scale
-from shapely.geometry import (
-    LineString,
-    MultiLineString,
-    MultiPoint,
-    MultiPolygon,
-    Point,
-    Polygon,
-)
+from shapely.geometry import (LineString, MultiLineString, MultiPoint,
+                              MultiPolygon, Point, Polygon)
 from shapely.strtree import STRtree
 
 from ....type import AoiType
 from ..._util.angle import abs_delta_angle, delta_angle
-from ..._util.line import (
-    connect_line_string,
-    get_line_angle,
-    get_start_vector,
-    line_extend,
-    offset_lane,
-)
+from ..._util.line import (connect_line_string, get_line_angle,
+                           get_start_vector, line_extend, offset_lane)
 from .utils import geo_coords
 
 # ATTENTION: In order to achieve longer distance POI merging, the maximum recursion depth needs to be modified.
@@ -266,7 +255,11 @@ def _merge_point_aoi(aois_pois, workers):
                     _split_merged_poi_unit,
                     list(merged_poi.values()),
                     chunksize=max(
-                        min(ceil(len(list(merged_poi.values())) / workers), 500), 1
+                        min(
+                            ceil(len(list(merged_poi.values())) / workers),
+                            MAX_CHUNK_SIZE,
+                        ),
+                        1,
                     ),
                 )
             for res_aoi, res_poi in post_res:
@@ -1661,7 +1654,7 @@ def _merge_covered_aoi(aois, workers):
             aois_result += pool.map(
                 _find_aoi_parent_unit,
                 aois_batch,
-                chunksize=min(ceil(len(aois_batch) / workers), 1000),
+                chunksize=min(ceil(len(aois_batch) / workers), MAX_CHUNK_SIZE),
             )
     aois = aois_result
     parent2children = defaultdict(list)
@@ -1701,7 +1694,7 @@ def _merge_covered_aoi(aois, workers):
                 _find_aoi_overlap_unit,
                 aois_batch,
                 chunksize=max(
-                    min(ceil(len(aois_batch) / workers), 1000),
+                    min(ceil(len(aois_batch) / workers), MAX_CHUNK_SIZE),
                     1,
                 ),
             )
@@ -1845,7 +1838,7 @@ def _add_aoi(aois, stops, workers, merge_aoi: bool = False):
             results_stop += pool.map(
                 _add_aoi_stop_unit,
                 args_batch,
-                chunksize=min(ceil(len(args_batch) / workers), 500),
+                chunksize=min(ceil(len(args_batch) / workers), MAX_CHUNK_SIZE),
             )
     results_stop = [r for r in results_stop if r]
     logging.info(f"matched aois_stop: {len(results_stop)}")
@@ -1857,7 +1850,7 @@ def _add_aoi(aois, stops, workers, merge_aoi: bool = False):
             results_poly += pool.map(
                 _add_poly_aoi_unit,
                 args_batch,
-                chunksize=min(ceil(len(args_batch) / workers), 500),
+                chunksize=min(ceil(len(args_batch) / workers), MAX_CHUNK_SIZE),
             )
     results_poly = [r for r in results_poly if r]
     logging.info(f"matched aois_poly: {len(results_poly)}")
@@ -1879,14 +1872,16 @@ def add_aoi_to_map(
     bbox,
     merge_aoi: bool,
     dis_gate: float = 30.0,
+    multiprocessing_chunk_size: int = 500,
     projstr: Optional[str] = None,
     shp_path: Optional[str] = None,
     workers: int = 32,
 ):
     """match AOIs to lanes"""
     global aoi_uid, d_matcher, w_matcher, road_lane_matcher
-    global D_DIS_GATE, D_HUGE_GATE, W_DIS_GATE, W_HUGE_GATE, LENGTH_PER_DOOR, MAX_DOOR_NUM, AOI_GATE_OFFSET
+    global D_DIS_GATE, D_HUGE_GATE, W_DIS_GATE, W_HUGE_GATE, LENGTH_PER_DOOR, MAX_DOOR_NUM, AOI_GATE_OFFSET, MAX_CHUNK_SIZE
     W_DIS_GATE = dis_gate
+    MAX_CHUNK_SIZE = multiprocessing_chunk_size
     D_DIS_GATE = W_DIS_GATE + EXTRA_DIS_GATE
     d_matcher, w_matcher, road_lane_matcher = (
         matchers["drive"],
@@ -1922,6 +1917,7 @@ def add_sumo_aoi_to_map(
     projstr: str,
     merge_aoi: bool,
     dis_gate: float = 30.0,
+    multiprocessing_chunk_size: int = 500,
     workers: int = 32,
 ):
     """for SUMO converter, match AOI to lanes"""
@@ -1931,9 +1927,10 @@ def add_sumo_aoi_to_map(
         matchers["walk"],
         matchers["road_lane"],
     )
-    global D_DIS_GATE, D_HUGE_GATE, W_DIS_GATE, W_HUGE_GATE, LENGTH_PER_DOOR, MAX_DOOR_NUM, AOI_GATE_OFFSET
+    global D_DIS_GATE, D_HUGE_GATE, W_DIS_GATE, W_HUGE_GATE, LENGTH_PER_DOOR, MAX_DOOR_NUM, AOI_GATE_OFFSET, MAX_CHUNK_SIZE
     global aoi_uid
     W_DIS_GATE = dis_gate
+    MAX_CHUNK_SIZE = multiprocessing_chunk_size
     D_DIS_GATE = W_DIS_GATE + EXTRA_DIS_GATE
     # AOI UID
     aoi_uid = AOI_START_ID

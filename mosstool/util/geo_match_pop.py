@@ -14,7 +14,6 @@ import rasterio
 from geojson import FeatureCollection
 from geopandas.geodataframe import GeoDataFrame
 from shapely.geometry import MultiPolygon, Point, Polygon
-
 from ..map._map_util.const import *
 
 __all__ = ["geo2pop"]
@@ -250,7 +249,9 @@ def _get_geo_pop(
             result += pool.map(
                 _get_poly_pop_unit_with_arg,
                 list_geos_items_batch,
-                chunksize=min(ceil(len(list_geos_items_batch) / workers), 200),
+                chunksize=min(
+                    ceil(len(list_geos_items_batch) / workers), MAX_CHUNK_SIZE
+                ),
             )
 
     idx2pop = {i: pop for (i, pop) in result}
@@ -262,6 +263,7 @@ def geo2pop(
     pop_tif_path: str,
     upsample_factor: int = 4,
     pop_in_aoi_factor: float = 0.7,
+    multiprocessing_chunk_size: int = 500,
 ) -> Union[GeoDataFrame, FeatureCollection]:
     """
     Args:
@@ -269,6 +271,7 @@ def geo2pop(
     - pop_tif_path (str): path to population tif file.
     - upsample_factor (int): scaling factor for dividing the raw population data grid.
     - pop_in_aoi_factor (float): the proportion of the total population within the AOI.
+    - multiprocessing_chunk_size (int): the maximum size of each multiprocessing chunk
 
     Returns:
     - geo_data (GeoDataFrame | FeatureCollection): geo files with population.
@@ -280,6 +283,8 @@ def geo2pop(
     geo_type = type(geo_data)
     all_geos = []
     all_coords_lonlat = []
+    global MAX_CHUNK_SIZE
+    MAX_CHUNK_SIZE = multiprocessing_chunk_size
     if not geo_type in [GeoDataFrame, FeatureCollection]:
         logging.warning(f"Unsupported data type {geo_type}")
         return geo_data
@@ -356,7 +361,7 @@ def geo2pop(
                 [((n_upsample, x_step, y_step), d) for d in list_pixel2pop_batch],
                 chunksize=min(
                     ceil(len(list_pixel2pop_batch) / workers),
-                    1000,
+                    MAX_CHUNK_SIZE,
                 ),
             )
     pixel_idx2point_pop = {k: v for x in results for k, v in x}
@@ -376,7 +381,7 @@ def geo2pop(
                 [((n_upsample, x_step, y_step), d) for d in list_pixel2pop_batch],
                 chunksize=min(
                     ceil(len(list_pixel2pop_batch) / workers),
-                    1000,
+                    MAX_CHUNK_SIZE,
                 ),
             )
     pixel_idx2point_pop = {k: v for x in results for k, v in x}

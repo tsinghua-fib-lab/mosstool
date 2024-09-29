@@ -433,7 +433,7 @@ def _post_compute(m: dict, workers: int):
         taz_results = pool.map(
             _get_taz_cost_unit,
             taz_cost_args,
-            chunksize=max((len(taz_cost_args) // workers), 500),
+            chunksize=max((len(taz_cost_args) // workers), MAX_CHUNK_SIZE),
         )
     subline_id2taz_costs = {r[0]: r[1] for r in taz_results}
     for subline in sublines_data:
@@ -442,7 +442,14 @@ def _post_compute(m: dict, workers: int):
     return m
 
 
-def public_transport_process(m: dict, server_address: str, workers: int = cpu_count()):
+def public_transport_process(
+    m: dict,
+    server_address: str,
+    workers: int = cpu_count(),
+    multiprocessing_chunk_size: int = 500,
+):
+    global MAX_CHUNK_SIZE
+    MAX_CHUNK_SIZE = multiprocessing_chunk_size
     m = asyncio.run(_fill_public_lines(m, server_address))
     m = _post_compute(m, workers)
     return m
