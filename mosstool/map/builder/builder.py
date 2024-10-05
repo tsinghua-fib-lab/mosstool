@@ -56,6 +56,7 @@ class Builder:
         traffic_light_min_direction_group: int = 3,
         default_lane_width: float = 3.2,
         gen_sidewalk_speed_limit: float = 0,
+        gen_sidewalk_length_limit: float = 5.0,
         expand_roads: bool = False,
         road_expand_mode: Union[Literal["L"], Literal["M"], Literal["R"]] = "R",
         aoi_mode: Union[Literal["append"], Literal["overwrite"]] = "overwrite",
@@ -85,6 +86,7 @@ class Builder:
         - traffic_light_min_direction_group (int): minimum number of lane directions for traffic-light generation
         - default_lane_width (float): default lane width
         - gen_sidewalk_speed_limit (float): speed limit to generate sidewalk
+        - gen_sidewalk_speed_limit (float): length limit to generate sidewalk
         - expand_roads (bool): expand roads according to junction type
         - road_expand_mode (str): road expand mode
         - aoi_mode (str): aoi appending mode. `append` takes effect when the input `net` is Map, incrementally adding the input AOIs; `overwrite` only adds the input AOIs, ignoring existing ones.
@@ -104,6 +106,7 @@ class Builder:
         self.public_transport = public_transport
         self.default_lane_width = default_lane_width
         self.gen_sidewalk_speed_limit = gen_sidewalk_speed_limit
+        self.gen_sidewalk_length_limit = gen_sidewalk_length_limit
         self.expand_roads = expand_roads
         self.road_expand_mode = road_expand_mode
         self.aoi_mode = aoi_mode
@@ -1170,7 +1173,8 @@ class Builder:
                     self.map_roads[wid]["highway"] in HAS_WALK_LANES_HIGHWAY
                     or self.map_roads[wid]["max_speed"] <= self.gen_sidewalk_speed_limit
                 )
-                and self.map_roads[wid]["lanes"][0].length >= MIN_HAS_WALK_LANE_LENGTH
+                and self.map_roads[wid]["lanes"][0].length
+                >= self.gen_sidewalk_length_limit
             ]
 
         def get_lane(wid):
