@@ -86,7 +86,7 @@ class Builder:
         - traffic_light_min_direction_group (int): minimum number of lane directions for traffic-light generation
         - default_lane_width (float): default lane width
         - gen_sidewalk_speed_limit (float): speed limit to generate sidewalk
-        - gen_sidewalk_speed_limit (float): length limit to generate sidewalk
+        - gen_sidewalk_length_limit (float): length limit to generate sidewalk
         - expand_roads (bool): expand roads according to junction type
         - road_expand_mode (str): road expand mode
         - aoi_mode (str): aoi appending mode. `append` takes effect when the input `net` is Map, incrementally adding the input AOIs; `overwrite` only adds the input AOIs, ignoring existing ones.

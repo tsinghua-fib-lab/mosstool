@@ -50,7 +50,7 @@ def convert_aoi(
             ]  # Inner shape is not supported yet
             aoi_type = feature["properties"].get("type", "")
             # build tag from property
-            for _prop_key in ["name", "landuse", "leisure", "amenity", "building"]:
+            for _prop_key in ["name",]:
                 _prop_value = feature["properties"].get(_prop_key, "")
                 if _prop_value:
                     osm_tags.append(
