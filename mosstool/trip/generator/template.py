@@ -43,7 +43,8 @@ def default_vehicle_template_generator() -> Person:
                 lambda_s=0.29,
                 frontal_area=2.52,
                 fuel_efficiency=VehicleEngineEfficiency(
-                    energy_conversion_efficiency=0.27 * 0.049
+                    energy_conversion_efficiency=0.27 * 0.049,
+                    c_ef=66.98,
                 ),
             ),
             model="normal",
@@ -75,7 +76,8 @@ def default_bus_template_generator() -> Person:
                 lambda_s=0.29,
                 frontal_area=8.67,
                 fuel_efficiency=VehicleEngineEfficiency(
-                    energy_conversion_efficiency=0.27 * 0.049
+                    energy_conversion_efficiency=0.27 * 0.049,
+                    c_ef=70.27,
                 ),
             ),
             model="normal",

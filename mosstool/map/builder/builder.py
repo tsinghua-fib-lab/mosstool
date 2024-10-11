@@ -1734,7 +1734,7 @@ class Builder:
                         ## main
                         ### main straight
                         if (
-                            turns_dict["main"]["stragiht"]
+                            turns_dict["main"]["straight"]
                             and not turns_dict["main"]["left"]
                             and not turns_dict["main"]["right"]
                         ):
@@ -1742,7 +1742,7 @@ class Builder:
                         ### main left
                         if (
                             turns_dict["main"]["left"]
-                            and not turns_dict["main"]["stragiht"]
+                            and not turns_dict["main"]["straight"]
                             and not turns_dict["main"]["right"]
                         ):
                             main_left_lane_num = len(in_main_lanes)
@@ -1750,13 +1750,13 @@ class Builder:
                         if (
                             turns_dict["main"]["right"]
                             and not turns_dict["main"]["left"]
-                            and not turns_dict["main"]["stragiht"]
+                            and not turns_dict["main"]["straight"]
                         ):
                             main_right_lane_num = len(in_main_lanes)
                         ## auxiliary
                         ### auxiliary straight
                         if (
-                            turns_dict["auxiliary"]["stragiht"]
+                            turns_dict["auxiliary"]["straight"]
                             and not turns_dict["auxiliary"]["left"]
                             and not turns_dict["auxiliary"]["right"]
                         ):
@@ -1764,7 +1764,7 @@ class Builder:
                         ### auxiliary left
                         if (
                             turns_dict["auxiliary"]["left"]
-                            and not turns_dict["auxiliary"]["stragiht"]
+                            and not turns_dict["auxiliary"]["straight"]
                             and not turns_dict["auxiliary"]["right"]
                         ):
                             auxiliary_left_lane_num = len(in_auxiliary_lanes)
@@ -1772,14 +1772,14 @@ class Builder:
                         if (
                             turns_dict["auxiliary"]["right"]
                             and not turns_dict["auxiliary"]["left"]
-                            and not turns_dict["auxiliary"]["stragiht"]
+                            and not turns_dict["auxiliary"]["straight"]
                         ):
                             auxiliary_right_lane_num = len(in_auxiliary_lanes)
                         # 2. two turn types
                         ## main
                         ### left & right
                         if (
-                            not turns_dict["main"]["stragiht"]
+                            not turns_dict["main"]["straight"]
                             and turns_dict["main"]["right"]
                             and turns_dict["main"]["left"]
                         ):
@@ -1792,7 +1792,7 @@ class Builder:
                         if (
                             not turns_dict["main"]["right"]
                             and turns_dict["main"]["left"]
-                            and turns_dict["main"]["stragiht"]
+                            and turns_dict["main"]["straight"]
                         ):
                             # straight over right
                             in_straight_main_lanes = in_main_lanes
@@ -1807,7 +1807,7 @@ class Builder:
                         ## auxiliary
                         ### left & right
                         if (
-                            not turns_dict["auxiliary"]["stragiht"]
+                            not turns_dict["auxiliary"]["straight"]
                             and turns_dict["auxiliary"]["right"]
                             and turns_dict["auxiliary"]["left"]
                         ):
@@ -1820,7 +1820,7 @@ class Builder:
                         if (
                             not turns_dict["auxiliary"]["right"]
                             and turns_dict["auxiliary"]["left"]
-                            and turns_dict["auxiliary"]["stragiht"]
+                            and turns_dict["auxiliary"]["straight"]
                         ):
                             # straight over right
                             in_straight_auxiliary_lanes = in_auxiliary_lanes
@@ -2443,7 +2443,7 @@ class Builder:
                                 for in_type in ["main", "auxiliary"]
                             }
                             if main_count > 0 and out_main_group:
-                                turns_dict["main"]["stragiht"] = True
+                                turns_dict["main"]["straight"] = True
                             if left_count > 0:
                                 turns_dict["main"]["left"] = True
                             if right_count > 0:
@@ -2452,7 +2452,7 @@ class Builder:
                             ## main
                             ### main straight
                             if (
-                                turns_dict["main"]["stragiht"]
+                                turns_dict["main"]["straight"]
                                 and not turns_dict["main"]["left"]
                                 and not turns_dict["main"]["right"]
                             ):
@@ -2461,7 +2461,7 @@ class Builder:
                             ### main left
                             if (
                                 turns_dict["main"]["left"]
-                                and not turns_dict["main"]["stragiht"]
+                                and not turns_dict["main"]["straight"]
                                 and not turns_dict["main"]["right"]
                             ):
                                 left_count = len(in_main_lanes)
@@ -2469,14 +2469,14 @@ class Builder:
                             if (
                                 turns_dict["main"]["right"]
                                 and not turns_dict["main"]["left"]
-                                and not turns_dict["main"]["stragiht"]
+                                and not turns_dict["main"]["straight"]
                             ):
                                 right_count = len(in_main_lanes)
                             # 2. two turn types
                             ## main
                             ### left & right
                             if (
-                                not turns_dict["main"]["stragiht"]
+                                not turns_dict["main"]["straight"]
                                 and turns_dict["main"]["right"]
                                 and turns_dict["main"]["left"]
                             ):
@@ -2488,7 +2488,7 @@ class Builder:
                             if (
                                 not turns_dict["main"]["right"]
                                 and turns_dict["main"]["left"]
-                                and turns_dict["main"]["stragiht"]
+                                and turns_dict["main"]["straight"]
                             ):
                                 # straight over right
                                 main_count += len(in_main_lanes) - main_out_end
@@ -2809,7 +2809,7 @@ class Builder:
                             ## main
                             ### main straight
                             if (
-                                turns_dict["main"]["stragiht"]
+                                turns_dict["main"]["straight"]
                                 and not turns_dict["main"]["left"]
                                 and not turns_dict["main"]["right"]
                             ):
@@ -2818,7 +2818,7 @@ class Builder:
                             ### main left
                             if (
                                 turns_dict["main"]["left"]
-                                and not turns_dict["main"]["stragiht"]
+                                and not turns_dict["main"]["straight"]
                                 and not turns_dict["main"]["right"]
                             ):
                                 left_count = len(in_main_lanes)
@@ -2826,13 +2826,13 @@ class Builder:
                             if (
                                 turns_dict["main"]["right"]
                                 and not turns_dict["main"]["left"]
-                                and not turns_dict["main"]["stragiht"]
+                                and not turns_dict["main"]["straight"]
                             ):
                                 right_count = len(in_main_lanes)
                             ## auxiliary
                             ### auxiliary straight
                             if (
-                                turns_dict["auxiliary"]["stragiht"]
+                                turns_dict["auxiliary"]["straight"]
                                 and not turns_dict["auxiliary"]["left"]
                                 and not turns_dict["auxiliary"]["right"]
                             ):
@@ -2844,7 +2844,7 @@ class Builder:
                             ### auxiliary left
                             if (
                                 turns_dict["auxiliary"]["left"]
-                                and not turns_dict["auxiliary"]["stragiht"]
+                                and not turns_dict["auxiliary"]["straight"]
                                 and not turns_dict["auxiliary"]["right"]
                             ):
                                 auxiliary_left_count = len(in_auxiliary_lanes)
@@ -2852,14 +2852,14 @@ class Builder:
                             if (
                                 turns_dict["auxiliary"]["right"]
                                 and not turns_dict["auxiliary"]["left"]
-                                and not turns_dict["auxiliary"]["stragiht"]
+                                and not turns_dict["auxiliary"]["straight"]
                             ):
                                 auxiliary_right_count = len(in_auxiliary_lanes)
                             # 2. two turn types
                             ## main
                             ### left & right
                             if (
-                                not turns_dict["main"]["stragiht"]
+                                not turns_dict["main"]["straight"]
                                 and turns_dict["main"]["right"]
                                 and turns_dict["main"]["left"]
                             ):
@@ -2871,7 +2871,7 @@ class Builder:
                             if (
                                 not turns_dict["main"]["right"]
                                 and turns_dict["main"]["left"]
-                                and turns_dict["main"]["stragiht"]
+                                and turns_dict["main"]["straight"]
                             ):
                                 # straight over right
                                 main_count += len(in_main_lanes) - main_out_end
@@ -2888,7 +2888,7 @@ class Builder:
                             ## auxiliary
                             ### left & right
                             if (
-                                not turns_dict["auxiliary"]["stragiht"]
+                                not turns_dict["auxiliary"]["straight"]
                                 and turns_dict["auxiliary"]["right"]
                                 and turns_dict["auxiliary"]["left"]
                             ):
@@ -2901,7 +2901,7 @@ class Builder:
                             if (
                                 not turns_dict["auxiliary"]["right"]
                                 and turns_dict["auxiliary"]["left"]
-                                and turns_dict["auxiliary"]["stragiht"]
+                                and turns_dict["auxiliary"]["straight"]
                             ):
                                 # straight over right
                                 auxiliary_main_count += (
