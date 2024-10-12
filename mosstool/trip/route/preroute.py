@@ -43,7 +43,6 @@ async def pre_route(
     departure_time = None
     all_schedules = list(person.schedules)
     person.ClearField("schedules")
-    good_schedules = []
     for schedule in all_schedules:
         schedule = cast(Schedule, schedule)
         if schedule.HasField("departure_time"):
@@ -101,6 +100,4 @@ async def pre_route(
             good_schedule.CopyFrom(schedule)
             good_schedule.ClearField("trips")
             good_schedule.trips.extend(good_trips)
-            good_schedules.append(good_schedule)
-    person.schedules.extend(good_schedules)
     return person
