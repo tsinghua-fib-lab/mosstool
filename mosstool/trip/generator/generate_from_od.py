@@ -18,7 +18,7 @@ from ...type import (AoiPosition, LanePosition, Map, Person, PersonProfile,
 from ...util.format_converter import dict2pb, pb2dict
 from ._util.const import *
 from ._util.utils import (extract_HWEO_from_od_matrix, gen_bus_drivers,
-                          gen_departure_times, gen_profiles,
+                          gen_departure_times, gen_profiles,recalculate_trip_modes,
                           recalculate_trip_mode_prob)
 from .template import V1_DEFAULT_PERSON, V2_DEFAULT_PERSON
 
@@ -83,11 +83,12 @@ def _get_mode_with_distribution(
         V_bicycle = -0.1185 * bicycle_duration / 60
     V = np.array([V_bus, V_subway, V_fuel, V_elec, V_bicycle])
     V = np.exp(V)
+    _all_trip_modes = recalculate_trip_modes(profile,ALL_TRIP_MODES)
     V = recalculate_trip_mode_prob(profile, V)
     V = V / sum(V)
     rng = np.random.default_rng(seed)
     choice_index = rng.choice(len(V), p=V)
-    return ALL_TRIP_MODES[choice_index]
+    return _all_trip_modes[choice_index]
 
 
 def _match_aoi_unit(projector, aoi):

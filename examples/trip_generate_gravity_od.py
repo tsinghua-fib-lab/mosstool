@@ -1,5 +1,6 @@
 import geopandas as gpd
 import numpy as np
+from mosstool.util.format_converter import pb2json
 
 from mosstool.trip.generator import GravityGenerator
 from mosstool.trip.generator.generate_from_od import TripGenerator
@@ -61,8 +62,10 @@ async def main():
         seed=0,
     )
     pb = Persons(persons=od_persons)
-    with open("data/temp/beijing_OD_person.pb", "wb") as f:
-        f.write(pb.SerializeToString())
+    # with open("data/temp/beijing_OD_person.pb", "wb") as f:
+    #     f.write(pb.SerializeToString())
+    with open("data/temp/persons.json", "w") as f:
+        f.write(pb2json(pb))
 
     # # The generated trip of the person is not guaranteed to be reachable in the map. Preroute is required.
     # # pre-route
