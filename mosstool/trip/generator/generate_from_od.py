@@ -83,7 +83,7 @@ def _get_mode_with_distribution(
         V_bicycle = -0.1185 * bicycle_duration / 60
     V = np.array([V_bus, V_subway, V_fuel, V_elec, V_bicycle])
     V = np.exp(V)
-    _all_trip_modes = recalculate_trip_modes(profile,ALL_TRIP_MODES)
+    _all_trip_modes = recalculate_trip_modes(profile, ALL_TRIP_MODES)
     V = recalculate_trip_mode_prob(profile, V)
     V = V / sum(V)
     rng = np.random.default_rng(seed)

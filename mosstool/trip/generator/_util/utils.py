@@ -19,6 +19,7 @@ from .const import *
 __all__ = [
     "is_walking",
     "gen_profiles",
+    "recalculate_trip_modes",
     "recalculate_trip_mode_prob",
     "gen_bus_drivers",
 ]
@@ -104,7 +105,7 @@ def gen_profiles(
             )
     return profiles
 
-def recalculate_trip_modes(profile: dict,trip_modes:List[int])->List[int]:
+def recalculate_trip_modes(profile: dict,trip_modes:List)->List:
     res_modes = np.array([m for m in trip_modes], dtype=np.uint8)
     if (
         profile.get("consumption",-1)
