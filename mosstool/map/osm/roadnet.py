@@ -10,8 +10,8 @@ import pyproj
 import requests
 from geojson import Feature, FeatureCollection, LineString, MultiPoint, dump
 from shapely.geometry import LineString as sLineString
-from tqdm import tqdm
 
+from .._map_util.format_checker import osm_format_checker
 from .._map_util.osm_const import *
 from ._motif import close_nodes, motif_H, suc_is_close_by_other_way
 from ._wayutil import merge_way_nodes, parse_osm_way_tags
@@ -26,33 +26,37 @@ class RoadNet:
 
     def __init__(
         self,
-        proj_str: str,
-        max_longitude: float,
-        min_longitude: float,
-        max_latitude: float,
-        min_latitude: float,
+        proj_str: Optional[str] = None,
+        max_longitude: Optional[float] = None,
+        min_longitude: Optional[float] = None,
+        max_latitude: Optional[float] = None,
+        min_latitude: Optional[float] = None,
         wikipedia_name: Optional[str] = None,
         proxies: Optional[Dict[str, str]] = None,
     ):
         """
         Args:
-        - proj_str (str): projection string, e.g. 'epsg:3857'
-        - max_longitude (float): max longitude
-        - min_longitude (float): min longitude
-        - max_latitude (float): max latitude
-        - min_latitude (float): min latitude
-        - wikipedia_name (str): wikipedia name of the area in OSM.
-        - proxies (dict): proxies for requests, e.g. {'http': 'http://localhost:1080', 'https': 'http://localhost:1080'}
+        - proj_str (Optional[str]): projection string, e.g. 'epsg:3857'
+        - max_longitude (Optional[float]): max longitude
+        - min_longitude (Optional[float]): min longitude
+        - max_latitude (Optional[float]): max latitude
+        - min_latitude (Optional[float]): min latitude
+        - wikipedia_name (Optional[str]): wikipedia name of the area in OSM.
+        - proxies (Optional[Dict[str, str]]): proxies for requests, e.g. {'http': 'http://localhost:1080', 'https': 'http://localhost:1080'}
         """
         # configs
         self.proj_parameter = proj_str
-        self.projector = pyproj.Proj(self.proj_parameter)
+        self.projector = (
+            pyproj.Proj(self.proj_parameter) if proj_str is not None else None
+        )
         self.bbox = (
             min_latitude,
             min_longitude,
             max_latitude,
             max_longitude,
         )
+        if self.projector is None and any(i is None for i in self.bbox):
+            logging.warning("Using osm cache data for input and xy coords for output!")
         self.proxies = proxies
         self.wikipedia_name = wikipedia_name
         self.way_filter = WAY_FILTER
@@ -76,6 +80,14 @@ class RoadNet:
 
     def _download_osm(self):
         """Fetch raw data from OpenStreetMap"""
+        assert all(
+            i is not None for i in self.bbox
+        ), f"longitude and latitude are required without cache file!"
+        (min_lat, min_lon, max_lat, max_lon) = self.bbox
+        if self.proj_parameter is None and self.projector is None:
+            proj_str = f"+proj=tmerc +lat_0={(max_lat+min_lat)/2} +lon_0={(max_lon+min_lon)/2}"  # type: ignore
+            self.proj_parameter = proj_str
+            self.projector = pyproj.Proj(self.proj_parameter)
         bbox_str = ",".join(str(i) for i in self.bbox)
         query = f"[out:json][timeout:180][bbox:{bbox_str}];"
         wikipedia_name = self.wikipedia_name
@@ -252,21 +264,36 @@ class RoadNet:
 
         return FeatureCollection(geos)
 
-    def _get_osm(self):
-        osm_data = self._download_osm()
+    def _get_osm(self, osm_data_cache: Optional[List[Dict]] = None):
+        if osm_data_cache is not None:
+            osm_data = osm_data_cache
+        else:
+            osm_data = self._download_osm()
         # find every valuable nodes
         self.nodes = {}
-        for doc in tqdm(osm_data):
+        for doc in osm_data:
             if doc["type"] != "node":
                 continue
-            if "lon" in doc and "lat" in doc:
+            if "x" in doc and "y" in doc:
+                # doc["x"], doc["y"] = round(doc["x"], 6), round(doc["y"], 6)
+                if self.projector is not None:
+                    doc["lon"], doc["lat"] = self.projector(
+                        doc["x"], doc["y"], inverse=True
+                    )
+                else:
+                    doc["lon"], doc["lat"] = doc["x"], doc["y"]
+                self.nodes[doc["id"]] = doc
+            elif "lon" in doc and "lat" in doc:
                 # Latitude and longitude are specified with a precision of six decimal places.
                 doc["lon"], doc["lat"] = round(doc["lon"], 6), round(doc["lat"], 6)
+                assert (
+                    self.projector is not None
+                ), f"proj_str are required when downloading from OSM!"
                 doc["x"], doc["y"] = self.projector(doc["lon"], doc["lat"])
                 self.nodes[doc["id"]] = doc
         # all ways
         self.ways = {}
-        for way in tqdm(osm_data):
+        for way in osm_data:
             # Filter non-way elements
             if way["type"] != "way":
                 continue
@@ -297,7 +324,7 @@ class RoadNet:
         way_id = max(self.ways)
         # New road collection
         new_ways = {}
-        for way in tqdm(self.ways.values()):
+        for way in self.ways.values():
             last_pos = 0
             for pos, node in list(enumerate(way["nodes"]))[1:-1]:
                 if node in joints:
@@ -442,45 +469,48 @@ class RoadNet:
         # Two-way processing, find all connected components, confirm that there are 2 points with degree 1, and the rest are points with degree 2
         # Select any point with degree 1, calculate the path to another point, and then assemble the new way
         # Find all Unicom components
-        for component in list(nx.connected_components(g)):
-            # Use assert to confirm that there are 2 nodes with degree 1, and the rest are nodes with degree 2
-            degree_one_count = 0
-            degree_two_count = 0
-            for node in component:
-                if g.degree(node) == 1:  # type: ignore
-                    degree_one_count += 1
-                elif g.degree(node) == 2:  # type: ignore
-                    degree_two_count += 1
-                else:
-                    raise AssertionError(
-                        "The degree of the node does not meet the requirements"
-                    )
-            assert (
-                degree_one_count == 2
-            ), "The number of nodes with degree 1 is incorrect"
-            assert (
-                degree_two_count == len(component) - 2
-            ), "The number of nodes with degree 2 is incorrect"
-            # Select a node with degree 1 and calculate the path to another node with degree 1
-            degree_one_nodes = [
-                node for node in component if g.degree(node) == 1  # type: ignore
-            ]
-            start_node = degree_one_nodes[0]
-            end_node = degree_one_nodes[1]
-            way_ids = nx.shortest_path(g, start_node, end_node)
-            # Assemble new ways and delete redundant ways
-            main_way_id = way_ids[0]
-            main_way = self.ways[main_way_id]
-            main_way["remove_simple_joints"] = "main"
-            for way_id in way_ids[1:]:
-                way = self.ways[way_id]
-                try:
-                    main_way["nodes"] = merge_way_nodes(main_way["nodes"], way["nodes"])
-                except ValueError as e:
-                    # with open("cache/graph.pkl", "wb") as f:
-                    #     pickle.dump([g, component], f)
-                    raise e
-                removed_ids.add(way_id)
+        try:
+            for component in list(nx.connected_components(g)):
+                # Use assert to confirm that there are 2 nodes with degree 1, and the rest are nodes with degree 2
+                degree_one_count = 0
+                degree_two_count = 0
+                for node in component:
+                    if g.degree(node) == 1:  # type: ignore
+                        degree_one_count += 1
+                    elif g.degree(node) == 2:  # type: ignore
+                        degree_two_count += 1
+                    else:
+                        raise AssertionError(
+                            "The degree of the node does not meet the requirements"
+                        )
+                assert (
+                    degree_one_count == 2
+                ), "The number of nodes with degree 1 is incorrect"
+                assert (
+                    degree_two_count == len(component) - 2
+                ), "The number of nodes with degree 2 is incorrect"
+                # Select a node with degree 1 and calculate the path to another node with degree 1
+                degree_one_nodes = [
+                    node for node in component if g.degree(node) == 1  # type: ignore
+                ]
+                start_node = degree_one_nodes[0]
+                end_node = degree_one_nodes[1]
+                way_ids = nx.shortest_path(g, start_node, end_node)
+                # Assemble new ways and delete redundant ways
+                main_way_id = way_ids[0]
+                main_way = self.ways[main_way_id]
+                main_way["remove_simple_joints"] = "main"
+                for way_id in way_ids[1:]:
+                    way = self.ways[way_id]
+                    try:
+                        main_way["nodes"] = merge_way_nodes(main_way["nodes"], way["nodes"])
+                    except ValueError as e:
+                        # with open("cache/graph.pkl", "wb") as f:
+                        #     pickle.dump([g, component], f)
+                        raise e
+                    removed_ids.add(way_id)
+        except Exception as e:
+            logging.warning(f"Error when trying to simplify roadnet {e}!")
         for wid in removed_ids:
             del self.ways[wid]
         self._assert_ways()
@@ -668,18 +698,26 @@ class RoadNet:
                 del self.node2junction[node]
             del self.junction2nodes[c]
 
-    def create_road_net(self, output_path: Optional[str] = None):
+    def create_road_net(
+        self,
+        output_path: Optional[str] = None,
+        osm_data_cache: Optional[List[Dict]] = None,
+        osm_cache_check: bool = False,
+    ):
         """
         Create Road net from OpenStreetMap.
 
         Args:
-        - output_path (str): GeoJSON file output path.
+        - osm_data_cache (Optional[List[Dict]]): OSM data cache.
+        - output_path (Optional[str]): GeoJSON file output path.
+        - osm_cache_check (bool): check the format of input OSM data cache.
 
         Returns:
         - roads and junctions in GeoJSON format.
         """
+        osm_format_checker(osm_cache_check, osm_data_cache)
         # Get OSM data
-        self._get_osm()
+        self._get_osm(osm_data_cache)
         # self.dump_as_geojson("cache/1.geojson")
         # Process
 

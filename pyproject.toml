@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "mosstool"
-version = "1.0.12"
+version = "1.0.13"
 description = "MObility Simulation System toolbox "
 authors = ["Jun Zhang <zhangjun990222@qq.com>"]
 license = "MIT"

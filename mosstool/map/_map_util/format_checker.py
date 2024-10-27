@@ -1,15 +1,15 @@
 """Check the field type and value of map format"""
 
 import logging
-import sys
 from collections import defaultdict
+from typing import Dict, List, Optional
 
 from geojson import FeatureCollection
 
 from ...type import LaneType
 from .._map_util.const import *
 
-__all__ = ["geojson_format_check", "output_format_check"]
+__all__ = ["geojson_format_check", "output_format_check", "osm_format_checker"]
 
 
 class _FormatCheckHandler(logging.Handler):
@@ -302,7 +302,7 @@ def geojson_format_check(
     handler.trigger_warnings()
 
 
-def output_format_check(output_map: dict, output_lane_length_check: bool):
+def output_format_check(output_map: dict, output_lane_length_check: bool) -> None:
     logging.basicConfig(level=logging.INFO)
     handler = _FormatCheckHandler()
     logger = logging.getLogger()
@@ -410,4 +410,38 @@ def output_format_check(output_map: dict, output_lane_length_check: bool):
                 logging.warning(
                     f"Junction {lane_type} lane {lane_id} is too long ({length} m), please check input GeoJSON file!"
                 )
+    handler.trigger_warnings()
+
+
+def osm_format_checker(
+    osm_cache_check: bool,
+    osm_data: Optional[List[Dict]] = None,
+    required_keys_dict: Optional[Dict[str, List[str]]] = None,
+) -> None:
+    if not osm_cache_check:
+        return
+    if osm_data is None:
+        return
+    logging.basicConfig(level=logging.INFO)
+    handler = _FormatCheckHandler()
+    logger = logging.getLogger()
+    logger.addHandler(handler)
+    if not hasattr(osm_data, "__iter__"):
+        logging.warning(f"input OSM data is not iterable!")
+    else:
+        if not all(isinstance(d, dict) for d in osm_data):
+            logging.warning(f"Not all items in OSM data is a `Dict`!")
+        else:
+            for _key in ["type", "id"]:
+                if not all(_key in d for d in osm_data):
+                    logging.warning(f"insufficient key {_key} provided in OSM data!")
+            if required_keys_dict is None:
+                required_keys_dict = {}
+            for d in osm_data:
+                _keys = required_keys_dict.get(d["type"], [])
+                if any(_key not in d for _key in _keys):
+                    logging.warning(
+                        f"insufficient keys {_keys} provided in OSM data {d}!"
+                    )
+
     handler.trigger_warnings()

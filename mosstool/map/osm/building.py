@@ -1,5 +1,5 @@
 import logging
-from typing import Dict, Optional
+from typing import Dict, List, Optional, Tuple
 
 import pyproj
 import requests
@@ -7,6 +7,8 @@ import shapely.ops as ops
 from geojson import Feature, FeatureCollection, Polygon, dump
 from shapely.geometry import MultiPolygon as sMultiPolygon
 from shapely.geometry import Polygon as sPolygon
+
+from .._map_util.format_checker import osm_format_checker
 
 __all__ = ["Building"]
 
@@ -18,23 +20,23 @@ class Building:
 
     def __init__(
         self,
-        proj_str: str,
-        max_longitude: float,
-        min_longitude: float,
-        max_latitude: float,
-        min_latitude: float,
+        proj_str: Optional[str] = None,
+        max_longitude: Optional[float] = None,
+        min_longitude: Optional[float] = None,
+        max_latitude: Optional[float] = None,
+        min_latitude: Optional[float] = None,
         wikipedia_name: Optional[str] = None,
         proxies: Optional[Dict[str, str]] = None,
     ):
         """
         Args:
-        - proj_str (str): projection string, e.g. 'epsg:3857'
-        - max_longitude (float): max longitude
-        - min_longitude (float): min longitude
-        - max_latitude (float): max latitude
-        - min_latitude (float): min latitude
-        - wikipedia_name (str): wikipedia name of the area in OSM.
-        - proxies (dict): proxies for requests, e.g. {'http': 'http://localhost:1080', 'https': 'http://localhost:1080'}
+        - proj_str (Optional[str]): projection string, e.g. 'epsg:3857'
+        - max_longitude (Optional[float]): max longitude
+        - min_longitude (Optional[float]): min longitude
+        - max_latitude (Optional[float]): max latitude
+        - min_latitude (Optional[float]): min latitude
+        - wikipedia_name (Optional[str]): wikipedia name of the area in OSM.
+        - proxies (Optional[Dict[str, str]]): proxies for requests, e.g. {'http': 'http://localhost:1080', 'https': 'http://localhost:1080'}
         """
         self.bbox = (
             min_latitude,
@@ -42,7 +44,12 @@ class Building:
             max_latitude,
             max_longitude,
         )
-        self.projector = pyproj.Proj(proj_str)
+        self.proj_parameter = proj_str
+        self.projector = (
+            pyproj.Proj(self.proj_parameter) if self.proj_parameter else None
+        )
+        if self.projector is None and any(i is None for i in self.bbox):
+            logging.warning("Using osm cache data for input and xy coords for output!")
         self.wikipedia_name = wikipedia_name
         self.proxies = proxies
         # OSM raw data
@@ -55,62 +62,76 @@ class Building:
         # generate AOIs
         self.aois: list = []
 
-    def _query_raw_data(self):
+    def _query_raw_data(self, osm_data_cache: Optional[List[Dict]] = None):
         """
         Get raw data from OSM API
         OSM query language: https://wiki.openstreetmap.org/wiki/Overpass_API/Language_Guide
         Can be run and visualized in real time at https://overpass-turbo.eu/
         """
-        logging.info("Querying osm raw data")
-        bbox_str = ",".join(str(i) for i in self.bbox)
-        query_header = f"[out:json][timeout:120][bbox:{bbox_str}];"
-        area_wikipedia_name = self.wikipedia_name
-        if area_wikipedia_name is not None:
-            query_header += f'area[wikipedia="{area_wikipedia_name}"]->.searchArea;'
-        osm_data = None
-        for _ in range(3):  # retry 3 times
-            try:
-                query_body_raw = [
-                    (
-                        "way",
-                        '[!highway][!tunnel][!boundary][!railway][!natural][!barrier][!junction][!waterway][!public_transport][landuse!~"grass|forest"][place!~"suburb|neighbourhood"][amenity!=fountain][historic!=city_gate][artwork_type!=sculpture][man_made!~"bridge|water_well"][building!~"wall|train_station|roof"]',
-                    ),
-                    (
-                        "rel",
-                        '[landuse][landuse!~"grass|forest"][type=multipolygon]',
-                    ),
-                    (
-                        "rel",
-                        "[amenity][amenity!=fountain][type=multipolygon]",
-                    ),
-                    (
-                        "rel",
-                        '[building][building!~"wall|train_station|roof"][type=multipolygon]',
-                    ),
-                    (
-                        "rel",
-                        "[leisure][leisure!=nature_reserve][type=multipolygon]",
-                    ),
-                ]
-                query_body = ""
-                for obj, args in query_body_raw:
-                    area = (
-                        "(area.searchArea)" if area_wikipedia_name is not None else ""
-                    )
-                    query_body += obj + area + args + ";"
-                query_body = "(" + query_body + ");"
-                query = query_header + query_body + "(._;>;);" + "out body;"
-                logging.info(f"{query}")
-                osm_data = requests.get(
-                    "http://overpass-api.de/api/interpreter?data=" + query,
-                    proxies=self.proxies,
-                ).json()["elements"]
-                break
-            except Exception as e:
-                logging.warning(f"Exception when querying OSM data {e}")
-                logging.warning("No response from OSM, Please try again later!")
-        if osm_data is None:
-            raise Exception("No AOI response from OSM!")
+        if osm_data_cache is None:
+            logging.info("Querying osm raw data")
+            assert all(
+                i is not None for i in self.bbox
+            ), f"longitude and latitude are required without cache file!"
+            (min_lat, min_lon, max_lat, max_lon) = self.bbox
+            if self.proj_parameter is None and self.projector is None:
+                proj_str = f"+proj=tmerc +lat_0={(max_lat+min_lat)/2} +lon_0={(max_lon+min_lon)/2}"  # type: ignore
+                self.proj_parameter = proj_str
+                self.projector = pyproj.Proj(self.proj_parameter)
+            bbox_str = ",".join(str(i) for i in self.bbox)
+            query_header = f"[out:json][timeout:120][bbox:{bbox_str}];"
+            area_wikipedia_name = self.wikipedia_name
+            if area_wikipedia_name is not None:
+                query_header += f'area[wikipedia="{area_wikipedia_name}"]->.searchArea;'
+            osm_data = None
+            for _ in range(3):  # retry 3 times
+                try:
+                    query_body_raw = [
+                        (
+                            "way",
+                            '[!highway][!tunnel][!boundary][!railway][!natural][!barrier][!junction][!waterway][!public_transport][landuse!~"grass|forest"][place!~"suburb|neighbourhood"][amenity!=fountain][historic!=city_gate][artwork_type!=sculpture][man_made!~"bridge|water_well"][building!~"wall|train_station|roof"]',
+                        ),
+                        (
+                            "rel",
+                            '[landuse][landuse!~"grass|forest"][type=multipolygon]',
+                        ),
+                        (
+                            "rel",
+                            "[amenity][amenity!=fountain][type=multipolygon]",
+                        ),
+                        (
+                            "rel",
+                            '[building][building!~"wall|train_station|roof"][type=multipolygon]',
+                        ),
+                        (
+                            "rel",
+                            "[leisure][leisure!=nature_reserve][type=multipolygon]",
+                        ),
+                    ]
+                    query_body = ""
+                    for obj, args in query_body_raw:
+                        area = (
+                            "(area.searchArea)"
+                            if area_wikipedia_name is not None
+                            else ""
+                        )
+                        query_body += obj + area + args + ";"
+                    query_body = "(" + query_body + ");"
+                    query = query_header + query_body + "(._;>;);" + "out body;"
+                    logging.info(f"{query}")
+                    osm_data = requests.get(
+                        "http://overpass-api.de/api/interpreter?data=" + query,
+                        proxies=self.proxies,
+                    ).json()["elements"]
+                    break
+                except Exception as e:
+                    logging.warning(f"Exception when querying OSM data {e}")
+                    logging.warning("No response from OSM, Please try again later!")
+            if osm_data is None:
+                raise Exception("No AOI response from OSM!")
+        else:
+            logging.info("Loading osm raw data from cache")
+            osm_data = osm_data_cache
         nodes = [d for d in osm_data if d["type"] == "node"]
         ways = [d for d in osm_data if d["type"] == "way"]
         rels = [
@@ -145,10 +166,19 @@ class Building:
         ways_aoi = self._ways_aoi
         ways_rel = self._ways_rel
         logging.info("Making raw aoi")
-        nodes_dict = {
-            n["id"]: [a for a in self.projector(n["lon"], n["lat"], inverse=False)]
-            for n in nodes
-        }
+        nodes_dict = {}
+        for n in nodes:
+            if "x" in n and "y" in n:
+                nodes_dict[n["id"]] = [a for a in (n["x"], n["y"])]
+            elif "lon" in n and "lat" in n:
+                assert (
+                    self.projector is not None
+                ), f"proj_str are required when downloading from OSM!"
+                nodes_dict[n["id"]] = [
+                    a for a in self.projector(n["lon"], n["lat"], inverse=False)
+                ]
+            else:
+                raise ValueError(f"Neither lon and lat or x and y in node {n}!")
         ways_aoi_dict = {w["id"]: w for w in ways_aoi}  # nodes, tags
         ways_rel_dict = {w["id"]: w for w in ways_rel}
         rels_dict = {r["id"]: r for r in rels}  # members: [(ref, role)], tags
@@ -311,17 +341,31 @@ class Building:
         logging.info(f"invalid_relation_cnt: {invalid_relation_cnt}")
         logging.info(f"raw aoi: {len(self.aois)}")
 
-    def create_building(self, output_path: Optional[str] = None):
+    def _transform_coordinate(self, c: Tuple[float, float]) -> List[float]:
+        if self.projector is None:
+            return [c[0], c[1]]
+        else:
+            return list(self.projector(c[0], c[1], inverse=True))
+
+    def create_building(
+        self,
+        output_path: Optional[str] = None,
+        osm_data_cache: Optional[List[Dict]] = None,
+        osm_cache_check: bool = False,
+    ):
         """
         Create AOIs from OpenStreetMap.
 
         Args:
+        - osm_data_cache (Optional[List[Dict]]): OSM data cache.
         - output_path (str): GeoJSON file output path.
+        - osm_cache_check (bool): check the format of input OSM data cache.
 
         Returns:
         - AOIs in GeoJSON format.
         """
-        self._query_raw_data()
+        osm_format_checker(osm_cache_check, osm_data_cache)
+        self._query_raw_data(osm_data_cache)
         self._make_raw_aoi()
         geos = []
         for aoi in self.aois:
@@ -330,7 +374,7 @@ class Building:
                     geometry=Polygon(
                         [
                             [
-                                list(self.projector(c[0], c[1], inverse=True))
+                                self._transform_coordinate(c)
                                 for c in aoi["geo"].exterior.coords
                             ]
                         ]

@@ -185,11 +185,16 @@ class Builder:
                     )  # (N, 2)
                     xyz_coords = np.column_stack([xy_coords, z_coords])  # (N, 3)
                 else:
+                    z_coords = (
+                        coords[:, 2]
+                        if coords.shape[1] > 2
+                        else np.zeros((coords.shape[0], 1), dtype=np.float64)
+                    )
                     xy_coords = np.array(
                         [c[:2] for c in feature["geometry"]["coordinates"]],
                         dtype=np.float64,
                     )
-                    xyz_coords = coords
+                    xyz_coords = np.column_stack([xy_coords, z_coords])  # (N, 3)
                 feature["geometry"]["coordinates_xy"] = xy_coords
                 feature["geometry"]["coordinates_xyz"] = xyz_coords
                 if feature["geometry"]["type"] == "LineString":
