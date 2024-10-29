@@ -3837,7 +3837,8 @@ class Builder:
         if self.public_transport is None:
             return set()
         logging.info("Adding public transport to map")
-        public_road_uids = set()
+        public_road_uids: Set[int] = set()
+        connected_subway_lane_pairs: Set[Tuple[LineString, LineString]] = set()
         projector = self.projector
         assert (
             projector is not None
@@ -3860,7 +3861,7 @@ class Builder:
                     if coords.shape[1] > 2
                     else np.zeros((coords.shape[0], 1), dtype=np.float64)
                 )
-                if any(z == 0 for z in coords_z):
+                if all(z == 0 for z in coords_z):
                     coords_z += SUBWAY_HEIGHT_OFFSET
                 coords_xy = np.stack(projector(*coords.T[:2]), axis=1)  # (N, 2)
                 coords_xyz = np.column_stack([coords_xy, coords_z])  # (N, 3)
@@ -3874,16 +3875,12 @@ class Builder:
                     )
                 lane = cast(LineString, lane)
                 lane = offset_lane(lane, -0.495 * lane_width)
-                # Public section routes will not be added to lanes repeatedly.
-                if lane in self.lane2data:
-                    station_connection_road_ids.append(
-                        {
-                            "road_ids": [self.lane2data[lane]["parent_id"]],
-                        }
-                    )
-                    continue
                 cur_matcher = {
-                    "id": self.lane_uid,
+                    "id": (
+                        self.lane_uid
+                        if lane not in self.lane2data
+                        else self.lane2data[lane]["uid"]
+                    ),
                     "geo": lane,
                     # midpoint of polyline
                     "point": lane.interpolate(0.5, normalized=True).coords[:][0],
@@ -3892,6 +3889,14 @@ class Builder:
                 pre_sta_lane_matcher.append(cur_matcher)
                 cur_sta_lane_matcher.append(cur_matcher)
                 new_lanes.append(lane)
+                # Public section routes will not be added to lanes repeatedly.
+                if lane in self.lane2data:
+                    station_connection_road_ids.append(
+                        {
+                            "road_ids": [self.lane2data[lane]["parent_id"]],
+                        }
+                    )
+                    continue
                 # Add new lane
                 self.map_lanes[self.lane_uid] = lane
                 # Add the connection relationship of the new lane
@@ -3924,17 +3929,24 @@ class Builder:
                 self.lane_uid += 1
                 self.road_uid += 1
                 next_way_id += 1
-            for i in range(len(new_lanes) - 1):
-                cur_sta_geo = stas[i + 1]["geo"]
+            for cur_sta, cur_lane, next_lane in zip(
+                stas[1:], new_lanes[:-1], new_lanes[1:]
+            ):
+                cur_sta_geo = cur_sta["geo"]
                 z_center = (
                     np.mean([c[2] for c in cur_sta_geo])
                     if all(len(c) > 2 for c in cur_sta_geo)
                     else 0
                 )
+                _lane_pair = (cur_lane, next_lane)
+                if _lane_pair in connected_subway_lane_pairs:
+                    continue
+                else:
+                    connected_subway_lane_pairs.add(_lane_pair)
                 self.map_junctions[next_junc_id] = {
                     "lanes": self._connect_lane_group(
-                        in_lanes=new_lanes[i : i + 1],
-                        out_lanes=new_lanes[i + 1 : i + 2],
+                        in_lanes=[cur_lane],
+                        out_lanes=[next_lane],
                         lane_turn=mapv2.LANE_TURN_STRAIGHT,
                         lane_type=mapv2.LANE_TYPE_RAIL_TRANSIT,
                         junc_id=self.junc_uid,
