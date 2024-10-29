@@ -3860,6 +3860,8 @@ class Builder:
                     if coords.shape[1] > 2
                     else np.zeros((coords.shape[0], 1), dtype=np.float64)
                 )
+                if any(z == 0 for z in coords_z):
+                    coords_z += SUBWAY_HEIGHT_OFFSET
                 coords_xy = np.stack(projector(*coords.T[:2]), axis=1)  # (N, 2)
                 coords_xyz = np.column_stack([coords_xy, coords_z])  # (N, 3)
                 lane_width = self.default_lane_width

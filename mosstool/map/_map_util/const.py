@@ -15,6 +15,8 @@ AOI_START_ID = 5_0000_0000
 POI_START_ID = 7_0000_0000
 PUBLIC_LINE_START_ID = 9_0000_0000
 
+SUBWAY_HEIGHT_OFFSET = -20 # underground depth of subway
+
 CLUSTER_PENALTY = 0.01  # Clustering penalty term
 UP_THRESHOLD = 0.01  # Select the one with the largest number of clusters within the threshold range
 HAS_WALK_LANES_HIGHWAY = [
