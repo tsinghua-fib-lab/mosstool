@@ -12,6 +12,7 @@ ENV NODE_ENV=production
 WORKDIR /home/node/app
 
 # Install serve
+RUN yarn config set registry https://registry.npmmirror.com
 RUN yarn global add serve
 
 # Copy build files
