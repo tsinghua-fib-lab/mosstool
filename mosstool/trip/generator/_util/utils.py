@@ -329,7 +329,7 @@ def gen_bus_drivers(
     p_trip_stops = []
     # bus attribute
     p_bus_attr = BusAttribute(
-        subline_id=sl_id, capacity=sl_capacity, type=bus_type, model=""
+        subline_id=sl_id, capacity=sl_capacity, type=bus_type,
     )
     for (d_lane_id, d_s), aoi_id in zip(trip_stop_lane_id_s, trip_stop_aoi_ids):
         trip_stop = TripStop()
@@ -356,8 +356,6 @@ def gen_bus_drivers(
                     CAR,
                 ),
                 end=Position(aoi_position=AoiPosition(aoi_id=end_aoi_id)),
-                activity="",
-                model="",
                 trip_stops=p_trip_stops,
                 routes=[
                     Journey(
