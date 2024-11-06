@@ -1,3 +1,4 @@
+import logging
 from multiprocessing import Pool, cpu_count
 from typing import (Callable, Dict, List, Literal, Optional, Set, Tuple, Union,
                     cast)
@@ -105,24 +106,32 @@ def gen_profiles(
             )
     return profiles
 
-def recalculate_trip_modes(profile: dict,trip_modes:List)->List:
+
+def recalculate_trip_modes(profile: dict, trip_modes: List) -> List:
     res_modes = np.array([m for m in trip_modes], dtype=np.uint8)
-    if (
-        profile.get("consumption",-1)
-        in {
-            personv2.CONSUMPTION_LOW,
-            personv2.CONSUMPTION_RELATIVELY_LOW,
-        }
-        or not _in_range(profile.get("age",24), 18, 70)
-    ):
+    if profile.get("consumption", -1) in {
+        personv2.CONSUMPTION_LOW,
+        personv2.CONSUMPTION_RELATIVELY_LOW,
+    } or not _in_range(profile.get("age", 24), 18, 70):
         # no car to drive
         res_modes[np.where(res_modes == CAR)] = TAXI
     return [m for m in res_modes]
 
-def recalculate_trip_mode_prob(profile: dict, V: np.ndarray):
+
+def recalculate_trip_mode_prob(
+    profile: dict, trip_modes: List, V: np.ndarray, available_trip_modes: List[str]
+):
     """
     Filter some invalid trip modes according to the PersonProfile
     """
+    assert len(trip_modes) == len(V)
+    orig_v = V.copy()
+    for mode in trip_modes:
+        if TRIP_MODES_DICT[mode] not in available_trip_modes:
+            V[np.where(trip_modes == mode)] = 0.0
+    if not np.sum(V) > 0:
+        logging.warning("No available trip modes, Using default configs instead!")
+        V = orig_v
     return V
 
 
@@ -329,7 +338,9 @@ def gen_bus_drivers(
     p_trip_stops = []
     # bus attribute
     p_bus_attr = BusAttribute(
-        subline_id=sl_id, capacity=sl_capacity, type=bus_type,
+        subline_id=sl_id,
+        capacity=sl_capacity,
+        type=bus_type,
     )
     for (d_lane_id, d_s), aoi_id in zip(trip_stop_lane_id_s, trip_stop_aoi_ids):
         trip_stop = TripStop()

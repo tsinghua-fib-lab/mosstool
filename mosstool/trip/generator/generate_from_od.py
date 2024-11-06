@@ -18,8 +18,8 @@ from ...type import (AoiPosition, LanePosition, Map, Person, PersonProfile,
 from ...util.format_converter import dict2pb, pb2dict
 from ._util.const import *
 from ._util.utils import (extract_HWEO_from_od_matrix, gen_bus_drivers,
-                          gen_departure_times, gen_profiles,recalculate_trip_modes,
-                          recalculate_trip_mode_prob)
+                          gen_departure_times, gen_profiles,
+                          recalculate_trip_mode_prob, recalculate_trip_modes)
 from .template import default_vehicle_template_generator
 
 
@@ -84,7 +84,7 @@ def _get_mode_with_distribution(
     V = np.array([V_bus, V_subway, V_fuel, V_elec, V_bicycle])
     V = np.exp(V)
     _all_trip_modes = recalculate_trip_modes(profile, ALL_TRIP_MODES)
-    V = recalculate_trip_mode_prob(profile, V)
+    V = recalculate_trip_mode_prob(profile, _all_trip_modes, V, available_trip_modes)
     V = V / sum(V)
     rng = np.random.default_rng(seed)
     choice_index = rng.choice(len(V), p=V)
@@ -617,6 +617,8 @@ class TripGenerator:
     ):
         global region2aoi, aoi_map, aoi_type2ids
         global home_dist, work_od, other_od, educate_od
+        global available_trip_modes
+        available_trip_modes = self.available_trip_modes
         region2aoi = self.region2aoi
         aoi_map = {d["id"]: d for d in self.aois}
         n_region = len(self.regions)
@@ -718,6 +720,7 @@ class TripGenerator:
         self,
         od_matrix: np.ndarray,
         areas: GeoDataFrame,
+        available_trip_modes: List[str] = ["drive", "walk", "bus", "taxi"],
         departure_time_curve: Optional[list[float]] = None,
         area_pops: Optional[list] = None,
         person_profiles: Optional[list[dict]] = None,
@@ -728,9 +731,10 @@ class TripGenerator:
         Args:
         - od_matrix (numpy.ndarray): The OD matrix.
         - areas (GeoDataFrame): The area data. Must contain a 'geometry' column with geometric information and a defined `crs` string.
-        - departure_time_curve (list[float]): The departure time of a day (24h). The resolution must >=1h.
+        - available_trip_modes (list[str]): available trip modes for person schedules.
+        - departure_time_curve (Optional[List[float]]): The departure time of a day (24h). The resolution must >=1h.
         - area_pops (list): list of populations in each area. If is not None, # of the persons departs from each home position is exactly equal to the given pop num.
-        - person_profiles (list[dict]): list of profiles in dict format.
+        - person_profiles (Optional[List[dict]]): list of profiles in dict format.
         - seed (int): The random seed.
         - agent_num (int): number of agents to generate.
 
@@ -754,6 +758,7 @@ class TripGenerator:
             self.departure_prob = None
         self.od_matrix = od_matrix
         self.areas = areas
+        self.available_trip_modes = available_trip_modes
         self._read_aois()
         self._read_regions()
         self._read_od_matrix()
@@ -831,6 +836,8 @@ class TripGenerator:
     def _generate_schedules(self, input_persons: List[Person], seed: int):
         global region2aoi, aoi_map, aoi_type2ids
         global home_dist, work_od, other_od, educate_od
+        global available_trip_modes
+        available_trip_modes = self.available_trip_modes
         region2aoi = self.region2aoi
         aoi_map = {d["id"]: d for d in self.aois}
         n_region = len(self.regions)
@@ -947,6 +954,7 @@ class TripGenerator:
         input_persons: List[Person],
         od_matrix: np.ndarray,
         areas: GeoDataFrame,
+        available_trip_modes: List[str] = ["drive", "walk", "bus", "taxi"],
         departure_time_curve: Optional[list[float]] = None,
         seed: int = 0,
     ) -> List[Person]:
@@ -957,7 +965,8 @@ class TripGenerator:
         - input_persons (List[Person]): Input Person objects.
         - od_matrix (numpy.ndarray): The OD matrix.
         - areas (GeoDataFrame): The area data. Must contain a 'geometry' column with geometric information and a defined `crs` string.
-        - departure_time_curve (list[float]): The departure time of a day (24h). The resolution must >=1h.
+        - available_trip_modes (Optional[List[str]]): available trip modes for person schedules.
+        - departure_time_curve (Optional[List[float]]): The departure time of a day (24h). The resolution must >=1h.
         - seed (int): The random seed.
 
         Returns:
@@ -980,6 +989,7 @@ class TripGenerator:
             self.departure_prob = None
         self.od_matrix = od_matrix
         self.areas = areas
+        self.available_trip_modes = available_trip_modes
         self._read_aois()
         self._read_regions()
         self._read_od_matrix()
