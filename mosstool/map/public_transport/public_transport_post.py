@@ -16,7 +16,6 @@ __all__ = [
     "public_transport_process",
 ]
 ETA_FACTOR = 5
-TAZ_LENGTH = 1500
 
 
 async def _fill_public_lines(m: dict, server_address: str):
@@ -318,7 +317,7 @@ def _get_taz_cost_unit(arg):
     return (subline_id, taz_costs)
 
 
-def _post_compute(m: dict, workers: int):
+def _post_compute(m: dict, workers: int, taz_length: float):
     m = deepcopy(m)
     header = m["header"]
     aois = {a["id"]: a for a in m["aois"]}
@@ -327,10 +326,10 @@ def _post_compute(m: dict, workers: int):
     x_max, x_min = header["east"], header["west"]
     y_max, y_min = header["north"], header["south"]
     _, x_step = np.linspace(
-        x_min, x_max, max(int((x_max - x_min) / TAZ_LENGTH), 2), retstep=True
+        x_min, x_max, max(int((x_max - x_min) / taz_length), 2), retstep=True
     )
     _, y_step = np.linspace(
-        y_min, y_max, max(int((y_max - y_min) / TAZ_LENGTH), 2), retstep=True
+        y_min, y_max, max(int((y_max - y_min) / taz_length), 2), retstep=True
     )
     # update header
     header["taz_x_step"] = x_step
@@ -445,11 +444,12 @@ def _post_compute(m: dict, workers: int):
 def public_transport_process(
     m: dict,
     server_address: str,
+    taz_length: float = 1500,
     workers: int = cpu_count(),
     multiprocessing_chunk_size: int = 500,
 ):
     global MAX_CHUNK_SIZE
     MAX_CHUNK_SIZE = multiprocessing_chunk_size
     m = asyncio.run(_fill_public_lines(m, server_address))
-    m = _post_compute(m, workers)
+    m = _post_compute(m, workers, taz_length)
     return m
