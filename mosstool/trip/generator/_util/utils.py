@@ -107,7 +107,9 @@ def gen_profiles(
     return profiles
 
 
-def recalculate_trip_modes(profile: dict, trip_modes: List) -> List:
+def recalculate_trip_modes(
+    profile: dict, trip_modes: List, available_trip_modes: List[str]
+) -> List:
     res_modes = np.array([m for m in trip_modes], dtype=np.uint8)
     if profile.get("consumption", -1) in {
         personv2.CONSUMPTION_LOW,
@@ -115,6 +117,10 @@ def recalculate_trip_modes(profile: dict, trip_modes: List) -> List:
     } or not _in_range(profile.get("age", 24), 18, 70):
         # no car to drive
         res_modes[np.where(res_modes == CAR)] = TAXI
+    if "bus_subway" in available_trip_modes:
+        res_modes = np.where(
+            (res_modes == BUS) | (res_modes == SUBWAY), BUS_SUBWAY, res_modes
+        )
     return [m for m in res_modes]
 
 

@@ -304,7 +304,6 @@ def _process_matched_result(aoi, d_matched, w_matched):
     if w_positions:
         aoi["external"]["walking_distances"] = [x[0] for x in w_externals]
         aoi["external"]["walking_lane_project_point"] = [x[1] for x in w_externals]
-    aoi["subline_ids"] = []
     return aoi
 
 

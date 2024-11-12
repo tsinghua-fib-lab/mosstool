@@ -83,7 +83,7 @@ def _get_mode_with_distribution(
         V_bicycle = -0.1185 * bicycle_duration / 60
     V = np.array([V_bus, V_subway, V_fuel, V_elec, V_bicycle])
     V = np.exp(V)
-    _all_trip_modes = recalculate_trip_modes(profile, ALL_TRIP_MODES)
+    _all_trip_modes = recalculate_trip_modes(profile, ALL_TRIP_MODES,available_trip_modes)
     V = recalculate_trip_mode_prob(profile, _all_trip_modes, V, available_trip_modes)
     V = V / sum(V)
     rng = np.random.default_rng(seed)
@@ -619,6 +619,8 @@ class TripGenerator:
         global home_dist, work_od, other_od, educate_od
         global available_trip_modes
         available_trip_modes = self.available_trip_modes
+        if "bus" in available_trip_modes and "subway" in available_trip_modes:
+            available_trip_modes.append("bus_subway")
         region2aoi = self.region2aoi
         aoi_map = {d["id"]: d for d in self.aois}
         n_region = len(self.regions)
@@ -720,7 +722,7 @@ class TripGenerator:
         self,
         od_matrix: np.ndarray,
         areas: GeoDataFrame,
-        available_trip_modes: List[str] = ["drive", "walk", "bus", "taxi"],
+        available_trip_modes: List[str] = ["drive", "walk", "bus", "subway","taxi"],
         departure_time_curve: Optional[list[float]] = None,
         area_pops: Optional[list] = None,
         person_profiles: Optional[list[dict]] = None,
@@ -838,6 +840,8 @@ class TripGenerator:
         global home_dist, work_od, other_od, educate_od
         global available_trip_modes
         available_trip_modes = self.available_trip_modes
+        if "bus" in available_trip_modes and "subway" in available_trip_modes:
+            available_trip_modes.append("bus_subway")
         region2aoi = self.region2aoi
         aoi_map = {d["id"]: d for d in self.aois}
         n_region = len(self.regions)
@@ -954,7 +958,7 @@ class TripGenerator:
         input_persons: List[Person],
         od_matrix: np.ndarray,
         areas: GeoDataFrame,
-        available_trip_modes: List[str] = ["drive", "walk", "bus", "taxi"],
+        available_trip_modes: List[str] = ["drive", "walk", "bus", "subway","taxi"],
         departure_time_curve: Optional[list[float]] = None,
         seed: int = 0,
     ) -> List[Person]:

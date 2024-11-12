@@ -3,6 +3,7 @@ MOSS Map Tools constants
 """
 
 import numpy as np
+import pycityproto.city.map.v2.map_pb2 as mapv2
 
 EPS = 1e-4
 
@@ -15,7 +16,7 @@ AOI_START_ID = 5_0000_0000
 POI_START_ID = 7_0000_0000
 PUBLIC_LINE_START_ID = 9_0000_0000
 
-SUBWAY_HEIGHT_OFFSET = -20 # underground depth of subway
+SUBWAY_HEIGHT_OFFSET = -20  # underground depth of subway
 
 CLUSTER_PENALTY = 0.01  # Clustering penalty term
 UP_THRESHOLD = 0.01  # Select the one with the largest number of clusters within the threshold range
@@ -119,4 +120,12 @@ DEFAULT_TURN_NUM = {
     "MAIN_LARGE_LEFT": 2,
     "MAIN_SMALL_RIGHT": 1,
     "MAIN_LARGE_RIGHT": 2,
+}
+STRING_SUBLINE_TYPE_TO_ENUM_TYPE = {
+    "BUS": mapv2.SUBLINE_TYPE_BUS,
+    "SUBWAY": mapv2.SUBLINE_TYPE_SUBWAY,
+}
+ENUM_STATION_CAPACITY = {
+    mapv2.SUBLINE_TYPE_BUS: 35,
+    mapv2.SUBLINE_TYPE_SUBWAY: 850,
 }

@@ -29,21 +29,15 @@ async def _fill_public_lines(m: dict, server_address: str):
         coords = np.array([[n["x"], n["y"]] for n in aoi["positions"]])
         x, y = np.mean(coords, axis=0)[:2]
         aoi_center_point[aoi_id] = (x, y)
-
-    def _get_subline_type(pub_type: str):
-        if pub_type == "SUBWAY":
-            return mapv2.SUBLINE_TYPE_SUBWAY
-        elif pub_type == "BUS":
-            return mapv2.SUBLINE_TYPE_BUS
-        else:
-            return mapv2.SUBLINE_TYPE_UNSPECIFIED
+        aoi["subline_ids"] = []
+        if "external" not in aoi:
+            aoi["external"] = {}
 
     def _get_aoi_dis(aoi_id1, aoi_id2):
         x1, y1 = aoi_center_point[aoi_id1]
         x2, y2 = aoi_center_point[aoi_id2]
         return ((x1 - x2) ** 2 + (y1 - y2) ** 2) ** 0.5
 
-    pub_data = m["public_transport"]
     client = RoutingClient(server_address)
     aoi_id2route_position = defaultdict(list)
     sublines_data = []
@@ -71,139 +65,129 @@ async def _fill_public_lines(m: dict, server_address: str):
         return res
 
     # Filter sublines that are reachable in the map
-    # for pub in tqdm(pub_data):
-    for pub in pub_data:
-        for subline in pub["sublines"]:
-            if pub["type"] == "BUS":
-                station_connection_road_ids = subline["station_connection_road_ids"]
-                aoi_ids = subline["aoi_ids"]
-                if station_connection_road_ids:
-                    continue
-                else:
-                    aoi_ids = [
-                        a_id
-                        for a_id in aoi_ids
-                        if len(aois[a_id]["driving_positions"]) >= 1
-                    ]
-                    if len(aoi_ids) < 2:
-                        continue
-                    aoi_start = aoi_ids[0]
-                    start_positions = [
-                        {"lane_position": p}
-                        for p in aois[aoi_start]["driving_positions"]
-                    ]
-                    res_conn_road_ids = []
-                    res_pair_lane_ids = []
-                    res_aoi_ids = [aoi_start]
-                    res_etas = []
-                    for aoi_end in aoi_ids[1:]:
-                        loop_res = []
-                        end_positions = [
-                            {"lane_position": p}
-                            for p in aois[aoi_end]["driving_positions"]
-                        ]
-                        for route_start in start_positions:
-                            for route_end in end_positions:
-                                res = await client.GetRoute(
-                                    req=GetRouteRequest(
-                                        type=1,  # driving
-                                        start=route_start,
-                                        end=route_end,
-                                        time=0,
-                                    )
-                                )
-                                if res and res.journeys:
-                                    road_ids = list(res.journeys[0].driving.road_ids)
-                                    route_len = route_length(
-                                        road_ids, route_start, route_end
-                                    )
-                                    if len(
-                                        road_ids
-                                    ) >= 1 and route_len < 1.6 * _get_aoi_dis(
-                                        aoi_start, aoi_end
-                                    ):
-                                        eta = res.journeys[0].driving.eta
-                                        loop_res.append(
-                                            {
-                                                "route_start": route_start,
-                                                "route_end": route_end,
-                                                "road_ids": road_ids,
-                                                "route_length": route_len,
-                                                "eta": eta * ETA_FACTOR,
-                                            }
-                                        )
-                        if len(loop_res) > 0:
-                            # there is a path
-                            min_loop_res = min(
-                                loop_res, key=lambda r: r["route_length"]
+    for subline in m["sublines"]:
+        if subline["type"] == mapv2.SUBLINE_TYPE_BUS:
+            aoi_ids = subline["aoi_ids"]
+            aoi_ids = [
+                a_id for a_id in aoi_ids if len(aois[a_id]["driving_positions"]) >= 1
+            ]
+            if len(aoi_ids) < 2:
+                continue
+            aoi_start = aoi_ids[0]
+            start_positions = [
+                {"lane_position": p} for p in aois[aoi_start]["driving_positions"]
+            ]
+            res_conn_road_ids = []
+            res_pair_lane_ids = []
+            res_aoi_ids = [aoi_start]
+            res_etas = []
+            for aoi_end in aoi_ids[1:]:
+                loop_res = []
+                end_positions = [
+                    {"lane_position": p} for p in aois[aoi_end]["driving_positions"]
+                ]
+                for route_start in start_positions:
+                    for route_end in end_positions:
+                        res = await client.GetRoute(
+                            req=GetRouteRequest(
+                                type=1,  # driving
+                                start=route_start,
+                                end=route_end,
+                                time=0,
                             )
-                            min_route_start, min_route_end = (
-                                min_loop_res["route_start"],
-                                min_loop_res["route_end"],
-                            )
-                            aoi_id2route_position[aoi_start].append(min_route_start)
-                            aoi_id2route_position[aoi_end].append(min_route_end)
-                            road_ids = min_loop_res["road_ids"]
-                            res_pair_lane_ids.append(
-                                [
-                                    route_pos["lane_position"]["lane_id"]
-                                    for route_pos in [min_route_start, min_route_end]
-                                ]
-                            )
-                            start_positions = [min_route_end]
-                            aoi_start = aoi_end
-                            res_conn_road_ids.append(
-                                {
-                                    "road_ids": road_ids,
-                                }
-                            )
-                            res_aoi_ids.append(aoi_end)
-                            res_etas.append(min_loop_res["eta"])
-                        else:
-                            pass
-                    if len(res_aoi_ids) >= 2:
-                        subline["station_connection_road_ids"] = res_conn_road_ids
-                        subline["route_pair_lane_ids"] = res_pair_lane_ids
-                        subline["aoi_ids"] = res_aoi_ids
-                        subline["etas"] = res_etas
-            if len(subline["station_connection_road_ids"]) > 0:
-                # write to new subline data
-                if "etas" in subline:
-                    offset_times = subline["etas"]
-                else:
-                    offset_times = []
-                    for d in subline["station_connection_road_ids"]:
-                        road_ids = d["road_ids"]
-                        offset_times.append(
-                            route_length(road_ids) / DEFAULT_MAX_SPEED["SUBWAY"]
                         )
-                departure_times = subline["schedules"]
-                aoi_ids = subline["aoi_ids"]
-                for aoi_id in aoi_ids:
-                    aois[aoi_id]["subline_ids"].append(public_line_id)
-                default_pair_lane_ids = [[None, None] for _ in range(len(aoi_ids) - 1)]
-                sublines_data.append(
-                    {
-                        "id": public_line_id,
-                        "name": subline["name"],
-                        "aoi_ids": aoi_ids,
-                        "station_connection_road_ids": subline[
-                            "station_connection_road_ids"
-                        ],
-                        "type": _get_subline_type(pub["type"]),
-                        "parent_name": subline["parent_name"],
-                        "schedules": {
-                            "departure_times": departure_times,
-                            "offset_times": offset_times,
-                        },
-                        "route_pair_lane_ids": subline.get(
-                            "route_pair_lane_ids", default_pair_lane_ids
-                        ),
-                        "capacity": STATION_CAPACITY[pub["type"]],
-                        "taz_costs": [],
-                    }
-                )
-                public_line_id += 1
+                        if res and res.journeys:
+                            road_ids = list(res.journeys[0].driving.road_ids)
+                            route_len = route_length(road_ids, route_start, route_end)
+                            if len(road_ids) >= 1 and route_len < 1.6 * _get_aoi_dis(
+                                aoi_start, aoi_end
+                            ):
+                                eta = res.journeys[0].driving.eta
+                                loop_res.append(
+                                    {
+                                        "route_start": route_start,
+                                        "route_end": route_end,
+                                        "road_ids": road_ids,
+                                        "route_length": route_len,
+                                        "eta": eta * ETA_FACTOR,
+                                    }
+                                )
+                if len(loop_res) > 0:
+                    # there is a path
+                    min_loop_res = min(loop_res, key=lambda r: r["route_length"])
+                    min_route_start, min_route_end = (
+                        min_loop_res["route_start"],
+                        min_loop_res["route_end"],
+                    )
+                    aoi_id2route_position[aoi_start].append(min_route_start)
+                    aoi_id2route_position[aoi_end].append(min_route_end)
+                    road_ids = min_loop_res["road_ids"]
+                    res_pair_lane_ids.append(
+                        [
+                            route_pos["lane_position"]["lane_id"]
+                            for route_pos in [min_route_start, min_route_end]
+                        ]
+                    )
+                    start_positions = [min_route_end]
+                    aoi_start = aoi_end
+                    res_conn_road_ids.append(
+                        {
+                            "road_ids": road_ids,
+                        }
+                    )
+                    res_aoi_ids.append(aoi_end)
+                    res_etas.append(min_loop_res["eta"])
+                else:
+                    pass
+            if len(res_aoi_ids) >= 2:
+                subline["station_connection_road_ids"] = res_conn_road_ids
+                subline["route_pair_lane_ids"] = res_pair_lane_ids
+                subline["aoi_ids"] = res_aoi_ids
+                subline["etas"] = res_etas
+            else:
+                subline["station_connection_road_ids"] = []
+        elif subline["type"] == mapv2.SUBLINE_TYPE_SUBWAY:
+            pass
+        else:
+            raise ValueError(f"Invalid subline type `{subline['type']}`!")
+        if len(subline["station_connection_road_ids"]) > 0:
+            # write to new subline data
+            if "etas" in subline:
+                offset_times = subline["etas"]
+            else:
+                offset_times = []
+                for d in subline["station_connection_road_ids"]:
+                    road_ids = d["road_ids"]
+                    offset_times.append(
+                        route_length(road_ids) / DEFAULT_MAX_SPEED["SUBWAY"]
+                    )
+            departure_times = subline["schedules"]
+            aoi_ids = subline["aoi_ids"]
+            for aoi_id in aoi_ids:
+                aois[aoi_id]["subline_ids"].append(public_line_id)
+            default_pair_lane_ids = [[None, None] for _ in range(len(aoi_ids) - 1)]
+            sublines_data.append(
+                {
+                    "id": public_line_id,
+                    "name": subline["name"],
+                    "aoi_ids": aoi_ids,
+                    "station_connection_road_ids": subline[
+                        "station_connection_road_ids"
+                    ],
+                    "type": subline["type"],
+                    "parent_name": subline["parent_name"],
+                    "schedules": {
+                        "departure_times": departure_times,
+                        "offset_times": offset_times,
+                    },
+                    "route_pair_lane_ids": subline.get(
+                        "route_pair_lane_ids", default_pair_lane_ids
+                    ),
+                    "capacity": ENUM_STATION_CAPACITY[subline["type"]],
+                    "taz_costs": [],
+                }
+            )
+            public_line_id += 1
     for aoi_id, aoi in aois.items():
         if len(aoi["subline_ids"]) == 0:
             continue
@@ -224,25 +208,17 @@ async def _fill_public_lines(m: dict, server_address: str):
             )["idx"]
             aoi["walking_positions"] = [d for i, d in enumerate(w_pos) if i == w_idx]
             aoi["walking_gates"] = [d for i, d in enumerate(w_gates) if i == w_idx]
-            external["walking_distances"] = [
-                d for i, d in enumerate(external["walking_distances"]) if i == w_idx
-            ]
-            external["walking_lane_project_point"] = [
-                d
-                for i, d in enumerate(external["walking_lane_project_point"])
-                if i == w_idx
-            ]
+            for ex_key in ["walking_distances", "walking_lane_project_point"]:
+                if ex_key in external:
+                    external[ex_key] = [
+                        d for i, d in enumerate(external[ex_key]) if i == w_idx
+                    ]
         if aoi_id not in aoi_id2route_position:
             continue
-        # route_lane_ids = {
-        #     p["lane_position"]["lane_id"] for p in aoi_id2route_position[aoi_id]
-        # }
-        # update driving_positions driving_gates
         d_pos = aoi["driving_positions"]
         d_gates = aoi["driving_gates"]
         d_idxs = []
         for i, pos in enumerate(d_pos):
-            # if pos["lane_id"] in route_lane_ids:
             d_idxs.append(i)
         aoi["driving_positions"] = [d for i, d in enumerate(d_pos) if i in d_idxs]
         aoi["driving_gates"] = [d for i, d in enumerate(d_gates) if i in d_idxs]
@@ -270,14 +246,15 @@ async def _fill_public_lines(m: dict, server_address: str):
 def _get_taz_cost_unit(arg):
     subline, station_aois, (x_min, x_step, y_min, y_step), route_lengths = arg
     station_aoi_ids = list(station_aois.keys())
-    station_durations = [aoi["external"]["duration"] for _, aoi in station_aois.items()]
+    station_durations = [
+        aoi["external"].get("duration", 30) for _, aoi in station_aois.items()
+    ]
     subline_id = subline["id"]
     subline_type = subline["type"]
     if subline_type == mapv2.SUBLINE_TYPE_SUBWAY:
         vehicle_speed = DEFAULT_MAX_SPEED["SUBWAY"]
     else:
         vehicle_speed = DEFAULT_MAX_SPEED["BUS"]
-    walk_speed = DEFAULT_MAX_SPEED["WALK"]
     taz_costs = []
 
     # build TAZ
@@ -369,19 +346,6 @@ def _post_compute(m: dict, workers: int, taz_length: float):
         raise ValueError(
             f"{rightest_lane_id} at {road_id} not in AOI {aoi['id']} gates"
         )
-
-    # def rightest_lane_id(road_id:int):
-    #     road = roads[road_id]
-    #     road_lids = set(road["lane_ids"])
-    #     if len(road_lids)==0:
-    #         raise ValueError(f"No lane at road {road_id}!")
-    #     rightest_lane_id = [
-    #         lanes[lid]
-    #         for lid in road_lids
-    #         if lanes[lid]["type"]
-    #         in {mapv2.LANE_TYPE_DRIVING, mapv2.LANE_TYPE_RAIL_TRANSIT}
-    #     ][-1]["id"]
-    #     return rightest_lane_id
 
     for subline in sublines_data:
         subline_id = subline["id"]

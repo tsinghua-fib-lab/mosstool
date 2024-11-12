@@ -20,6 +20,7 @@ from shapely.geometry import LineString, MultiPoint, Point
 from sklearn.cluster import KMeans
 
 from ...type import Map
+from ...util.format_converter import pb2dict
 from .._map_util.aois import add_aoi_pop, add_aoi_to_map, generate_aoi_poi
 from .._map_util.aois.convert_aoi_poi import convert_aoi, convert_poi
 from .._map_util.aois.reuse_aois_matchers import match_map_aois
@@ -229,6 +230,7 @@ class Builder:
                     self.ways[feature["id"]] = feature
                     self.uid_mapping[feature["uid"]] = feature["id"]
             self.junction_types = defaultdict(list)
+            self.dict_sublines_list: List[Dict] = []
         elif net_type == Map:
             logging.info("Reading from pb files")
             self.net = net
@@ -335,6 +337,8 @@ class Builder:
             self.min_lon, self.min_lat = self.projector(
                 net.header.west, net.header.south, inverse=True
             )
+            assert type(net) == Map
+            self.dict_sublines_list: List[Dict] = list(pb2dict(net)["sublines"])
         else:
             raise ValueError(f"Unsupported data type {net_type}")
 
@@ -3836,6 +3840,18 @@ class Builder:
     def _add_public_transport(self) -> Set[int]:
         if self.public_transport is None:
             return set()
+        if self.dict_sublines_list:
+            _subway_sublines = [
+                sl
+                for sl in self.dict_sublines_list
+                if sl["type"] == mapv2.SUBLINE_TYPE_SUBWAY
+            ]
+            return {
+                rid
+                for sl in _subway_sublines
+                for road_ids_dict in sl["station_connection_road_ids"]
+                for rid in road_ids_dict["road_ids"]
+            }
         logging.info("Adding public transport to map")
         public_road_uids: Set[int] = set()
         connected_subway_lane_pairs: Set[Tuple[LineString, LineString]] = set()
@@ -3844,7 +3860,9 @@ class Builder:
             projector is not None
         ), "building with public_transport must provide projstr!"
 
-        def create_subway_connections(geos: list, stas: list) -> List[List[int]]:
+        def create_subway_connections(
+            geos: list, stas: list
+        ) -> List[Dict[str, List[int]]]:
             # Create new subway lane road and junction
             station_connection_road_ids = []
             next_way_id = max(self.map_roads.keys()) + 1
@@ -4023,7 +4041,11 @@ class Builder:
                         "parent_name": lname,
                     }
                     public_road_uids.update(
-                        {rid for part in station_connection_road_ids for rid in part}
+                        {
+                            rid
+                            for part in station_connection_road_ids
+                            for rid in part["road_ids"]
+                        }
                     )
                 line_id += 1
 
@@ -4269,42 +4291,45 @@ class Builder:
             self.output_aois[uid] = d
         # output public transport
         self.output_public_transport = {}
-        for line_type, lines in public_lines.items():
-            for _, sublines in lines.items():
-                matched_lines = []
-                for _, subline in sublines.items():
-                    aoi_ids = []
-                    slname = subline["name"]
-                    sl_parent_name = subline["parent_name"]
-                    schedules = subline["schedules"]
-                    if not schedules:
-                        schedules = DEFAULT_SCHEDULES[line_type]
-                    station_connection_road_ids = subline["station_connection_road_ids"]
-                    for sta_id in subline["raw_station_ids"]:
-                        sta = public_stations[line_type][sta_id]
-                        if not "aoi_uid" in sta:
-                            continue
-                        else:
-                            aoi_id = sta["aoi_uid"]
-                            aoi_ids.append(aoi_id)
-                    if len(aoi_ids) > 1:
-                        matched_lines.append(
-                            {
+        if self.dict_sublines_list is None:
+            # If public transportation simulation is required, the map needs to be post-processed
+            logging.info("Making output public transport")
+            for line_type, lines in public_lines.items():
+                for _, sublines in lines.items():
+                    for _, subline in sublines.items():
+                        aoi_ids = []
+                        slname = subline["name"]
+                        sl_parent_name = subline["parent_name"]
+                        schedules = subline["schedules"]
+                        if not schedules:
+                            schedules = DEFAULT_SCHEDULES[line_type]
+                        station_connection_road_ids = subline[
+                            "station_connection_road_ids"
+                        ]
+                        for sta_id in subline["raw_station_ids"]:
+                            sta = public_stations[line_type][sta_id]
+                            if not "aoi_uid" in sta:
+                                continue
+                            else:
+                                aoi_id = sta["aoi_uid"]
+                                aoi_ids.append(aoi_id)
+                        if len(aoi_ids) > 1:
+                            # set field TAZ as empty
+                            self.output_public_transport[self.public_transport_uid] = {
+                                "id": self.public_transport_uid,
                                 "name": slname,
                                 "aoi_ids": aoi_ids,
                                 "station_connection_road_ids": station_connection_road_ids,
+                                "type": STRING_SUBLINE_TYPE_TO_ENUM_TYPE[line_type],
                                 "parent_name": sl_parent_name,
                                 "schedules": schedules,
                             }
-                        )
-                if len(matched_lines) >= 1:
-                    self.output_public_transport[self.public_transport_uid] = {
-                        "sublines": matched_lines,
-                        "type": line_type,
-                    }
-                    self.public_transport_uid += 1
-        # If public transportation simulation is required, the map needs to be post-processed
-        logging.info("Making output public transport")
+                            self.public_transport_uid += 1
+        else:
+            logging.info("Making output public transport from input `Map`!")
+            self.output_public_transport = {
+                sl["id"]: sl for sl in self.dict_sublines_list
+            }
         # output poi
         logging.info("Making output pois")
         self.output_pois = {uid: d for uid, d in self.map_pois.items()}

@@ -23,7 +23,9 @@ HUMAN_MODE_STATS = {
     "HWHWH+": 1.43,
     "HSOSH": 0.00,
 }
+BUS_SUBWAY = tripv2.TRIP_MODE_BUS_WALK
 BUS = tripv2.TRIP_MODE_BUS_WALK
+SUBWAY = tripv2.TRIP_MODE_SUBWAY_WALK
 CAR = tripv2.TRIP_MODE_DRIVE_ONLY
 TAXI = tripv2.TRIP_MODE_TAXI
 BIKE = tripv2.TRIP_MODE_BIKE_WALK
@@ -31,13 +33,15 @@ WALK = tripv2.TRIP_MODE_WALK_ONLY
 LANE_TYPE_DRIVING = mapv2.LANE_TYPE_DRIVING
 ALL_TRIP_MODES = [
     BUS,
-    BUS,
+    SUBWAY,
     CAR,
     CAR,
     WALK,
 ]
 TRIP_MODES_DICT = {
     BUS: "bus",
+    BUS_SUBWAY:"bus_subway",
+    SUBWAY:"subway",
     CAR: "drive",
     TAXI: "taxi",
     WALK: "walk",
