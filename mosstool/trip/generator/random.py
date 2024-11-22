@@ -9,7 +9,7 @@ from pycityproto.city.trip.v2.trip_pb2 import Schedule, Trip, TripMode
 
 from ...map._map_util.const import JUNC_START_ID
 from ._util.utils import is_walking
-from .template import default_vehicle_template_generator
+from .template import default_person_template_generator
 
 __all__ = ["PositionMode", "RandomGenerator"]
 
@@ -29,7 +29,7 @@ class RandomGenerator:
         m: Map,
         position_modes: List[PositionMode],
         trip_mode: TripMode,
-        template_func: Callable[[], Person] = default_vehicle_template_generator,
+        template_func: Callable[[], Person] = default_person_template_generator,
     ):
         """
         Args:

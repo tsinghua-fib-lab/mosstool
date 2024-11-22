@@ -40,13 +40,14 @@ ALL_TRIP_MODES = [
 ]
 TRIP_MODES_DICT = {
     BUS: "bus",
-    BUS_SUBWAY:"bus_subway",
-    SUBWAY:"subway",
+    BUS_SUBWAY: "bus_subway",
+    SUBWAY: "subway",
     CAR: "drive",
     TAXI: "taxi",
     WALK: "walk",
 }
 PT_START_ID = 1_0000_0000
+TAXI_START_ID = 2_0000_0000
 PRIMARY_SCHOOL, JUNIOR_HIGH_SCHOOL, HIGH_SCHOOL, COLLEGE, BACHELOR, MASTER, DOCTOR = (
     personv2.EDUCATION_PRIMARY_SCHOOL,
     personv2.EDUCATION_JUNIOR_HIGH_SCHOOL,

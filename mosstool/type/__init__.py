@@ -9,7 +9,7 @@ from pycityproto.city.geo.v2.geo_pb2 import (AoiPosition, LanePosition,
 from pycityproto.city.map.v2.map_pb2 import (Aoi, AoiType, Lane, LaneTurn,
                                              LaneType, Map)
 from pycityproto.city.person.v2.person_pb2 import (Consumption, Education,
-                                                   Gender, Person,
+                                                   Gender, Person,PersonType,
                                                    PersonProfile, Persons)
 from pycityproto.city.routing.v2.routing_pb2 import (DrivingJourneyBody,
                                                      Journey, JourneyType)
@@ -23,6 +23,7 @@ __all__ = [
     "LaneType",
     "LaneTurn",
     "Person",
+    "PersonType",
     "Persons",
     "TripMode",
     "Position",

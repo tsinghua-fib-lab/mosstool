@@ -6,11 +6,10 @@ from mosstool.type import Map, Persons
 with open("data/temp/srt.map_with_pt.pb", "rb") as f:
     m = Map()
     m.ParseFromString(f.read())
-tg = TripGenerator(
-    m=m,
-    template_func=default_bus_template_generator,
+tg = TripGenerator(m=m)
+bus_drivers = tg.generate_public_transport_drivers(
+    template_func=default_bus_template_generator
 )
-bus_drivers = tg.generate_public_transport_drivers()
 persons_output_path = "data/temp/bus_drivers.pb"
 pb = Persons(persons=bus_drivers)
 with open(persons_output_path, "wb") as f:

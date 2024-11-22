@@ -6,14 +6,14 @@ from .template import (CalibratedTemplateGenerator, GaussianTemplateGenerator,
                        ProbabilisticTemplateGenerator,
                        UniformTemplateGenerator,
                        default_bus_template_generator,
-                       default_vehicle_template_generator)
+                       default_person_template_generator)
 
 __all__ = [
     "ProbabilisticTemplateGenerator",
     "GaussianTemplateGenerator",
     "UniformTemplateGenerator",
     "CalibratedTemplateGenerator",
-    "default_vehicle_template_generator",
+    "default_person_template_generator",
     "default_bus_template_generator",
     "RandomGenerator",
     "PositionMode",

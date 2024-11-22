@@ -4,7 +4,7 @@ import numpy as np
 from pycityproto.city.person.v2.person_pb2 import (BikeAttribute,
                                                    EmissionAttribute,
                                                    PedestrianAttribute, Person,
-                                                   PersonAttribute,
+                                                   PersonAttribute, PersonType,
                                                    VehicleAttribute,
                                                    VehicleEngineEfficiency,
                                                    VehicleEngineType)
@@ -15,15 +15,16 @@ from ._util.const import (CALIBRATED_BRAKE_ACC_PDF,
                           CALIBRATED_MAX_ACC_VALUES)
 
 __all__ = [
-    "default_vehicle_template_generator",
+    "default_person_template_generator",
     "default_bus_template_generator",
     "ProbabilisticTemplateGenerator",
 ]
 
 
-def default_vehicle_template_generator() -> Person:
+def default_person_template_generator() -> Person:
     return Person(
         attribute=PersonAttribute(),
+        type=PersonType.PERSON_TYPE_NORMAL,
         vehicle_attribute=VehicleAttribute(
             length=5,
             width=2,
@@ -57,6 +58,7 @@ def default_vehicle_template_generator() -> Person:
 def default_bus_template_generator() -> Person:
     return Person(
         attribute=PersonAttribute(),
+        type=PersonType.PERSON_TYPE_NORMAL,
         vehicle_attribute=VehicleAttribute(
             length=15,
             width=2,
@@ -124,7 +126,7 @@ class ProbabilisticTemplateGenerator:
         """
         self.template_p = template
         if self.template_p is None:
-            self.template_p = default_vehicle_template_generator()
+            self.template_p = default_person_template_generator()
         self.template_p.ClearField("schedules")
         # max speed
         self.max_speed_values = max_speed_values
@@ -317,7 +319,7 @@ class GaussianTemplateGenerator:
         """
         self.template_p = template
         if self.template_p is None:
-            self.template_p = default_vehicle_template_generator()
+            self.template_p = default_person_template_generator()
         self.template_p.ClearField("schedules")
         # max speed
         self.max_speed_mean = max_speed_mean
@@ -429,7 +431,7 @@ class UniformTemplateGenerator:
         """
         self.template_p = template
         if self.template_p is None:
-            self.template_p = default_vehicle_template_generator()
+            self.template_p = default_person_template_generator()
         self.template_p.ClearField("schedules")
         # max speed
         self.max_speed_min = max_speed_min
@@ -515,7 +517,7 @@ class CalibratedTemplateGenerator:
         """
         self.template_p = template
         if self.template_p is None:
-            self.template_p = default_vehicle_template_generator()
+            self.template_p = default_person_template_generator()
         self.template_p.ClearField("schedules")
         # radom engine
         self.rng = np.random.default_rng(seed)

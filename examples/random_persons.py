@@ -1,5 +1,5 @@
 from mosstool.trip.generator import (PositionMode, RandomGenerator,
-                                     default_vehicle_template_generator)
+                                     default_person_template_generator)
 from mosstool.trip.route import RoutingClient, pre_route
 from mosstool.type import Map, Person, Persons, TripMode
 from mosstool.util.format_converter import pb2json
@@ -13,7 +13,7 @@ async def main():
         m,
         [PositionMode.LANE, PositionMode.LANE],
         TripMode.TRIP_MODE_DRIVE_ONLY,
-        template_func=default_vehicle_template_generator,
+        template_func=default_person_template_generator,
     )
     persons = rg.uniform(
         num=100,

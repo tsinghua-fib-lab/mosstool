@@ -6,6 +6,7 @@ from typing import (Callable, Dict, List, Literal, Optional, Set, Tuple, Union,
 import numpy as np
 from pycityproto.city.person.v2.person_pb2 import (BusAttribute, BusType,
                                                    Person, PersonAttribute,
+                                                   PersonType,
                                                    VehicleAttribute)
 from pycityproto.city.routing.v2.routing_pb2 import (DrivingJourneyBody,
                                                      Journey, JourneyType)
@@ -356,7 +357,7 @@ def gen_bus_drivers(
         p_trip_stops.append(trip_stop)
     # eta for bus journey
     bus_eta = sum(subline.schedules.offset_times)
-    sl_drivers = []
+    sl_drivers: List[Person] = []
     if bus_type == BusType.BUS_TYPE_BUS:
         for tm in depart_times:
             p = Person()
@@ -396,3 +397,29 @@ def gen_bus_drivers(
         person_id += 1
 
     return (person_id, sl_drivers)
+
+
+def gen_taxi_drivers(
+    person_id: int,
+    person_template_generator: Callable[[], Person],
+    home_position: Union[LanePosition, AoiPosition],
+    num: int = 1,
+) -> Tuple[int, List[Person]]:
+    taxi_drivers: List[Person] = []
+    for _ in range(num):
+        p = Person()
+        p.CopyFrom(person_template_generator())
+        p.id = person_id
+        p.type = PersonType.PERSON_TYPE_TAXI
+        if isinstance(home_position, LanePosition):
+            p.home.CopyFrom(Position(lane_position=home_position))
+        elif isinstance(home_position, AoiPosition):
+            p.home.CopyFrom(Position(aoi_position=home_position))
+        else:
+            logging.warning(
+                f"Invalid type of `parking_position` {type(home_position).__name__}!"
+            )
+            continue
+        taxi_drivers.append(p)
+        person_id += 1
+    return (person_id, taxi_drivers)

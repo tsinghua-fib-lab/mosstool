@@ -18,9 +18,9 @@ from ...type import (AoiPosition, LanePosition, Map, Person, PersonProfile,
 from ...util.format_converter import dict2pb, pb2dict
 from ._util.const import *
 from ._util.utils import (extract_HWEO_from_od_matrix, gen_bus_drivers,
-                          gen_departure_times, gen_profiles,
+                          gen_departure_times, gen_profiles, gen_taxi_drivers,
                           recalculate_trip_mode_prob, recalculate_trip_modes)
-from .template import default_vehicle_template_generator
+from .template import default_person_template_generator
 
 
 # from ...util.geo_match_pop import geo2pop
@@ -417,7 +417,7 @@ class TripGenerator:
         bus_expense: float = 5.0,
         bike_speed: float = 10 / 3.6,
         bike_penalty: float = 0.0,
-        template_func: Callable[[], Person] = default_vehicle_template_generator,
+        template_func: Callable[[], Person] = default_person_template_generator,
         add_pop: bool = False,
         multiprocessing_chunk_size: int = 500,
         workers: int = cpu_count(),
@@ -493,6 +493,7 @@ class TripGenerator:
                 ]
                 for p in i.positions
             )
+            a["has_driving_gates"] = len(i.driving_gates) > 0
             aois.append(a)
 
         def get_aoi_catg(urban_land_use: str):
@@ -775,7 +776,7 @@ class TripGenerator:
         self._generate_mobi(agent_num, area_pops, person_profiles, seed)
         return self.persons
 
-    def _get_driving_pos_dict(self) -> Dict[Tuple[int, int], geov2.LanePosition]:
+    def _get_driving_pos_dict(self) -> Dict[Tuple[int, int], LanePosition]:
         road_aoi_id2d_pos = {}
         road_id2d_lane_ids = {}
         lane_id2parent_road_id = {}
@@ -808,11 +809,13 @@ class TripGenerator:
 
     def generate_public_transport_drivers(
         self,
+        template_func: Optional[Callable[[], Person]] = None,
         stop_duration_time: float = 30.0,
         seed: int = 0,
     ) -> List[Person]:
         """
         Args:
+        - template_func (Optional[Callable[[],Person]]): The template function of generated person object, whose `schedules`, `home` will be replaced and others will be copied. If not provided, the `temp_func` provided in `__init__` will be utilized.
         - stop_duration_time (float): The duration time (in second) for bus at each stop.
         - seed (int): The random seed.
 
@@ -822,13 +825,14 @@ class TripGenerator:
         self.persons = []
         road_aoi_id2d_pos = self._get_driving_pos_dict()
         person_id = PT_START_ID
+        _template = template_func if template_func is not None else self.template
         for sl in self.m.sublines:
             departure_times = list(sl.schedules.departure_times)
             if not sl.type in {mapv2.SUBLINE_TYPE_BUS, mapv2.SUBLINE_TYPE_SUBWAY}:
                 continue
             person_id, generated_drivers = gen_bus_drivers(
                 person_id,
-                self.template,
+                _template,
                 departure_times,
                 stop_duration_time,
                 road_aoi_id2d_pos,
@@ -1002,4 +1006,53 @@ class TripGenerator:
         self._match_aoi2region()
         self._generate_schedules(input_persons, seed)
 
+        return self.persons
+
+    def generate_taxi_drivers(
+        self,
+        template_func: Optional[Callable[[], Person]] = None,
+        parking_positions: Optional[List[Union[LanePosition, AoiPosition]]] = None,
+        agent_num: Optional[int] = None,
+        seed: int = 0,
+    ) -> List[Person]:
+        """
+        Args:
+        - template_func (Optional[Callable[[],Person]]): The template function of generated person object, whose `schedules`, `home` will be replaced and others will be copied. If not provided, the `temp_func` provided in `__init__` will be utilized.
+        - parking_positions (Optional[List[Union[LanePosition,AoiPosition]]]): The parking positions of each taxi.
+        - agent_num (Optional[int]): The taxi driver num.
+        - seed (int): The random seed.
+
+        Returns:
+        - List[Person]: The generated driver objects.
+        """
+        self.persons = []
+        person_id = TAXI_START_ID
+        _template = template_func if template_func is not None else self.template
+        self._read_aois()
+        if parking_positions is not None:
+            logging.info(f"")
+            _taxi_home_positions = parking_positions
+        elif agent_num is not None:
+            logging.info(f"")
+            if not agent_num >= 1:
+                logging.warning("agent_num should >=1")
+                return []
+            rng = np.random.default_rng(seed)
+            has_driving_aoi_ids = [a["id"] for a in self.aois if a["has_driving_gates"]]
+            _taxi_home_positions = [
+                AoiPosition(aoi_id=_id)
+                for _id in rng.choice(has_driving_aoi_ids, int(agent_num))
+            ]
+        else:
+            logging.warning(
+                "Either `agent_num` or `parking_positions` should be provided!"
+            )
+            return []
+        for _pos in _taxi_home_positions:
+            person_id, generated_drivers = gen_taxi_drivers(
+                person_id,
+                _template,
+                _pos,
+            )
+            self.persons.extend(generated_drivers)
         return self.persons
