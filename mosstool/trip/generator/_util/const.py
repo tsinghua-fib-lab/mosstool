@@ -6,6 +6,7 @@ import pycityproto.city.geo.v2.geo_pb2 as geov2
 import pycityproto.city.map.v2.map_pb2 as mapv2
 import pycityproto.city.person.v2.person_pb2 as personv2
 import pycityproto.city.trip.v2.trip_pb2 as tripv2
+import numpy as np
 
 DIS_CAR = 1000
 DIS_BIKE = 500
@@ -23,7 +24,7 @@ HUMAN_MODE_STATS = {
     "HWHWH+": 1.43,
     "HSOSH": 0.00,
 }
-BUS_SUBWAY = tripv2.TRIP_MODE_BUS_WALK
+BUS_SUBWAY = tripv2.TRIP_MODE_BUS_SUBWAY_WALK
 BUS = tripv2.TRIP_MODE_BUS_WALK
 SUBWAY = tripv2.TRIP_MODE_SUBWAY_WALK
 CAR = tripv2.TRIP_MODE_DRIVE_ONLY
@@ -87,7 +88,11 @@ GENDERS = [
 GENDER_STATS = [1 / len(GENDERS) for _ in range(len(GENDERS))]
 AGES = [i for i in range(8, 75)]
 # probabilities
-AGE_STATS = [1 / len(AGES) for _ in range(len(AGES))]
+# mean_age: 40 
+# std_dev: 15
+_age_pdf = [np.exp(-((age - 40) ** 2) / (2 * 15 ** 2)) for age in AGES]
+# normalization
+AGE_STATS = [p / sum(_age_pdf) for p in _age_pdf]
 # work catg
 WORK_CATGS = {"business", "industrial", "administrative"}
 # education catg

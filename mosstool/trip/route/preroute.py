@@ -12,7 +12,7 @@ __all__ = ["pre_route"]
 
 _TYPE_MAP = {
     TripMode.TRIP_MODE_DRIVE_ONLY: RouteType.ROUTE_TYPE_DRIVING,
-    TripMode.TRIP_MODE_TAXI: RouteType.ROUTE_TYPE_DRIVING,
+    TripMode.TRIP_MODE_TAXI: RouteType.ROUTE_TYPE_TAXI,
     TripMode.TRIP_MODE_BIKE_WALK: RouteType.ROUTE_TYPE_WALKING,
     TripMode.TRIP_MODE_BUS_WALK: RouteType.ROUTE_TYPE_BUS,
     TripMode.TRIP_MODE_SUBWAY_WALK: RouteType.ROUTE_TYPE_SUBWAY,
