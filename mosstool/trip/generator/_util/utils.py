@@ -112,10 +112,15 @@ def recalculate_trip_modes(
     profile: dict, trip_modes: List, available_trip_modes: List[str]
 ) -> List:
     res_modes = np.array([m for m in trip_modes], dtype=np.uint8)
-    if profile.get("consumption", -1) in {
-        personv2.CONSUMPTION_LOW,
-        personv2.CONSUMPTION_RELATIVELY_LOW,
-    } or not _in_range(profile.get("age", 24), 18, 70):
+    if (
+        profile.get("consumption", -1)
+        in {
+            personv2.CONSUMPTION_LOW,
+            personv2.CONSUMPTION_RELATIVELY_LOW,
+        }
+        or not _in_range(profile.get("age", 24), 18, 70)
+        or TRIP_MODES_DICT[CAR] not in available_trip_modes
+    ):
         # no car to drive
         res_modes[np.where(res_modes == CAR)] = TAXI
     if "bus_subway" in available_trip_modes:
