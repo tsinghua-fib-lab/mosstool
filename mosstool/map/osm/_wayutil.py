@@ -1,13 +1,13 @@
 import logging
 from math import ceil
-from typing import Any, Dict, List
+from typing import Any
 
 __all__ = ["parse_osm_way_tags", "merge_way_nodes"]
 
 
 def parse_osm_way_tags(
-    tags: Dict[str, str], default_settings: Dict[str, Any]
-) -> Dict[str, Any]:
+    tags: dict[str, str], default_settings: dict[str, Any]
+) -> dict[str, Any]:
     """
     tags: tags field for OSM units whose type==way
     default_settings: default # of lanes, the max speed(max_speed), and turns within a junction(turn), etc.
@@ -43,7 +43,7 @@ def parse_osm_way_tags(
     return result
 
 
-def merge_way_nodes(a_nodes: List[int], b_nodes: List[int]) -> List[int]:
+def merge_way_nodes(a_nodes: list[int], b_nodes: list[int]) -> list[int]:
     """
     Merge two groups of nodes, it is required that at least one pair of endpoints of the two groups of nodes are the same, otherwise an error will be reported.
     eg:

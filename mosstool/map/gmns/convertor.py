@@ -1,13 +1,13 @@
-from itertools import product
 import os
-from typing import Dict, Tuple, Union, cast
-import pandas as pd
-
-from pyproj import Proj
-import shapely
 import warnings
+from itertools import product
+from typing import Union, cast
 
-from ...type import Map, LaneType, LanePosition
+import pandas as pd
+import shapely
+from pyproj import Proj
+
+from ...type import LanePosition, LaneType, Map
 
 __all__ = ["Convertor"]
 
@@ -21,10 +21,10 @@ class Convertor:
         self.m = m
         self.projector = Proj(self.m.header.projection)
         self._roads = {road.id: road for road in self.m.roads}
-        self._road2nodes: Dict[int, Tuple[str, str]] = {}
+        self._road2nodes: dict[int, tuple[str, str]] = {}
         """road id -> (from node, to node)"""
         self._lanes = {lane.id: lane for lane in self.m.lanes}
-        self._lane_shapelys: Dict[int, shapely.geometry.LineString] = {}
+        self._lane_shapelys: dict[int, shapely.geometry.LineString] = {}
         for lane in self.m.lanes:
             lnglats = self.projector(
                 [node.x for node in lane.center_line.nodes],
@@ -38,7 +38,7 @@ class Convertor:
             lane.id for lane in self.m.lanes if lane.type == LaneType.LANE_TYPE_DRIVING
         }
         self._aois = {aoi.id: aoi for aoi in self.m.aois}
-        self._aoi_shapelys: Dict[
+        self._aoi_shapelys: dict[
             int, Union[shapely.geometry.Point, shapely.geometry.Polygon]
         ] = {}
         for aoi in self.m.aois:
@@ -56,7 +56,7 @@ class Convertor:
                     lnglats[0][0], lnglats[1][0]
                 )
         # used for checking route result after static traffic assignment
-        self._connected_road_pairs: Dict[Tuple[int, int], int] = (
+        self._connected_road_pairs: dict[tuple[int, int], int] = (
             {}
         )  # {(start_road_id, end_road_id): junction_id}
         self._not_perfect_junction_ids = set()

@@ -4,7 +4,7 @@ import logging
 import random
 from collections import defaultdict
 from math import asin, cos, radians, sin, sqrt
-from typing import Dict, List, Optional, Tuple, Union, cast
+from typing import Optional, Union, cast
 
 import numpy as np
 import pyproj
@@ -60,10 +60,10 @@ def _get_headers(referer_url):
 
 def cut(
     line: LineString,
-    points: List[Point],
+    points: list[Point],
     projstr: str,
     reverse_line: Optional[LineString] = None,
-) -> List:
+) -> list:
     """
     Split routes based on stations.
 
@@ -259,8 +259,8 @@ def get_sta_dis(sta1, sta2):
 
 
 def gps_distance(
-    LON1: Union[float, Tuple[float, float]],
-    LAT1: Union[float, Tuple[float, float]],
+    LON1: Union[float, tuple[float, float]],
+    LAT1: Union[float, tuple[float, float]],
     LON2: Optional[float] = None,
     LAT2: Optional[float] = None,
 ):
@@ -268,8 +268,8 @@ def gps_distance(
     Distance between GPS points (m)
     """
     if LON2 == None:  # The input is [lon1,lat1], [lon2,lat2]
-        lon1, lat1 = cast(Tuple[float, float], LON1)
-        lon2, lat2 = cast(Tuple[float, float], LAT1)
+        lon1, lat1 = cast(tuple[float, float], LON1)
+        lon2, lat2 = cast(tuple[float, float], LAT1)
     else:  # The input is lon1, lat1, lon2, lat2
         assert LAT2 != None, "LON2 and LAT2 should be both None or both not None"
         LON1 = cast(float, LON1)
@@ -295,7 +295,7 @@ class TransitlandPublicTransport:
         max_latitude: float,
         min_latitude: float,
         transitland_ak: Optional[str] = None,
-        proxies: Optional[Dict[str, str]] = None,
+        proxies: Optional[dict[str, str]] = None,
         wikipedia_name: Optional[str] = None,
         from_osm: bool = False,
     ):

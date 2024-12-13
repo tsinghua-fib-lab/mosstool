@@ -2,10 +2,10 @@ import json
 import logging
 import time
 from collections import defaultdict
+from collections.abc import Callable
 from copy import deepcopy
 from multiprocessing import cpu_count
-from typing import (Callable, Dict, List, Literal, Optional, Set, Tuple, Union,
-                    cast)
+from typing import Literal, Optional, Union, cast
 
 import matplotlib.pyplot as plt
 import networkx as nx
@@ -51,7 +51,7 @@ class Builder:
         proj_str: Optional[str] = None,
         aois: Optional[FeatureCollection] = None,
         pois: Optional[FeatureCollection] = None,
-        public_transport: Optional[Dict[str, List]] = None,
+        public_transport: Optional[dict[str, list]] = None,
         pop_tif_path: Optional[str] = None,
         landuse_shp_path: Optional[str] = None,
         traffic_light_min_direction_group: int = 3,
@@ -81,7 +81,7 @@ class Builder:
         - proj_str (str): projection string, if not provided, all coordinates in input geojson files will be seen as xyz coords.
         - aois (FeatureCollection): area of interest
         - pois (FeatureCollection): point of interest
-        - public_transport (Dict[str, List]): public transports in json format
+        - public_transport (dict[str, list]): public transports in json format
         - pop_tif_path (str): path to population tif file
         - landuse_shp_path (str): path to landuse shape file
         - traffic_light_min_direction_group (int): minimum number of lane directions for traffic-light generation
@@ -230,7 +230,7 @@ class Builder:
                     self.ways[feature["id"]] = feature
                     self.uid_mapping[feature["uid"]] = feature["id"]
             self.junction_types = defaultdict(list)
-            self.dict_sublines_list: List[Dict] = []
+            self.dict_sublines_list: list[dict] = []
         elif net_type == Map:
             logging.info("Reading from pb files")
             self.net = net
@@ -338,7 +338,7 @@ class Builder:
                 net.header.west, net.header.south, inverse=True
             )
             assert type(net) == Map
-            self.dict_sublines_list: List[Dict] = list(pb2dict(net)["sublines"])
+            self.dict_sublines_list: list[dict] = list(pb2dict(net)["sublines"])
         else:
             raise ValueError(f"Unsupported data type {net_type}")
 
@@ -351,14 +351,14 @@ class Builder:
 
     def _connect_lane_group(
         self,
-        in_lanes: List[LineString],
-        out_lanes: List[LineString],
+        in_lanes: list[LineString],
+        out_lanes: list[LineString],
         lane_turn: mapv2.LaneTurn,
         lane_type: mapv2.LaneType,
         junc_id: int,
         in_walk_type: Union[Literal["in_way"], Literal["out_way"], Literal[""]] = "",
         out_walk_type: Union[Literal["in_way"], Literal["out_way"], Literal[""]] = "",
-    ) -> List[LineString]:
+    ) -> list[LineString]:
         """
         Connect two lanes
         """
@@ -501,7 +501,7 @@ class Builder:
         del self.lane2data[line]
 
     def _reset_lane_uids(
-        self, orig_lane_uids: List[int], new_lane_uids: List[int]
+        self, orig_lane_uids: list[int], new_lane_uids: list[int]
     ) -> None:
         """
         Reset lane uid
@@ -772,12 +772,12 @@ class Builder:
             return result
 
         def groupby(
-            in_way_ids: List[int],
+            in_way_ids: list[int],
             in_get_vector: Callable[[LineString], np.ndarray],
-            out_way_ids: List[int],
+            out_way_ids: list[int],
             out_get_vector: Callable[[LineString], np.ndarray],
-        ) -> Tuple[
-            List[Tuple[np.ndarray, List[int]]], List[Tuple[np.ndarray, List[int]]]
+        ) -> tuple[
+            list[tuple[np.ndarray, list[int]]], list[tuple[np.ndarray, list[int]]]
         ]:
             norm_vectors = []
             for wid in in_way_ids:
@@ -919,7 +919,7 @@ class Builder:
 
     def _expand_roads(
         self,
-        wids: List[int],
+        wids: list[int],
         junc_type,  # The number of identified entry and exit roads in the junction is a parameter used to calculate the shortened length of the road.
         junc_id: int,
         way_type: Union[
@@ -1151,10 +1151,10 @@ class Builder:
 
     def _create_junction_walk_pairs(
         self,
-        in_way_groups: Tuple[List[Tuple[np.ndarray, List[int]]]],
-        out_way_groups: Tuple[List[Tuple[np.ndarray, List[int]]]],
+        in_way_groups: tuple[list[tuple[np.ndarray, list[int]]]],
+        out_way_groups: tuple[list[tuple[np.ndarray, list[int]]]],
         has_main_group_wids: set,
-        junc_center: Tuple[float, float],
+        junc_center: tuple[float, float],
     ):
         # Create walking lanes
         # rule:
@@ -3837,7 +3837,7 @@ class Builder:
             self.traffic_light_mode,
         )
 
-    def _add_public_transport(self) -> Set[int]:
+    def _add_public_transport(self) -> set[int]:
         if self.public_transport is None:
             return set()
         if self.dict_sublines_list:
@@ -3853,8 +3853,8 @@ class Builder:
                 for rid in road_ids_dict["road_ids"]
             }
         logging.info("Adding public transport to map")
-        public_road_uids: Set[int] = set()
-        connected_subway_lane_pairs: Set[Tuple[LineString, LineString]] = set()
+        public_road_uids: set[int] = set()
+        connected_subway_lane_pairs: set[tuple[LineString, LineString]] = set()
         projector = self.projector
         assert (
             projector is not None
@@ -3862,7 +3862,7 @@ class Builder:
 
         def create_subway_connections(
             geos: list, stas: list
-        ) -> List[Dict[str, List[int]]]:
+        ) -> list[dict[str, list[int]]]:
             # Create new subway lane road and junction
             station_connection_road_ids = []
             next_way_id = max(self.map_roads.keys()) + 1

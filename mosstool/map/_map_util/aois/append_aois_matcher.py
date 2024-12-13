@@ -1,13 +1,13 @@
 import logging
 import sys
 from collections import defaultdict
+from functools import partial
 from math import ceil
 from multiprocessing import Pool
-from typing import Dict, List, Optional
+from typing import Any, Optional
 
 import geopandas as gpd
 import numpy as np
-import pyproj
 import shapely.ops as ops
 from scipy.spatial import KDTree
 from shapely.affinity import scale
@@ -16,20 +16,18 @@ from shapely.geometry import (LineString, MultiLineString, MultiPoint,
 from shapely.strtree import STRtree
 
 from ....type import AoiType
-from ..._util.angle import abs_delta_angle, delta_angle
-from ..._util.line import (connect_line_string, get_line_angle,
-                           get_start_vector, line_extend, offset_lane)
+from ..._util.angle import abs_delta_angle
+from ..._util.line import get_line_angle, line_extend
+from ..const import *
 from .utils import geo_coords
 
 # ATTENTION: In order to achieve longer distance POI merging, the maximum recursion depth needs to be modified.
 sys.setrecursionlimit(50000)
 
-from ..const import *
 
-
-def _split_merged_poi_unit(points):
+def _split_merged_poi_unit(partial_args: tuple[list[dict],], points: list[dict]):
     """Polygon formed by dividing merged_poi using road network"""
-    global road_lane_matcher
+    (road_lane_matcher,) = partial_args
     CONVEX_DIS_GATE = 50
     res_aoi = []
     res_poi = []
@@ -131,11 +129,11 @@ def _split_merged_poi_unit(points):
     return (res_aoi, res_poi)
 
 
-def _find_aoi_parent_unit(i_aoi):
+def _find_aoi_parent_unit(partial_args: tuple[list[dict],], i_aoi: tuple[int, dict]):
     """
     Find out when aoi is contained by other aoi
     """
-    global aois_to_merge
+    (aois_to_merge,) = partial_args
     SQRT2 = 2**0.5
     COVER_GATE = 0.8  # aoi whose area is covered beyond this por
     i, aoi = i_aoi
@@ -164,11 +162,11 @@ def _find_aoi_parent_unit(i_aoi):
     return aoi
 
 
-def _find_aoi_overlap_unit(i_aoi):
+def _find_aoi_overlap_unit(partial_args: tuple[list[dict],], i_aoi: tuple[int, dict]):
     """
     Find out where aoi overlap
     """
-    global aois_with_overlap
+    (aois_with_overlap,) = partial_args
     SQRT2 = 2**0.5
     i, aoi = i_aoi
     aoi["overlaps"] = []
@@ -192,7 +190,12 @@ def _find_aoi_overlap_unit(i_aoi):
     return aoi
 
 
-def _merge_point_aoi(aois_pois, workers):
+def _merge_point_aoi(
+    aois_pois: list[dict[str, Any]],
+    road_lane_matcher: list[dict[str, Any]],
+    workers: int,
+    max_chunk_size: int,
+):
     """Merge point aoi into poly aoi"""
     logging.info("Merging Point AOI")
     # There are many objects that are very close to each other in poi. Use union search and KD_Tree to merge them.
@@ -250,14 +253,17 @@ def _merge_point_aoi(aois_pois, workers):
             merged_poi = defaultdict(list)
             for pid, p in enumerate(block_poi):
                 merged_poi[father_id[pid]].append(p)
+            partial_split_merged_poi_unit = partial(
+                _split_merged_poi_unit, (road_lane_matcher,)
+            )
             with Pool(processes=workers) as pool:
                 post_res = pool.map(
-                    _split_merged_poi_unit,
+                    partial_split_merged_poi_unit,
                     list(merged_poi.values()),
                     chunksize=max(
                         min(
                             ceil(len(list(merged_poi.values())) / workers),
-                            MAX_CHUNK_SIZE,
+                            max_chunk_size,
                         ),
                         1,
                     ),
@@ -269,7 +275,11 @@ def _merge_point_aoi(aois_pois, workers):
     return (res_poly, res_point)
 
 
-def _process_matched_result(aoi, d_matched, w_matched):
+def _process_matched_result(
+    aoi: dict,
+    d_matched: list[tuple[int, float, tuple[float, float], tuple[float, float], float]],
+    w_matched: list[tuple[int, float, tuple[float, float], tuple[float, float], float]],
+):
     """
     Input matched: [(lane_id, lane_s, (x_gate, y_gate), (x_lane_proj, y_lane_proj), distance)]
     Generate output_aoi according to output format
@@ -307,170 +317,14 @@ def _process_matched_result(aoi, d_matched, w_matched):
     return aoi
 
 
-# def _matcher_unit(
-#     geo,
-#     matcher,
-#     dis_gate,
-#     huge_gate,
-#     direction_geos: Optional[Dict[int, List[LineString]]] = None,
-# ):
-#     global LENGTH_PER_DOOR, MAX_DOOR_NUM, AOI_GATE_OFFSET
-#     double_dis_gate = 2 * dis_gate
-#     double_huge_gate = 2 * huge_gate
-#     stop_lane_angles = (
-#         [[get_line_angle(l) for l in lanes] for lanes in direction_geos.values()]
-#         if direction_geos is not None
-#         else None
-#     )
-
-#     matched = []
-#     huge_candidate = []
-#     (x, y) = geo.centroid.coords[:][0][:2]
-#     length = geo.length
-#     bound_poss = [c[:2] for c in geo_coords(geo)[:-1]]
-#     for lane in matcher:  # {'id', 'geo', 'point', 'length'}
-#         mid_x, mid_y = lane["point"][:2]
-#         dis_upper_bound = (
-#             np.sqrt(2) * (abs(x - mid_x) + abs(y - mid_y)) - length - lane["length"]
-#         )
-#         if dis_upper_bound < double_huge_gate:
-#             huge_candidate.append(lane)
-#             if dis_upper_bound < double_dis_gate:
-#                 # p_aoi: The point on the polygon closest to the lane
-#                 # p_lane: The point closest to the polygon on the lane
-#                 p_aoi, p_lane = ops.nearest_points(
-#                     geo, lane["geo"]
-#                 )  # Returns the calculated nearest points in the input geometries
-#                 distance = p_aoi.distance(p_lane)
-#                 lane_angle = get_line_angle(lane["geo"])
-#                 if distance < dis_gate and (
-#                     stop_lane_angles is None
-#                     or any(
-#                         np.mean(
-#                             [abs_delta_angle(lane_angle, angle) for angle in angles]
-#                         )
-#                         < np.pi / 4
-#                         for angles in stop_lane_angles
-#                     )
-#                 ):
-#                     # Project the point on the lane closest to the poly to the lane and return s
-#                     s = lane["geo"].project(p_lane)
-#                     if (
-#                         0 < s < lane["length"]
-#                     ):  # Remove results matching the starting point or end point
-#                         # If the door is on the poly vertex, move it appropriately so that it is on the edge
-#                         p_aoi_pos = (p_aoi.x, p_aoi.y)
-#                         for i, p in enumerate(bound_poss):
-#                             if p == p_aoi_pos:
-#                                 l_suc = LineString(
-#                                     [p, bound_poss[(i + 1) % len(bound_poss)]]
-#                                 )
-#                                 l_pre = LineString(
-#                                     [p, bound_poss[(i - 1) % len(bound_poss)]]
-#                                 )
-#                                 p_aoi_suc = l_suc.interpolate(
-#                                     min(AOI_GATE_OFFSET, l_suc.length / 2)
-#                                 )  # Move a certain distance clockwise/counterclockwise respectively, but not more than half the side length
-#                                 p_aoi_pre = l_pre.interpolate(
-#                                     min(AOI_GATE_OFFSET, l_pre.length / 2)
-#                                 )
-#                                 dis_suc, dis_pre = p_aoi_suc.distance(
-#                                     lane["geo"]
-#                                 ), p_aoi_pre.distance(lane["geo"])
-#                                 p_aoi, distance = (
-#                                     (p_aoi_suc, dis_suc)
-#                                     if dis_suc < dis_pre
-#                                     else (p_aoi_pre, dis_pre)
-#                                 )  # Select the point closest to the lane after movement
-#                                 s = lane["geo"].project(p_aoi)
-#                                 p_lane = Point(lane["geo"].interpolate(s))
-#                                 break
-#                         # Avoid matching to the start or end point.
-#                         if s < 1:
-#                             s = min(1, lane["length"] / 2)
-#                         if s > lane["length"] - 1:
-#                             s = max(lane["length"] - 1, lane["length"] / 2)
-
-#                         matched.append(
-#                             (
-#                                 lane["id"],
-#                                 s,
-#                                 (p_aoi.x, p_aoi.y),
-#                                 (p_lane.x, p_lane.y),
-#                                 distance,
-#                             )
-#                         )
-#     if not matched:
-#         """
-#         No lane can match aoi, indicating that aoi may be located in the center of the road grid
-#         At this time, select the nearest lanes, relax the distance threshold, and match
-#         The number of lanes (number of gates in an aoi) depends on the size of the aoi: proportional to the perimeter, not proportional to the area
-#         (Imagine a square requires 4 gates. When the side length is doubled, it should require 8 gates instead of 16 gates)
-#         (Since the perimeter of a very flat building is deceptive, it should be converted into the perimeter of a square with the same area)
-#         """
-#         huge_match = []
-#         for lane in huge_candidate:
-#             p_aoi, p_lane = ops.nearest_points(geo, lane["geo"])
-#             dis = p_aoi.distance(p_lane)
-#             if dis < huge_gate:
-#                 huge_match.append((dis, p_aoi, p_lane, lane))
-#         huge_match.sort(key=lambda x: x[0])  # Sort by dis from small to large
-#         door_num = min(1 + np.sqrt(geo.area) // LENGTH_PER_DOOR, MAX_DOOR_NUM)
-#         for dis, p_aoi, p_lane, lane in huge_match:
-#             s = lane["geo"].project(p_lane)
-#             if 0 < s < lane["length"]:
-#                 # If the door is on the poly vertex, move it appropriately so that it is on the edge
-#                 p_aoi_pos = (p_aoi.x, p_aoi.y)
-#                 for i, p in enumerate(bound_poss):
-#                     if p == p_aoi_pos:
-#                         l_suc = LineString([p, bound_poss[(i + 1) % len(bound_poss)]])
-#                         l_pre = LineString([p, bound_poss[(i - 1) % len(bound_poss)]])
-#                         p_aoi_suc = l_suc.interpolate(
-#                             min(AOI_GATE_OFFSET, l_suc.length / 2)
-#                         )  # Move a certain distance clockwise/counterclockwise respectively, but not more than half the side length
-#                         p_aoi_pre = l_pre.interpolate(
-#                             min(AOI_GATE_OFFSET, l_pre.length / 2)
-#                         )
-#                         dis_suc, dis_pre = p_aoi_suc.distance(
-#                             lane["geo"]
-#                         ), p_aoi_pre.distance(lane["geo"])
-#                         p_aoi, dis = (
-#                             (p_aoi_suc, dis_suc)
-#                             if dis_suc < dis_pre
-#                             else (p_aoi_pre, dis_pre)
-#                         )  # Select the point closest to the lane after movement
-#                         s = lane["geo"].project(p_aoi)
-#                         p_lane = Point(lane["geo"].interpolate(s))
-#                         break
-
-#                 if s < 1:
-#                     s = min(1, lane["length"] / 2)
-#                 if s > lane["length"] - 1:
-#                     s = max(lane["length"] - 1, lane["length"] / 2)
-
-#                 matched.append(
-#                     (
-#                         lane["id"],
-#                         s,
-#                         (p_aoi.x, p_aoi.y),
-#                         (p_lane.x, p_lane.y),
-#                         dis,
-#                     )
-#                 )
-#                 if len(matched) == door_num:
-#                     break
-#     return matched
-
-
 def _str_tree_matcher_unit(
-    geo,
-    matcher,
+    geo: Polygon,
+    matcher: list[dict[str, Any]],
     matcher_lane_tree,
-    dis_gate,
-    huge_gate,
-    direction_geos: Optional[Dict[int, List[LineString]]] = None,
+    dis_gate: float,
+    huge_gate: float,
+    direction_geos: Optional[dict[int, list[LineString]]] = None,
 ):
-    global LENGTH_PER_DOOR, MAX_DOOR_NUM, AOI_GATE_OFFSET
     matched = []
     bound_poss = [c[:2] for c in geo_coords(geo)[:-1]]
     small_tree_ids = matcher_lane_tree.query(geo.buffer(dis_gate))
@@ -599,15 +453,20 @@ def _str_tree_matcher_unit(
     return matched
 
 
-def _add_point_aoi_unit(arg):
+def _add_point_aoi_unit(
+    partial_args: tuple[
+        list[dict[str, Any]], list[dict[str, Any]], float, float, float, float
+    ],
+    arg,
+):
     """
     Matching of single point aoi and lane
     First, preliminary filtering is based on the distance between the point and the lane center, the perimeter of the two and the matching distance threshold.
     Then do the projection lane.project(point), which is the matching result
     """
-    global d_matcher, w_matcher
-    global D_DIS_GATE, D_HUGE_GATE
-    global W_DIS_GATE, W_HUGE_GATE
+    d_matcher, w_matcher, D_DIS_GATE, D_HUGE_GATE, W_DIS_GATE, W_HUGE_GATE = (
+        partial_args
+    )
     aoi, aoi_type = arg
     geo = aoi["geo"]
     x, y = geo_coords(geo)[0][:2]
@@ -713,16 +572,27 @@ def _add_point_aoi_unit(arg):
         )
 
 
-def _add_poly_aoi_unit(arg):
+def _add_poly_aoi_unit(
+    partial_args: tuple[
+        list[dict[str, Any]],
+        list[dict[str, Any]],
+        STRtree,
+        STRtree,
+        float,
+        float,
+        float,
+    ],
+    arg: tuple[dict[str, Any], int],
+):
     """
     Matching of polygon aoi and lane
     First, preliminary filtering is based on the distance between the center of the polygon centroid and the lane, the perimeter of the two and the matching distance threshold.
     Then use shapely.ops.nearest_points to find the two points closest to each other, which is the matching result.
     """
-    global d_matcher, w_matcher
-    global d_tree, w_tree
-    global D_DIS_GATE, D_HUGE_GATE
-    global W_DIS_GATE, W_HUGE_GATE
+
+    d_matcher, w_matcher, d_tree, w_tree, D_DIS_GATE, W_DIS_GATE, W_HUGE_GATE = (
+        partial_args
+    )
     aoi, aoi_type = arg
     geo = aoi["geo"]
     d_matched = _str_tree_matcher_unit(geo, d_matcher, d_tree, D_DIS_GATE, D_HUGE_GATE)
@@ -749,16 +619,34 @@ def _add_poly_aoi_unit(arg):
         )
 
 
-def _add_aoi_stop_unit(arg):
+def _add_aoi_stop_unit(
+    partial_args: tuple[
+        list[dict[str, Any]],
+        list[dict[str, Any]],
+        STRtree,
+        STRtree,
+        float,
+        float,
+        float,
+        float,
+        float,
+    ],
+    arg: tuple[dict[str, Any], int],
+):
     """
     Matching of station aoi and lane
     """
-    global d_matcher, w_matcher
-    global d_tree, w_tree
-    global D_DIS_GATE, D_HUGE_GATE
-    global STOP_DIS_GATE, STOP_HUGE_GATE
-    global W_DIS_GATE, W_HUGE_GATE
-    global LENGTH_PER_DOOR, MAX_DOOR_NUM, AOI_GATE_OFFSET
+    (
+        d_matcher,
+        w_matcher,
+        d_tree,
+        w_tree,
+        STOP_DIS_GATE,
+        STOP_HUGE_GATE,
+        W_DIS_GATE,
+        W_HUGE_GATE,
+        AOI_GATE_OFFSET,
+    ) = partial_args
     aoi, aoi_type = arg
     geo = aoi["geo"]
     bound_poss = [c[:2] for c in geo_coords(geo)[:-1]]
@@ -1629,12 +1517,11 @@ def _add_pois(aois, pois):
     return aois, out_pois
 
 
-def _merge_covered_aoi(aois, workers):
+def _merge_covered_aoi(aois: list, workers: int, max_chunk_size: int):
     """
     Blend the contained small poly aoi into the large poly aoi
     At the same time, cut off the overlapping parts between aoi
     """
-    global aois_to_merge, aois_with_overlap
     logging.info("Merging Covered Aoi")
     # Pre-compute geometric properties
     for aoi in aois:
@@ -1645,15 +1532,16 @@ def _merge_covered_aoi(aois, workers):
         aoi["valid"] = geo.is_valid
         aoi["grid_idx"] = tuple(x // AOI_MERGE_GRID for x in aoi["point"])
     aois_to_merge = aois
+    partial_find_aoi_parent_unit = partial(_find_aoi_parent_unit, (aois_to_merge,))
     aois = [(i, a) for i, a in enumerate(aois)]
     aois_result = []
     for i in range(0, len(aois), MAX_BATCH_SIZE):
         aois_batch = aois[i : i + MAX_BATCH_SIZE]
         with Pool(processes=workers) as pool:
             aois_result += pool.map(
-                _find_aoi_parent_unit,
+                partial_find_aoi_parent_unit,
                 aois_batch,
-                chunksize=min(ceil(len(aois_batch) / workers), MAX_CHUNK_SIZE),
+                chunksize=min(ceil(len(aois_batch) / workers), max_chunk_size),
             )
     aois = aois_result
     parent2children = defaultdict(list)
@@ -1686,14 +1574,16 @@ def _merge_covered_aoi(aois, workers):
     aois_with_overlap = aois
     aois = [(i, a) for i, a in enumerate(aois)]
     aois_result = []
+    partial_args = (aois_with_overlap,)
+    partial_find_aoi_overlap_unit = partial(_find_aoi_overlap_unit, partial_args)
     for i in range(0, len(aois), MAX_BATCH_SIZE):
         aois_batch = aois[i : i + MAX_BATCH_SIZE]
         with Pool(processes=workers) as pool:
             aois_result += pool.map(
-                _find_aoi_overlap_unit,
+                partial_find_aoi_overlap_unit,
                 aois_batch,
                 chunksize=max(
-                    min(ceil(len(aois_batch) / workers), MAX_CHUNK_SIZE),
+                    min(ceil(len(aois_batch) / workers), max_chunk_size),
                     1,
                 ),
             )
@@ -1733,13 +1623,26 @@ def _merge_covered_aoi(aois, workers):
     return aois
 
 
-def _add_aoi(aois, stops, workers, merge_aoi: bool = False):
+def _add_aoi(
+    aois: list,
+    stops: list,
+    matchers: dict[str, list[dict]],
+    workers: int,
+    max_chunk_size: int,
+    aoi_uid: int,
+    d_dis_gate: float,
+    w_dis_gate: float,
+    merge_aoi: bool = False,
+) -> dict[int, dict]:
     """
     aois matches the rightmost lane
     """
-    global aoi_uid, d_matcher, w_matcher
-    global d_tree, w_tree
     # Preprocessing
+    d_matcher, w_matcher, road_lane_matcher = (
+        matchers["drive"],
+        matchers["walk"],
+        matchers["road_lane"],
+    )
     d_tree = STRtree([l["geo"] for l in d_matcher])
     w_tree = STRtree([l["geo"] for l in w_matcher])
     aois_poly, aois_poi, aois_stop = [], [], []
@@ -1788,7 +1691,12 @@ def _add_aoi(aois, stops, workers, merge_aoi: bool = False):
             geo = Point(x, y)  # The essence is aoi of poi, geo is a single point
             aoi["geo"] = geo
             aois_poi.append(aoi)
-    merged_aois, aois_poi = _merge_point_aoi(aois_poi, workers)
+    merged_aois, aois_poi = _merge_point_aoi(
+        aois_pois=aois_poi,
+        road_lane_matcher=road_lane_matcher,
+        workers=workers,
+        max_chunk_size=max_chunk_size,
+    )
     aois_poly.extend(merged_aois)
     # Expand single-point AOI into a square
     SQUARE_SIDE_LENGTH = (
@@ -1814,7 +1722,7 @@ def _add_aoi(aois, stops, workers, merge_aoi: bool = False):
     aois_poly.extend(aois_poi)
 
     if merge_aoi:
-        aois_poly = _merge_covered_aoi(aois_poly, workers)
+        aois_poly = _merge_covered_aoi(aois_poly, workers, max_chunk_size)
     # The convex hull may fail, check it
     for a in aois_poly:
         assert isinstance(a["geo"], Polygon)
@@ -1831,44 +1739,68 @@ def _add_aoi(aois, stops, workers, merge_aoi: bool = False):
     # bus stop first
     args = [(aoi, AoiType.AOI_TYPE_BUS_STATION) for aoi in aois_stop]
     results_stop = []
+
+    partial_args = (
+        d_matcher,
+        w_matcher,
+        d_tree,
+        w_tree,
+        STOP_DIS_GATE,
+        STOP_HUGE_GATE,
+        w_dis_gate,
+        W_HUGE_GATE,
+        AOI_GATE_OFFSET,
+    )
+    partial_add_aoi_stop_unit = partial(_add_aoi_stop_unit, partial_args)
     for i in range(0, len(args), MAX_BATCH_SIZE):
         args_batch = args[i : i + MAX_BATCH_SIZE]
         with Pool(processes=workers) as pool:
             results_stop += pool.map(
-                _add_aoi_stop_unit,
+                partial_add_aoi_stop_unit,
                 args_batch,
-                chunksize=min(ceil(len(args_batch) / workers), MAX_CHUNK_SIZE),
+                chunksize=min(ceil(len(args_batch) / workers), max_chunk_size),
             )
     results_stop = [r for r in results_stop if r]
     logging.info(f"matched aois_stop: {len(results_stop)}")
     results_poly = []
     args = [(aoi, AoiType.AOI_TYPE_OTHER) for aoi in aois_poly]
+
+    partial_args = (
+        d_matcher,
+        w_matcher,
+        d_tree,
+        w_tree,
+        d_dis_gate,
+        w_dis_gate,
+        W_HUGE_GATE,
+    )
+    partial_add_poly_aoi_unit = partial(_add_poly_aoi_unit, partial_args)
     for i in range(0, len(args), MAX_BATCH_SIZE):
         args_batch = args[i : i + MAX_BATCH_SIZE]
         with Pool(processes=workers) as pool:
             results_poly += pool.map(
-                _add_poly_aoi_unit,
+                partial_add_poly_aoi_unit,
                 args_batch,
-                chunksize=min(ceil(len(args_batch) / workers), MAX_CHUNK_SIZE),
+                chunksize=min(ceil(len(args_batch) / workers), max_chunk_size),
             )
     results_poly = [r for r in results_poly if r]
     logging.info(f"matched aois_poly: {len(results_poly)}")
 
     # Post-compute
-    aois = {}
+    aois_dict: dict[int, dict] = {}
     for aoi in results_poly + results_stop:
         aoi["id"] = aoi_uid
-        aois[aoi_uid] = aoi
+        aois_dict[aoi_uid] = aoi
         aoi_uid += 1
-    return aois
+    return aois_dict
 
 
 def add_aoi_to_map(
-    matchers,
+    matchers: dict[str, list[dict]],
     input_aois: list,
     input_pois: list,
     input_stops: list,
-    bbox,
+    bbox: tuple[float, float, float, float],
     merge_aoi: bool,
     dis_gate: float = 30.0,
     multiprocessing_chunk_size: int = 500,
@@ -1877,23 +1809,19 @@ def add_aoi_to_map(
     workers: int = 32,
 ):
     """match AOIs to lanes"""
-    global aoi_uid, d_matcher, w_matcher, road_lane_matcher
-    global D_DIS_GATE, D_HUGE_GATE, W_DIS_GATE, W_HUGE_GATE, LENGTH_PER_DOOR, MAX_DOOR_NUM, AOI_GATE_OFFSET, MAX_CHUNK_SIZE
-    W_DIS_GATE = dis_gate
-    MAX_CHUNK_SIZE = multiprocessing_chunk_size
-    D_DIS_GATE = W_DIS_GATE + EXTRA_DIS_GATE
-    d_matcher, w_matcher, road_lane_matcher = (
-        matchers["drive"],
-        matchers["walk"],
-        matchers["road_lane"],
-    )
-    # AOI UID
-    aoi_uid = AOI_START_ID
     # raw POIs
     raw_pois = {doc["id"]: doc for doc in input_pois}
 
     aois = _add_aoi(
-        aois=input_aois, stops=input_stops, workers=workers, merge_aoi=merge_aoi
+        aois=input_aois,
+        stops=input_stops,
+        matchers=matchers,
+        workers=workers,
+        aoi_uid=AOI_START_ID,
+        d_dis_gate=dis_gate + EXTRA_DIS_GATE,
+        w_dis_gate=dis_gate,
+        max_chunk_size=multiprocessing_chunk_size,
+        merge_aoi=merge_aoi,
     )
     added_input_poi = []
     for _, aoi in aois.items():
@@ -1909,35 +1837,19 @@ def add_aoi_to_map(
 
 
 def add_sumo_aoi_to_map(
-    matchers: dict,
+    matchers: dict[str, list[dict]],
     input_aois: list,
     input_pois: list,
     input_stops: list,
-    projstr: str,
     merge_aoi: bool,
     dis_gate: float = 30.0,
     multiprocessing_chunk_size: int = 500,
     workers: int = 32,
 ):
     """for SUMO converter, match AOI to lanes"""
-    global d_matcher, w_matcher, road_lane_matcher
-    d_matcher, w_matcher, road_lane_matcher = (
-        matchers["drive"],
-        matchers["walk"],
-        matchers["road_lane"],
-    )
-    global D_DIS_GATE, D_HUGE_GATE, W_DIS_GATE, W_HUGE_GATE, LENGTH_PER_DOOR, MAX_DOOR_NUM, AOI_GATE_OFFSET, MAX_CHUNK_SIZE
-    global aoi_uid
-    W_DIS_GATE = dis_gate
-    MAX_CHUNK_SIZE = multiprocessing_chunk_size
-    D_DIS_GATE = W_DIS_GATE + EXTRA_DIS_GATE
     # AOI UID
-    aoi_uid = AOI_START_ID
-    # projection parameter
-    global projector
     # raw POIs
     raw_pois = {doc["id"]: doc for doc in input_pois}
-    projector = pyproj.Proj(projstr)
     if sys.platform == "win32" and (
         len(input_aois) > 0 or len(input_stops) > 0 or len(input_pois) > 0
     ):
@@ -1949,7 +1861,12 @@ def add_sumo_aoi_to_map(
     aois = _add_aoi(
         aois=input_aois,
         stops=input_stops,
+        matchers=matchers,
         workers=workers,
+        aoi_uid=AOI_START_ID,
+        d_dis_gate=dis_gate + EXTRA_DIS_GATE,
+        w_dis_gate=dis_gate,
+        max_chunk_size=multiprocessing_chunk_size,
         merge_aoi=merge_aoi,
     )
     added_ex_pois = []

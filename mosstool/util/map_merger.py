@@ -5,7 +5,7 @@ merge all input maps into one map
 import logging
 import time
 from copy import deepcopy
-from typing import List, Optional
+from typing import Optional
 
 from ..map._map_util.format_checker import output_format_check
 from ..type import Map
@@ -58,7 +58,7 @@ def _filter_map(map_dict: dict):
 
 
 def merge_map(
-    partial_maps: List[Map],
+    partial_maps: list[Map],
     output_path: Optional[str] = None,
     output_lane_length_check: bool = False,
 ) -> Map:

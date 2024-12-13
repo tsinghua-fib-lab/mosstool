@@ -1,7 +1,8 @@
 import logging
+from functools import partial
 from math import asin, ceil, cos, floor, radians, sin, sqrt
 from multiprocessing import Pool
-from typing import Dict, List, Optional, Tuple, Union, cast
+from typing import Any, Literal, Optional, Union, cast
 
 import pyproj
 import rasterio
@@ -14,8 +15,8 @@ __all__ = ["add_aoi_pop"]
 
 
 def _gps_distance(
-    LON1: Union[float, Tuple[float, float]],
-    LAT1: Union[float, Tuple[float, float]],
+    LON1: Union[float, tuple[float, float]],
+    LAT1: Union[float, tuple[float, float]],
     LON2: Optional[float] = None,
     LAT2: Optional[float] = None,
 ):
@@ -23,8 +24,8 @@ def _gps_distance(
     Distance between GPS points (m)
     """
     if LON2 == None:  # The input is [lon1,lat1], [lon2,lat2]
-        lon1, lat1 = cast(Tuple[float, float], LON1)
-        lon2, lat2 = cast(Tuple[float, float], LAT1)
+        lon1, lat1 = cast(tuple[float, float], LON1)
+        lon2, lat2 = cast(tuple[float, float], LAT1)
     else:  # The input is lon1, lat1, lon2, lat2
         assert LAT2 != None, "LON2 and LAT2 should be both None or both not None"
         LON1 = cast(float, LON1)
@@ -37,11 +38,20 @@ def _gps_distance(
     return float(2 * asin(sqrt(a)) * 6371393)
 
 
-def _get_idx_range_in_bbox(min_x, max_x, min_y, max_y, mode="loose"):
+def _get_idx_range_in_bbox(
+    x_left: float,
+    x_step: float,
+    y_upper: float,
+    y_step: float,
+    min_x: float,
+    max_x: float,
+    min_y: float,
+    max_y: float,
+    mode: Union[Literal["loose"], Literal["tight"]] = "loose",
+):
     """
     Get all pixel_idx in a longitude and latitude bbox. For processing at the boundary, there are two modes: "loose" and "tight".
     """
-    global x_left, y_upper, x_step, y_step
     i_min = (min_x - x_left) / x_step
     i_max = (max_x - x_left) / x_step
     if i_min > i_max:  # in case x_step < 0
@@ -65,7 +75,15 @@ def _get_idx_range_in_bbox(min_x, max_x, min_y, max_y, mode="loose"):
     return i_min, i_max, j_min, j_max
 
 
-def _get_pixel_info(band, x_left, y_upper, x_step, y_step, bbox, padding=20):
+def _get_pixel_info(
+    band,
+    x_left: float,
+    y_upper: float,
+    x_step: float,
+    y_step: float,
+    bbox: tuple[float, float, float, float],
+    padding: int = 20,
+):
     """
     Get the information of each WorldPop_pixel within the latitude and longitude range: {idx(i,j) : (Point(lon, lat), population)}
     Original data pixel size: lon_step: 0.0008333333, lat_step: -0.0008333333, ~ 100m * 100m
@@ -73,6 +91,10 @@ def _get_pixel_info(band, x_left, y_upper, x_step, y_step, bbox, padding=20):
 
     min_lon, max_lon, min_lat, max_lat = bbox
     i_min, i_max, j_min, j_max = _get_idx_range_in_bbox(
+        x_left=x_left,
+        x_step=x_step,
+        y_upper=y_upper,
+        y_step=y_step,
         min_x=min_lon,
         max_x=max_lon,
         min_y=min_lat,
@@ -96,12 +118,15 @@ def _get_pixel_info(band, x_left, y_upper, x_step, y_step, bbox, padding=20):
     }
 
 
-def _upsample_pixels_unit(arg):
+def _upsample_pixels_unit(
+    partial_args: tuple[list[dict[str, Any]], int, float, float],
+    arg: tuple[tuple[int, int], tuple[Point, int]],
+):
     """
     The original pixel is about 100 * 100, now it is divided equally into (100/n) * (100/n)
     The population is not evenly distributed among all cells, but is evenly divided by the cells covered by aoi.
     """
-    global aois_poly_global, n_upsample, x_step, y_step
+    aois_poly_global, n_upsample, x_step, y_step = partial_args
     (i, j), (point, pop) = arg
     ni, nj = n_upsample * i, n_upsample * j
     x, y = point.x, point.y
@@ -135,12 +160,15 @@ def _upsample_pixels_unit(arg):
     return pixels
 
 
-def _upsample_pixels_idiot_unit(arg):
+def _upsample_pixels_idiot_unit(
+    partial_args: tuple[int, float, float],
+    arg: tuple[tuple[int, int], tuple[Point, int]],
+):
     """
     The original pixel is about 100 * 100, now it is divided equally into (100/n) * (100/n)
     The population is divided equally among the cells
     """
-    global n_upsample, x_step, y_step
+    n_upsample, x_step, y_step = partial_args
     (i, j), (point, pop) = arg
     ni, nj = n_upsample * i, n_upsample * j
     x, y = point.x, point.y
@@ -153,11 +181,16 @@ def _upsample_pixels_idiot_unit(arg):
     ]
 
 
-def _get_aoi_point_pop_unit(aoi):
+def _get_aoi_point_pop_unit(
+    partial_args: tuple[
+        dict[tuple[int, int], tuple[Point, int]], float, float, float, float, float
+    ],
+    aoi: dict[str, Any],
+):
     """
     To estimate the population of a single point aoi (essentially poi): take the population of the pixel where it is located, and multiply it by the area ratio of aoi to pixel
     """
-    global pixel_idx2point_pop, x_left, y_upper, x_step, y_step, aoi_point_area, pixel_area
+    pixel_idx2point_pop, x_left, y_upper, x_step, y_step, pixel_area = partial_args
     x, y = aoi["lonlat"]
     try:
         t = (
@@ -173,16 +206,36 @@ def _get_aoi_point_pop_unit(aoi):
     return aoi
 
 
-def _get_aoi_poly_pop_unit(aoi):
+def _get_aoi_poly_pop_unit(
+    partial_args: tuple[
+        dict[tuple[int, int], tuple[Point, int]],
+        float,
+        float,
+        float,
+        float,
+        float,
+        float,
+    ],
+    aoi: dict[str, Any],
+):
     """
     Estimate the population of polygon aoi: take the population sum of pixels falling inside it
     If aoi is too small so that no pixel falls within it, take the population of the pixel where it is located and multiply it by the area ratio of aoi to pixel.
     """
-    global pixel_idx2point_pop, x_left, y_upper, x_step, y_step, xy_gps_scale2, pixel_area
+    pixel_idx2point_pop, x_left, y_upper, x_step, y_step, xy_gps_scale2, pixel_area = (
+        partial_args
+    )
     poly = aoi["poly"]
     min_x, min_y, max_x, max_y = aoi["bound"]
     i_min, i_max, j_min, j_max = _get_idx_range_in_bbox(
-        min_x=min_x, min_y=min_y, max_x=max_x, max_y=max_y
+        x_left=x_left,
+        x_step=x_step,
+        y_upper=y_upper,
+        y_step=y_step,
+        min_x=min_x,
+        min_y=min_y,
+        max_x=max_x,
+        max_y=max_y,
     )  # Get the population sum of the pixels falling within it
     total_pop = 0
     has_inside_pixel = False
@@ -217,27 +270,57 @@ def _get_aoi_poly_pop_unit(aoi):
     return aoi, NO_INSIDE_PIXEL
 
 
-def _get_aoi_pop(aois_point, aois_poly, workers):
+def _get_aoi_pop(
+    aois_point: list[dict[str, Any]],
+    aois_poly: list[dict[str, Any]],
+    pixel_idx2point_pop: dict[tuple[int, int], tuple[Point, int]],
+    x_left: float,
+    y_upper: float,
+    x_step: float,
+    y_step: float,
+    xy_gps_scale2: float,
+    pixel_area: float,
+    workers: int,
+    max_chunk_size: int,
+):
     aois_point_result = []
+    partial_args = (
+        pixel_idx2point_pop,
+        x_left,
+        y_upper,
+        x_step,
+        y_step,
+        pixel_area,
+    )
+    partial_get_aoi_point_pop_unit = partial(_get_aoi_point_pop_unit, partial_args)
     for i in range(0, len(aois_point), MAX_BATCH_SIZE):
         aois_point_batch = aois_point[i : i + MAX_BATCH_SIZE]
         with Pool(processes=workers) as pool:
             aois_point_result += pool.map(
-                _get_aoi_point_pop_unit,
+                partial_get_aoi_point_pop_unit,
                 aois_point_batch,
-                chunksize=min(ceil(len(aois_point_batch) / workers), MAX_CHUNK_SIZE),
+                chunksize=min(ceil(len(aois_point_batch) / workers), max_chunk_size),
             )
-    aois_poly_result = []
+    aois_poly_result_with_flag = []
+    partial_args = (
+        pixel_idx2point_pop,
+        x_left,
+        y_upper,
+        x_step,
+        y_step,
+        xy_gps_scale2,
+        pixel_area,
+    )
+    partial_get_aoi_poly_pop_unit = partial(_get_aoi_poly_pop_unit, partial_args)
     for i in range(0, len(aois_poly), MAX_BATCH_SIZE):
         aois_poly_batch = aois_poly[i : i + MAX_BATCH_SIZE]
         with Pool(processes=workers) as pool:
-            aois_poly_result += pool.map(
-                _get_aoi_poly_pop_unit,
+            aois_poly_result_with_flag += pool.map(
+                partial_get_aoi_poly_pop_unit,
                 aois_poly_batch,
-                chunksize=min(ceil(len(aois_poly_batch) / workers), MAX_CHUNK_SIZE),
+                chunksize=min(ceil(len(aois_poly_batch) / workers), max_chunk_size),
             )
-    aois_point, aois_poly = aois_point_result, aois_poly_result
-    aois_poly, flags = zip(*aois_poly)
+    aois_poly_result, flags = zip(*aois_poly_result_with_flag)
     logging.info(
         f"proportion of polygon aoi without inside pixel:{len([x for x in flags if x == NO_INSIDE_PIXEL]) / len(flags)}",
     )
@@ -250,7 +333,7 @@ def _get_aoi_pop(aois_point, aois_poly, workers):
     # n_upsample=7,  0.034
     # n_upsample=8,  0.021
     # n_upsample=15  0.002
-    return aois_point + list(aois_poly)
+    return aois_point_result + list(aois_poly_result)
 
 
 # The imaginary area of a single point aoi (from poi), based on the nearest pixel_pop * aoi_default_area / pixel_area as its pop
@@ -262,7 +345,7 @@ NO_INSIDE_PIXEL = 1
 
 
 def add_aoi_pop(
-    aois: Union[List, Dict],
+    aois: Union[list, dict],
     max_longitude: float,
     min_longitude: float,
     max_latitude: float,
@@ -285,8 +368,6 @@ def add_aoi_pop(
     )
     bbox = (min_lon, max_lon, min_lat, max_lat)
     lon_cen, lat_cen = (min_lon + max_lon) / 2, (min_lat + max_lat) / 2
-    global pixel_idx2point_pop, aois_poly_global, x_left, y_upper, x_step, y_step, pixel_area, aoi_point_area, xy_gps_scale2, n_upsample, MAX_CHUNK_SIZE
-    MAX_CHUNK_SIZE = multiprocessing_chunk_size
     # Preprocess AOI data
     logging.info("Pre-processing aois")
     has_pop = False
@@ -363,15 +444,17 @@ def add_aoi_pop(
     logging.info(f"Up-sampling pixel: {n_upsample} cut the pixel length")
     list_pixel2pop = list(pixel_idx2point_pop.items())
     results = []
+    partial_args = (aois_poly_global, n_upsample, x_step, y_step)
+    partial_upsample_pixels_unit = partial(_upsample_pixels_unit, partial_args)
     for i in range(0, len(list_pixel2pop), MAX_BATCH_SIZE):
         list_pixel2pop_batch = list_pixel2pop[i : i + MAX_BATCH_SIZE]
         with Pool(processes=workers) as pool:
             results += pool.map(
-                _upsample_pixels_unit,
+                partial_upsample_pixels_unit,
                 list_pixel2pop_batch,
                 chunksize=min(
                     ceil(len(list_pixel2pop_batch) / workers),
-                    MAX_CHUNK_SIZE,
+                    multiprocessing_chunk_size,
                 ),
             )
     pixel_idx2point_pop = {k: v for x in results for k, v in x}
@@ -383,15 +466,23 @@ def add_aoi_pop(
     logging.info(f"Up-sampling pixel: {n_upsample} cut the pixel length")
     list_pixel2pop = list(pixel_idx2point_pop.items())
     results = []
+    partial_args = (
+        n_upsample,
+        x_step,
+        y_step,
+    )
+    partial_upsample_pixels_idiot_unit = partial(
+        _upsample_pixels_idiot_unit, partial_args
+    )
     for i in range(0, len(list_pixel2pop), MAX_BATCH_SIZE):
         list_pixel2pop_batch = list_pixel2pop[i : i + MAX_BATCH_SIZE]
         with Pool(processes=workers) as pool:
             results += pool.map(
-                _upsample_pixels_idiot_unit,
+                partial_upsample_pixels_idiot_unit,
                 list_pixel2pop_batch,
                 chunksize=min(
                     ceil(len(list_pixel2pop_batch) / workers),
-                    MAX_CHUNK_SIZE,
+                    multiprocessing_chunk_size,
                 ),
             )
     pixel_idx2point_pop = {k: v for x in results for k, v in x}
@@ -399,7 +490,17 @@ def add_aoi_pop(
     # Calculate aoi population
     logging.info("Calculating aoi population")
     aois_with_pop = _get_aoi_pop(
-        aois_point=aois_point, aois_poly=aois_poly, workers=workers
+        aois_point=aois_point,
+        aois_poly=aois_poly,
+        pixel_idx2point_pop=pixel_idx2point_pop,
+        x_left=x_left,
+        x_step=x_step,
+        y_upper=y_upper,
+        y_step=y_step,
+        xy_gps_scale2=xy_gps_scale2,
+        pixel_area=pixel_area,
+        workers=workers,
+        max_chunk_size=multiprocessing_chunk_size,
     )
     aoi_total_pop = sum([aoi["external"]["population"] for aoi in aois_with_pop])
 

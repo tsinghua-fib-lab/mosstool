@@ -1,7 +1,7 @@
 """Convert AOI POI for aoi_matcher"""
 
 import logging
-from typing import Dict, Optional, Tuple
+from typing import Optional
 from xml.dom.minidom import parse
 
 import numpy as np
@@ -32,9 +32,9 @@ def _shape2geo(shape_str):
 
 def convert_aoi(
     geos: FeatureCollection,
-    public_transport_data: Dict[str, dict],
+    public_transport_data: dict[str, dict],
     projstr: Optional[str] = None,
-) -> Tuple[list, list]:
+) -> tuple[list, list]:
     aois = []
     stops = []
     projector = pyproj.Proj(projstr) if projstr is not None else None
@@ -145,7 +145,7 @@ def convert_sumo_aoi_poi(
     min_longitude: Optional[float] = None,
     max_latitude: Optional[float] = None,
     min_latitude: Optional[float] = None,
-) -> Tuple[list, list]:
+) -> tuple[list, list]:
     aois = []
     pois = []
     projector = pyproj.Proj(projstr)

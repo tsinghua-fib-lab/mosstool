@@ -715,7 +715,6 @@ class MapConverter:
                 "walk": w_matcher,
                 "road_lane": road_lane_matcher,
             },
-            projstr=self._projstr,
             input_aois=aois,
             input_pois=pois,
             input_stops=stops,

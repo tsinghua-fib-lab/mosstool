@@ -2,7 +2,8 @@ import logging
 import math
 import os
 from collections import Counter
-from typing import Callable, Dict, List, Set, Optional
+from collections.abc import Callable
+from typing import Optional
 
 import numpy as np
 import pandas as pd
@@ -31,7 +32,7 @@ def cad2osm(
     merge_gate: float = 0.0,
     x_transform_func: Optional[Callable[[float], float]] = None,
     y_transform_func: Optional[Callable[[float], float]] = None,
-) -> List[Dict]:
+) -> list[dict]:
     df = pd.read_excel(cad_path)
     df = df.fillna(0)
     if x_transform_func is None:
@@ -39,9 +40,9 @@ def cad2osm(
     if y_transform_func is None:
         y_transform_func = lambda y: y
     node_id, way_id = node_start_id, way_start_id
-    osm_data: List[Dict] = []
+    osm_data: list[dict] = []
     ANGLE_STEP = 1
-    _edge_node_ids:Set[int] = set()
+    _edge_node_ids: set[int] = set()
     for i, now_row in df.iterrows():
         if now_row["名称"] == "直线":
             _edge_node_ids.add(node_id)
@@ -53,7 +54,7 @@ def cad2osm(
             }
             osm_data.append(n)
             node_id += 1
-            
+
             _edge_node_ids.add(node_id)
             n = {
                 "type": "node",
@@ -68,7 +69,9 @@ def cad2osm(
                 "type": "way",
                 "id": way_id,
                 "nodes": [node_id - 2, node_id - 1],
-                "tags": {"highway": "tertiary"}, # here we set the same tag for all ways
+                "tags": {
+                    "highway": "tertiary"
+                },  # here we set the same tag for all ways
                 "others": now_row,
             }
             way_id += 1
@@ -82,7 +85,9 @@ def cad2osm(
             agl = 0
             nodes_indexes = []
             total_angle = float(now_row["总角度"])
-            for agl in np.linspace(0, total_angle, max(int(total_angle / ANGLE_STEP), 3)):
+            for agl in np.linspace(
+                0, total_angle, max(int(total_angle / ANGLE_STEP), 3)
+            ):
                 n = {
                     "type": "node",
                     "id": node_id,
@@ -98,7 +103,9 @@ def cad2osm(
                 "type": "way",
                 "id": way_id,
                 "nodes": nodes_indexes,
-                "tags": {"highway": "tertiary"},  # here we set the same tag for all ways
+                "tags": {
+                    "highway": "tertiary"
+                },  # here we set the same tag for all ways
                 "others": now_row,
             }
             osm_data.append(w)
@@ -109,8 +116,10 @@ def cad2osm(
         ):
             if _key in i:
                 i[_key] = _transform_func(i[_key])
-    to_merge_xys_dict = {i["id"]:(i["x"], i["y"]) for i in osm_data if "x" in i and "y" in i}
-    tree_id_to_node_id = {idx:i for idx,i in enumerate(to_merge_xys_dict.keys())}
+    to_merge_xys_dict = {
+        i["id"]: (i["x"], i["y"]) for i in osm_data if "x" in i and "y" in i
+    }
+    tree_id_to_node_id = {idx: i for idx, i in enumerate(to_merge_xys_dict.keys())}
     tree = KDTree([v for v in to_merge_xys_dict.values()])  # type:ignore
     merged = set()
     father_id_dict = {
@@ -119,7 +128,9 @@ def cad2osm(
     for _node_idx, xy in to_merge_xys_dict.items():
         if _node_idx in merged:
             continue
-        a = [tree_id_to_node_id[i] for i in tree.query_ball_point(xy, merge_gate)]  # type:ignore
+        a = [
+            tree_id_to_node_id[i] for i in tree.query_ball_point(xy, merge_gate) # type:ignore
+        ]  
         if len(a) == 1:
             unique_node_idx = a.pop()
             father_id_dict[unique_node_idx] = _node_idx
@@ -133,8 +144,11 @@ def cad2osm(
                         continue
                     _xy = to_merge_xys_dict[i]
                     b.extend(
-                        [tree_id_to_node_id[j] for j in tree.query_ball_point(_xy, merge_gate)]  # type:ignore
-                    ) 
+                        [
+                            tree_id_to_node_id[j]
+                            for j in tree.query_ball_point(_xy, merge_gate) # type:ignore
+                        ]  
+                    )
                     visited_nids.add(i)
                     father_id_dict[i] = _node_idx
                 a, b = b, []
@@ -146,11 +160,11 @@ def cad2osm(
     for i in osm_data:
         if i["type"] == "way":
             i["nodes"] = [father_id_dict[n] for n in i["nodes"]]
-            if not len(set(i["nodes"]))>=2:
-                to_delete_ids.add(("way",i["id"]))            
+            if not len(set(i["nodes"])) >= 2:
+                to_delete_ids.add(("way", i["id"]))
         elif i["type"] == "node" and father_id_dict[i["id"]] != i["id"]:
-            to_delete_ids.add(("node",i["id"]))
-    return [i for i in osm_data if (i["type"],i["id"]) not in to_delete_ids]
+            to_delete_ids.add(("node", i["id"]))
+    return [i for i in osm_data if (i["type"], i["id"]) not in to_delete_ids]
 
 
 logging.basicConfig(

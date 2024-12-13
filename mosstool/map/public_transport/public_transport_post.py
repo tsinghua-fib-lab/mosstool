@@ -294,7 +294,7 @@ def _get_taz_cost_unit(arg):
     return (subline_id, taz_costs)
 
 
-def _post_compute(m: dict, workers: int, taz_length: float):
+def _post_compute(m: dict, workers: int, taz_length: float, max_chunk_size: int):
     m = deepcopy(m)
     header = m["header"]
     aois = {a["id"]: a for a in m["aois"]}
@@ -396,7 +396,7 @@ def _post_compute(m: dict, workers: int, taz_length: float):
         taz_results = pool.map(
             _get_taz_cost_unit,
             taz_cost_args,
-            chunksize=max((len(taz_cost_args) // workers), MAX_CHUNK_SIZE),
+            chunksize=max((len(taz_cost_args) // workers), max_chunk_size),
         )
     subline_id2taz_costs = {r[0]: r[1] for r in taz_results}
     for subline in sublines_data:
@@ -412,8 +412,6 @@ def public_transport_process(
     workers: int = cpu_count(),
     multiprocessing_chunk_size: int = 500,
 ):
-    global MAX_CHUNK_SIZE
-    MAX_CHUNK_SIZE = multiprocessing_chunk_size
     m = asyncio.run(_fill_public_lines(m, server_address))
-    m = _post_compute(m, workers, taz_length)
+    m = _post_compute(m, workers, taz_length, multiprocessing_chunk_size)
     return m

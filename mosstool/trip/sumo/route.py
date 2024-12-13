@@ -1,7 +1,7 @@
 import logging
 import random
 import xml.dom.minidom as minidom
-from typing import List, Literal, Optional, Tuple, Union, cast
+from typing import Literal, Optional, Union
 from xml.dom.minidom import parse
 
 import numpy as np

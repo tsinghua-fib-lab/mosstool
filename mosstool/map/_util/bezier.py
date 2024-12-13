@@ -2,7 +2,8 @@
 Version 1.1, from < BezierCurveFunction-v1.ipynb > on 2019-05-02
 """
 
-from typing import List, Sequence, Union
+from collections.abc import Sequence
+from typing import Union
 
 import numpy as np
 
@@ -37,7 +38,7 @@ class Bezier:
         return Q1
 
     @staticmethod
-    def Points(t: float, points: List[np.ndarray]) -> List[np.ndarray]:
+    def Points(t: float, points: list[np.ndarray]) -> list[np.ndarray]:
         """
         Returns a list of points interpolated by the Bezier process
 
@@ -54,7 +55,7 @@ class Bezier:
         return new_points
 
     @staticmethod
-    def Point(t: float, points: List[np.ndarray]):
+    def Point(t: float, points: list[np.ndarray]):
         """
         Returns a point interpolated by the Bezier process
 
@@ -72,7 +73,7 @@ class Bezier:
 
     @staticmethod
     def Curve(
-        t_values: Union[Sequence[float], np.ndarray], points: List[np.ndarray]
+        t_values: Union[Sequence[float], np.ndarray], points: list[np.ndarray]
     ) -> np.ndarray:
         """
         Returns a point interpolated by the Bezier process

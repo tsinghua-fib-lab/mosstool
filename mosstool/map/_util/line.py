@@ -1,6 +1,6 @@
 from functools import partial
 from math import atan2
-from typing import List, Optional, Tuple, cast
+from typing import Optional, cast
 
 import numpy as np
 from scipy.spatial import KDTree
@@ -318,8 +318,8 @@ def align_line(line1: LineString, line2: LineString) -> LineString:
 
 
 def merge_near_xy_points(
-    orig_points: List[Tuple[float, float]], merge_gate: float = 100
-) -> List[Tuple[float, float]]:
+    orig_points: list[tuple[float, float]], merge_gate: float = 100
+) -> list[tuple[float, float]]:
     """
     Return merged coordinates of input points coordinates
     """
@@ -339,10 +339,10 @@ def merge_near_xy_points(
 
 
 def connect_split_lines(
-    lines: List[LineString],
+    lines: list[LineString],
     start_point: Optional[Point] = None,
     max_line_length: float = 10_000,
-) -> List:
+) -> list:
     """
     Connect split lines (especially for `way` items in OSM) as one line.
     """
@@ -352,7 +352,7 @@ def connect_split_lines(
 
     def _remove_outlier_points(
         line: LineString,
-        lines: List[LineString],
+        lines: list[LineString],
         distance_threshold: float = 20,
         max_line_length: float = 5000,
         angle_gate: float = np.pi / 2,
@@ -393,7 +393,7 @@ def connect_split_lines(
         return coords
 
     def _find_farthest_adjacent_points_and_rebase(
-        coords: List, max_substring_length: float = 1500
+        coords: list, max_substring_length: float = 1500
     ):
         assert len(coords) >= 2
         pos_list = [

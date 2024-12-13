@@ -1,7 +1,7 @@
 import logging
+from collections.abc import Callable
 from multiprocessing import Pool, cpu_count
-from typing import (Callable, Dict, List, Literal, Optional, Set, Tuple, Union,
-                    cast)
+from typing import Union, cast
 
 import numpy as np
 from pycityproto.city.person.v2.person_pb2 import (BusAttribute, BusType,
@@ -83,7 +83,7 @@ def _gen_profile_unit(seed: int):
 
 def gen_profiles(
     agent_num: int, workers: int, multiprocessing_chunk_size: int
-) -> List[Dict]:
+) -> list[dict]:
     """
     Randomly generate PersonProfile
 
@@ -92,7 +92,7 @@ def gen_profiles(
     - workers (int): number of workers.
 
     Returns:
-    - list(dict): List of PersonProfile dict.
+    - list(dict): list of PersonProfile dict.
     """
     profiles = []
     MAX_CHUNK_SIZE = multiprocessing_chunk_size
@@ -109,8 +109,8 @@ def gen_profiles(
 
 
 def recalculate_trip_modes(
-    profile: dict, trip_modes: List, available_trip_modes: List[str]
-) -> List:
+    profile: dict, trip_modes: list, available_trip_modes: list[str]
+) -> list:
     res_modes = np.array([m for m in trip_modes], dtype=np.uint8)
     if (
         profile.get("consumption", -1)
@@ -131,7 +131,7 @@ def recalculate_trip_modes(
 
 
 def recalculate_trip_mode_prob(
-    profile: dict, trip_modes: List, V: np.ndarray, available_trip_modes: List[str]
+    profile: dict, trip_modes: list, V: np.ndarray, available_trip_modes: list[str]
 ):
     """
     Filter some invalid trip modes according to the PersonProfile
@@ -210,7 +210,7 @@ def extract_HWEO_from_od_matrix(
     aoi_type2ids: dict,
     od_prob: np.ndarray,
     od_times_length: int,
-):
+) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
     total_popu = np.zeros(n_region)
     work_popu = np.zeros(n_region)
     educate_popu = np.zeros(n_region)
@@ -283,14 +283,14 @@ def extract_HWEO_from_od_matrix(
 def gen_bus_drivers(
     person_id: int,
     person_template_generator: Callable[[], Person],
-    depart_times: List[float],
+    depart_times: list[float],
     stop_duration_time: float,
-    road_aoi_id2d_pos: Dict[Tuple[int, int], geov2.LanePosition],
+    road_aoi_id2d_pos: dict[tuple[int, int], geov2.LanePosition],
     subline,
-) -> Tuple[int, List[Person]]:
+) -> tuple[int, list[Person]]:
     def _transfer_conn_road_ids(
-        station_connection_road_ids: List[List[int]],
-    ) -> List[int]:
+        station_connection_road_ids: list[list[int]],
+    ) -> list[int]:
         assert (
             len(station_connection_road_ids) > 0
             and len(station_connection_road_ids[0]) > 0
@@ -303,7 +303,7 @@ def gen_bus_drivers(
                 route_road_ids += next_road_ids
         return route_road_ids
 
-    def _aoi_road_ids(station_connection_road_ids) -> List[int]:
+    def _aoi_road_ids(station_connection_road_ids) -> list[int]:
         cur_road_ids = [rids[0] for rids in station_connection_road_ids]
         # road that connect to the end station
         cur_road_ids.append(station_connection_road_ids[-1][-1])
@@ -362,7 +362,7 @@ def gen_bus_drivers(
         p_trip_stops.append(trip_stop)
     # eta for bus journey
     bus_eta = sum(subline.schedules.offset_times)
-    sl_drivers: List[Person] = []
+    sl_drivers: list[Person] = []
     if bus_type == BusType.BUS_TYPE_BUS:
         for tm in depart_times:
             p = Person()
@@ -409,8 +409,8 @@ def gen_taxi_drivers(
     person_template_generator: Callable[[], Person],
     home_position: Union[LanePosition, AoiPosition],
     num: int = 1,
-) -> Tuple[int, List[Person]]:
-    taxi_drivers: List[Person] = []
+) -> tuple[int, list[Person]]:
+    taxi_drivers: list[Person] = []
     for _ in range(num):
         p = Person()
         p.CopyFrom(person_template_generator())

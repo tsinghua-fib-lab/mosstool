@@ -1,5 +1,5 @@
 import logging
-from typing import Dict, List, Optional, Tuple
+from typing import Optional
 
 import pyproj
 import requests
@@ -26,7 +26,7 @@ class Building:
         max_latitude: Optional[float] = None,
         min_latitude: Optional[float] = None,
         wikipedia_name: Optional[str] = None,
-        proxies: Optional[Dict[str, str]] = None,
+        proxies: Optional[dict[str, str]] = None,
     ):
         """
         Args:
@@ -36,7 +36,7 @@ class Building:
         - max_latitude (Optional[float]): max latitude
         - min_latitude (Optional[float]): min latitude
         - wikipedia_name (Optional[str]): wikipedia name of the area in OSM.
-        - proxies (Optional[Dict[str, str]]): proxies for requests, e.g. {'http': 'http://localhost:1080', 'https': 'http://localhost:1080'}
+        - proxies (Optional[dict[str, str]]): proxies for requests, e.g. {'http': 'http://localhost:1080', 'https': 'http://localhost:1080'}
         """
         self.bbox = (
             min_latitude,
@@ -62,7 +62,7 @@ class Building:
         # generate AOIs
         self.aois: list = []
 
-    def _query_raw_data(self, osm_data_cache: Optional[List[Dict]] = None):
+    def _query_raw_data(self, osm_data_cache: Optional[list[dict]] = None):
         """
         Get raw data from OSM API
         OSM query language: https://wiki.openstreetmap.org/wiki/Overpass_API/Language_Guide
@@ -341,7 +341,7 @@ class Building:
         logging.info(f"invalid_relation_cnt: {invalid_relation_cnt}")
         logging.info(f"raw aoi: {len(self.aois)}")
 
-    def _transform_coordinate(self, c: Tuple[float, float]) -> List[float]:
+    def _transform_coordinate(self, c: tuple[float, float]) -> list[float]:
         if self.projector is None:
             return [c[0], c[1]]
         else:
@@ -350,14 +350,14 @@ class Building:
     def create_building(
         self,
         output_path: Optional[str] = None,
-        osm_data_cache: Optional[List[Dict]] = None,
+        osm_data_cache: Optional[list[dict]] = None,
         osm_cache_check: bool = False,
     ):
         """
         Create AOIs from OpenStreetMap.
 
         Args:
-        - osm_data_cache (Optional[List[Dict]]): OSM data cache.
+        - osm_data_cache (Optional[list[dict]]): OSM data cache.
         - output_path (str): GeoJSON file output path.
         - osm_cache_check (bool): check the format of input OSM data cache.
 

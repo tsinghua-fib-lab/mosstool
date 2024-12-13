@@ -3,7 +3,7 @@ import logging
 from collections import defaultdict
 from itertools import combinations
 from math import hypot
-from typing import Dict, FrozenSet, List, Optional, Set
+from typing import Optional
 
 import networkx as nx
 import pyproj
@@ -32,7 +32,7 @@ class RoadNet:
         max_latitude: Optional[float] = None,
         min_latitude: Optional[float] = None,
         wikipedia_name: Optional[str] = None,
-        proxies: Optional[Dict[str, str]] = None,
+        proxies: Optional[dict[str, str]] = None,
     ):
         """
         Args:
@@ -42,7 +42,7 @@ class RoadNet:
         - max_latitude (Optional[float]): max latitude
         - min_latitude (Optional[float]): min latitude
         - wikipedia_name (Optional[str]): wikipedia name of the area in OSM.
-        - proxies (Optional[Dict[str, str]]): proxies for requests, e.g. {'http': 'http://localhost:1080', 'https': 'http://localhost:1080'}
+        - proxies (Optional[dict[str, str]]): proxies for requests, e.g. {'http': 'http://localhost:1080', 'https': 'http://localhost:1080'}
         """
         # configs
         self.proj_parameter = proj_str
@@ -68,8 +68,8 @@ class RoadNet:
 
         # junctions
         self.junction_next_id = 500_0000_0000
-        self.junction2nodes: Dict[int, List[int]] = {}
-        self.node2junction: Dict[int, int] = {}
+        self.junction2nodes: dict[int, list[int]] = {}
+        self.node2junction: dict[int, int] = {}
 
     @property
     def default_way_settings(self):
@@ -264,7 +264,7 @@ class RoadNet:
 
         return FeatureCollection(geos)
 
-    def _get_osm(self, osm_data_cache: Optional[List[Dict]] = None):
+    def _get_osm(self, osm_data_cache: Optional[list[dict]] = None):
         if osm_data_cache is not None:
             osm_data = osm_data_cache
         else:
@@ -503,7 +503,9 @@ class RoadNet:
                 for way_id in way_ids[1:]:
                     way = self.ways[way_id]
                     try:
-                        main_way["nodes"] = merge_way_nodes(main_way["nodes"], way["nodes"])
+                        main_way["nodes"] = merge_way_nodes(
+                            main_way["nodes"], way["nodes"]
+                        )
                     except ValueError as e:
                         # with open("cache/graph.pkl", "wb") as f:
                         #     pickle.dump([g, component], f)
@@ -601,7 +603,7 @@ class RoadNet:
             start_junc = self.node2junction[start_node]
             end_junc = self.node2junction[end_node]
             G.add_edge(start_junc, end_junc, length=length)
-        all_motifs: Set[FrozenSet[int]] = set()
+        all_motifs: set[frozenset[int]] = set()
         all_motifs.update(suc_is_close_by_other_way(G))
         all_motifs.update(close_nodes(G))
         all_motifs.update(motif_H(G))
@@ -701,14 +703,14 @@ class RoadNet:
     def create_road_net(
         self,
         output_path: Optional[str] = None,
-        osm_data_cache: Optional[List[Dict]] = None,
+        osm_data_cache: Optional[list[dict]] = None,
         osm_cache_check: bool = False,
     ):
         """
         Create Road net from OpenStreetMap.
 
         Args:
-        - osm_data_cache (Optional[List[Dict]]): OSM data cache.
+        - osm_data_cache (Optional[list[dict]]): OSM data cache.
         - output_path (Optional[str]): GeoJSON file output path.
         - osm_cache_check (bool): check the format of input OSM data cache.
 

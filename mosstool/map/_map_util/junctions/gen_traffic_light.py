@@ -2,7 +2,7 @@
 
 import logging
 from collections import defaultdict
-from typing import List, Literal, Optional, Union
+from typing import Literal, Optional, Union
 from xml.dom.minidom import parse
 
 import numpy as np
@@ -26,7 +26,7 @@ def _rule_based_traffic_light(
         Literal["green_yellow_red"],
         Literal["green_yellow_clear_red"],
     ] = "green_yellow_clear_red",
-) -> Union[List, None]:
+) -> Union[list, None]:
     def _has_traffic_light(in_lanes):
         in_dir_num = len([in_dir for in_dir in in_lanes if in_dir])
         return in_dir_num >= 3
@@ -583,7 +583,7 @@ def _gen_available_phases(lanes: dict, juncs: dict, min_direction_group: int):
         # Generate phase table
         group0 = direc_groups[0] + direc_groups[2]  # 0-180 degree
         group90 = direc_groups[1] + direc_groups[3]  # 90-270 degree
-        is_green_funcs = []  # List of functions to determine green light
+        is_green_funcs = []  # list of functions to determine green light
         stand_alone_walking_index = set()
         if has_independent_left(direc_groups[0]) and has_independent_left(
             direc_groups[2]

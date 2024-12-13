@@ -1,4 +1,4 @@
-from typing import List, Literal, Optional, Union
+from typing import Optional
 
 import numpy as np
 from pycityproto.city.person.v2.person_pb2 import (BikeAttribute,
@@ -92,35 +92,35 @@ def default_bus_template_generator() -> Person:
 class ProbabilisticTemplateGenerator:
     def __init__(
         self,
-        max_speed_values: Optional[List[float]] = None,
-        max_speed_probabilities: Optional[List[float]] = None,
-        max_acceleration_values: Optional[List[float]] = None,
-        max_acceleration_probabilities: Optional[List[float]] = None,
-        max_braking_acceleration_values: Optional[List[float]] = None,
-        max_braking_acceleration_probabilities: Optional[List[float]] = None,
-        usual_braking_acceleration_values: Optional[List[float]] = None,
-        usual_braking_acceleration_probabilities: Optional[List[float]] = None,
-        headway_values: Optional[List[float]] = None,
-        headway_probabilities: Optional[List[float]] = None,
-        min_gap_values: Optional[List[float]] = None,
-        min_gap_probabilities: Optional[List[float]] = None,
+        max_speed_values: Optional[list[float]] = None,
+        max_speed_probabilities: Optional[list[float]] = None,
+        max_acceleration_values: Optional[list[float]] = None,
+        max_acceleration_probabilities: Optional[list[float]] = None,
+        max_braking_acceleration_values: Optional[list[float]] = None,
+        max_braking_acceleration_probabilities: Optional[list[float]] = None,
+        usual_braking_acceleration_values: Optional[list[float]] = None,
+        usual_braking_acceleration_probabilities: Optional[list[float]] = None,
+        headway_values: Optional[list[float]] = None,
+        headway_probabilities: Optional[list[float]] = None,
+        min_gap_values: Optional[list[float]] = None,
+        min_gap_probabilities: Optional[list[float]] = None,
         seed: int = 0,
         template: Optional[Person] = None,
     ):
         """
         Args:
-        - max_speed_values (Optional[List[float]]): A list of possible maximum speeds.
-        - max_speed_probabilities (Optional[List[float]]): Probabilities corresponding to max_speed_values.
-        - max_acceleration_values (Optional[List[float]]): A list of possible maximum accelerations.
-        - max_acceleration_probabilities (Optional[List[float]]): Probabilities corresponding to max_acceleration_values.
-        - max_braking_acceleration_values (Optional[List[float]]): A list of possible maximum braking accelerations.
-        - max_braking_acceleration_probabilities (Optional[List[float]]): Probabilities corresponding to max_braking_acceleration_values.
-        - usual_braking_acceleration_values (Optional[List[float]]): A list of usual braking accelerations.
-        - usual_braking_acceleration_probabilities (Optional[List[float]]): Probabilities corresponding to usual_braking_acceleration_values.
-        - headway_values (Optional[List[float]]): A list of safe time headways.
-        - headway_probabilities (Optional[List[float]]): Probabilities corresponding to headway_values.
-        - min_gap_values (Optional[List[float]]): A list of minimum gaps.
-        - min_gap_probabilities (Optional[List[float]]): Probabilities corresponding to min_gap_values.
+        - max_speed_values (Optional[list[float]]): A list of possible maximum speeds.
+        - max_speed_probabilities (Optional[list[float]]): Probabilities corresponding to max_speed_values.
+        - max_acceleration_values (Optional[list[float]]): A list of possible maximum accelerations.
+        - max_acceleration_probabilities (Optional[list[float]]): Probabilities corresponding to max_acceleration_values.
+        - max_braking_acceleration_values (Optional[list[float]]): A list of possible maximum braking accelerations.
+        - max_braking_acceleration_probabilities (Optional[list[float]]): Probabilities corresponding to max_braking_acceleration_values.
+        - usual_braking_acceleration_values (Optional[list[float]]): A list of usual braking accelerations.
+        - usual_braking_acceleration_probabilities (Optional[list[float]]): Probabilities corresponding to usual_braking_acceleration_values.
+        - headway_values (Optional[list[float]]): A list of safe time headways.
+        - headway_probabilities (Optional[list[float]]): Probabilities corresponding to headway_values.
+        - min_gap_values (Optional[list[float]]): A list of minimum gaps.
+        - min_gap_probabilities (Optional[list[float]]): Probabilities corresponding to min_gap_values.
         - seed (int): Seed value for the random number generator.
         - template (Optional[Person]): The template function of generated person object.
         """

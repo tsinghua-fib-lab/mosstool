@@ -5,7 +5,7 @@ split map into multiple parts
 import logging
 import os
 import time
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 
 import numpy as np
 import pyproj
@@ -19,7 +19,7 @@ from .format_converter import dict2pb, pb2dict
 __all__ = ["split_map"]
 
 
-def _center_point(lanes_dict: Dict[int, dict], lane_ids: List[int]) -> Point:
+def _center_point(lanes_dict: dict[int, dict], lane_ids: list[int]) -> Point:
     lane_coords = []
     for lane_id in lane_ids:
         lane_coords.extend(
@@ -30,7 +30,7 @@ def _center_point(lanes_dict: Dict[int, dict], lane_ids: List[int]) -> Point:
     return Point(x_center, y_center)
 
 
-def _gen_header(map_name: str, poly_id: int, proj_str: str, lanes: List[dict]) -> dict:
+def _gen_header(map_name: str, poly_id: int, proj_str: str, lanes: list[dict]) -> dict:
     xy = [
         [i["x"], i["y"]] for j in lanes for k in ["center_line"] for i in j[k]["nodes"]
     ]
@@ -51,7 +51,7 @@ def split_map(
     map: Map,
     output_path: Optional[str] = None,
     distance_threshold: float = 50.0,
-) -> Dict[Any, Map]:
+) -> dict[Any, Map]:
     """
     Args:
     - geo_data (FeatureCollection): polygon geo files.
@@ -60,7 +60,7 @@ def split_map(
     - distance_threshold (float): maximum distance considered to be contained in a bounding box.
 
     Returns:
-    - List of splitted maps.
+    - list of splitted maps.
     """
     map_dict = pb2dict(map)
     lanes_dict = {d["id"]: d for d in map_dict["lanes"]}
@@ -135,7 +135,7 @@ def split_map(
         else:
             inner_poly_id = tree_id2poly_id[tree_ids[0]]
             output_map_dict[inner_poly_id]["roads"].append(roads_dict[road_id])
-    output_map_pbs: Dict[int, Map] = {}
+    output_map_pbs: dict[int, Map] = {}
     added_aoi_ids = set()
     # add lane, aoi, poi
     for poly_id, partial_map_data in output_map_dict.items():

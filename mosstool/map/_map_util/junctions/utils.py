@@ -2,20 +2,19 @@ import logging
 from collections import Counter, defaultdict
 from copy import deepcopy
 from math import atan2
-from typing import (Callable, Dict, List, Literal, Optional, Set, Tuple, Union,
-                    cast)
+from typing import Literal, Union
 
 import numpy as np
 import pycityproto.city.map.v2.map_pb2 as mapv2
 from shapely.geometry import LineString, MultiPoint, Point
 
-from ..const import *
 from ..._util.angle import abs_delta_angle, delta_angle
 from ..._util.line import get_line_angle, get_start_vector
+from ..const import *
 
 
 def classify_main_auxiliary_wid(
-    wids: List[int],
+    wids: list[int],
     way_angle: float,
     group_type: Union[Literal["in_ways"], Literal["out_ways"]],
     map_roads: dict,

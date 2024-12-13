@@ -1,23 +1,14 @@
-from copy import copy
 import os
 from collections import defaultdict
-from typing import Any, Dict, List, Tuple, cast
+from copy import copy
+from typing import Any, cast
 
 import pandas as pd
 import path4gmns as pg
 
 from ...map.gmns import Convertor as MapConvertor
-from ...type import (
-    Map,
-    Persons,
-    Position,
-    Schedule,
-    Trip,
-    TripMode,
-    Journey,
-    JourneyType,
-    DrivingJourneyBody,
-)
+from ...type import (DrivingJourneyBody, Journey, JourneyType, Map, Persons,
+                     Position, Schedule, Trip, TripMode)
 
 __all__ = ["STA"]
 
@@ -182,11 +173,11 @@ class STA:
                 os.path.join(self._work_dir, "agent.csv"), index_col=None
             )
             # (o_zone_id, d_zone_id) -> [{volume, node_sequence, link_sequence}]
-            agent_pairs: Dict[Tuple[str, str], List[Dict[str, Any]]] = defaultdict(list)
+            agent_pairs: dict[tuple[str, str], list[dict[str, Any]]] = defaultdict(list)
             for _, row in agent_df.iterrows():
                 volume = int(row["volume"])
                 total_volumes += volume
-                link_sequence = cast(List[str], row["link_sequence"].split(";"))
+                link_sequence = cast(list[str], row["link_sequence"].split(";"))
                 # check path is valid and convert to road_ids for route .pb format
                 start_with_aoi = link_sequence[0].find("start") != -1
                 end_with_aoi = link_sequence[-1].find("end") != -1
@@ -226,7 +217,7 @@ class STA:
                     continue
                 t = cast(Trip, persons.persons[pi].schedules[si].trips[ti])
                 result = agent_pairs[(oid, did)][0]
-                road_ids: List[int] = copy(result["road_ids"])
+                road_ids: list[int] = copy(result["road_ids"])
                 if not result["start_with_aoi"]:
                     start_lane = self._map_convertor._lanes[start.lane_position.lane_id]
                     road_ids.insert(0, start_lane.parent_id)

@@ -2,7 +2,7 @@
 
 import logging
 from collections import defaultdict
-from typing import Dict, List, Optional
+from typing import Optional
 
 from geojson import FeatureCollection
 
@@ -415,8 +415,8 @@ def output_format_check(output_map: dict, output_lane_length_check: bool) -> Non
 
 def osm_format_checker(
     osm_cache_check: bool,
-    osm_data: Optional[List[Dict]] = None,
-    required_keys_dict: Optional[Dict[str, List[str]]] = None,
+    osm_data: Optional[list[dict]] = None,
+    required_keys_dict: Optional[dict[str, list[str]]] = None,
 ) -> None:
     if not osm_cache_check:
         return
@@ -430,7 +430,7 @@ def osm_format_checker(
         logging.warning(f"input OSM data is not iterable!")
     else:
         if not all(isinstance(d, dict) for d in osm_data):
-            logging.warning(f"Not all items in OSM data is a `Dict`!")
+            logging.warning(f"Not all items in OSM data is a `dict`!")
         else:
             for _key in ["type", "id"]:
                 if not all(_key in d for d in osm_data):

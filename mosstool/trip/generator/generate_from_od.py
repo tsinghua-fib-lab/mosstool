@@ -1,11 +1,11 @@
 import logging
 from collections import defaultdict
+from collections.abc import Callable
 from copy import deepcopy
 from functools import partial
 from math import ceil
 from multiprocessing import Pool, cpu_count
-from typing import (Callable, Dict, List, Literal, Optional, Set, Tuple, Union,
-                    cast)
+from typing import Any, Literal, Optional, Union, cast
 
 import numpy as np
 import pyproj
@@ -49,8 +49,30 @@ def _get_mode(p1, p2):
 
 
 def _get_mode_with_distribution(
-    p1: Tuple[float, float], p2: Tuple[float, float], profile: dict, seed: int = 0
+    partial_args: tuple[
+        list[str],
+        tuple[
+            float, float, float, float, float, float, float, float, float, float, float
+        ],
+    ],
+    p1: tuple[float, float],
+    p2: tuple[float, float],
+    profile: dict,
+    seed: int = 0,
 ):
+    available_trip_modes, (
+        SUBWAY_EXPENSE,
+        BUS_EXPENSE,
+        DRIVING_SPEED,
+        DRIVING_PENALTY,
+        SUBWAY_SPEED,
+        SUBWAY_PENALTY,
+        BUS_SPEED,
+        BUS_PENALTY,
+        BIKE_SPEED,
+        BIKE_PENALTY,
+        PARKING_FEE,
+    ) = partial_args
     (x1, y1), (x2, y2) = p1, p2
     distance = ((x2 - x1) ** 2 + (y2 - y1) ** 2) ** 0.5
     subway_expense = SUBWAY_EXPENSE
@@ -93,8 +115,8 @@ def _get_mode_with_distribution(
     return _all_trip_modes[choice_index]
 
 
-def _match_aoi_unit(projector, aoi):
-    global shapes
+def _match_aoi_unit(partial_args: tuple[list[Any],], aoi):
+    (shapes,) = partial_args
     p = aoi["shapely"].centroid
     for id, j in enumerate(shapes):
         if j.contains(p):
@@ -102,13 +124,51 @@ def _match_aoi_unit(projector, aoi):
     return None
 
 
-def _generate_unit(H, W, E, O, a_home_region, a_profile, modes, p_mode, seed, args):
+def _generate_unit(
+    partial_args: tuple[
+        np.ndarray,
+        np.ndarray,
+        np.ndarray,
+        np.ndarray,
+        dict[int, list[dict[str, Any]]],
+        dict[int, dict[str, Any]],
+        dict[str, list[int]],
+        int,
+        Any,
+        list[float],
+        int,
+    ],
+    get_mode_partial_args: tuple[
+        list[str],
+        tuple[
+            float, float, float, float, float, float, float, float, float, float, float
+        ],
+    ],
+    a_home_region: int,
+    a_profile: dict[str, Any],
+    modes: list[
+        Union[Literal["H"], Literal["W"], Literal["E"], Literal["O"], Literal["+"]]
+    ],
+    p_mode: list[float],
+    seed: int,
+):
     # Three steps
     # 1.determine person activity mode
     # 2.determine departure times
     # 3.generate trip according to OD-matrix
-    global region2aoi, aoi_map, aoi_type2ids
-    n_region, projector, departure_prob, LEN_OD_TIMES = args
+    (
+        H,
+        W,
+        E,
+        O,
+        region2aoi,
+        aoi_map,
+        aoi_type2ids,
+        n_region,
+        projector,
+        departure_prob,
+        LEN_OD_TIMES,
+    ) = partial_args
     OD_TIME_INTERVAL = 24 / LEN_OD_TIMES  # (hour)
 
     def choose_aoi_with_type(
@@ -126,7 +186,7 @@ def _generate_unit(H, W, E, O, a_home_region, a_profile, modes, p_mode, seed, ar
                 return region2aoi[region_id][0]
             popu = np.zeros(len(region_aois))
             for i, id in enumerate(region_aois):
-                popu[i] = aoi_map[id]["external"]["population"]
+                popu[i] = aoi_map[id]["external"]["population"]  # type:ignore
             if sum(popu) == 0:
                 idx = rng.choice(len(region_aois))
                 return region_aois[idx]
@@ -221,7 +281,9 @@ def _generate_unit(H, W, E, O, a_home_region, a_profile, modes, p_mode, seed, ar
         lon2, lat2 = aoi_map[next_aoi]["geo"][0][:2]
         p1 = projector(longitude=lon1, latitude=lat1)
         p2 = projector(longitude=lon2, latitude=lat2)
-        trip_modes.append(_get_mode_with_distribution(p1, p2, a_profile, seed))
+        trip_modes.append(
+            _get_mode_with_distribution(get_mode_partial_args, p1, p2, a_profile, seed)
+        )
 
     # determine activity
     activities = []
@@ -244,37 +306,100 @@ def _generate_unit(H, W, E, O, a_home_region, a_profile, modes, p_mode, seed, ar
     )
 
 
-def _process_agent_unit(args, d):
-    global home_dist, work_od, educate_od, other_od
-    _, seed, home_region, profile, mode, p_mode = d
+def _process_agent_unit(
+    partial_args_tuple: tuple[
+        tuple[
+            np.ndarray,
+            np.ndarray,
+            np.ndarray,
+            np.ndarray,
+            dict[int, list[dict[str, Any]]],
+            dict[int, dict[str, Any]],
+            dict[str, list[int]],
+            int,
+            Any,
+            list[float],
+            int,
+        ],
+        tuple[
+            list[str],
+            tuple[
+                float,
+                float,
+                float,
+                float,
+                float,
+                float,
+                float,
+                float,
+                float,
+                float,
+                float,
+            ],
+        ],
+    ],
+    arg: tuple[
+        int,
+        int,
+        int,
+        dict[str, Any],
+        list[
+            Union[Literal["H"], Literal["W"], Literal["E"], Literal["O"], Literal["+"]]
+        ],
+        list[float],
+    ],
+):
+    partial_args, get_mode_partial_args = partial_args_tuple
+    _, seed, home_region, profile, mode, p_mode = arg
     return _generate_unit(
-        home_dist,
-        work_od,
-        educate_od,
-        other_od,
+        partial_args,
+        get_mode_partial_args,
         home_region,
         profile,
         mode,
         p_mode,
         seed,
-        args,
     )
 
 
 def _fill_sch_unit(
-    O,
-    p_home,
-    p_home_region,
-    p_work,
-    p_work_region,
-    p_profile,
-    modes,
-    p_mode,
-    seed,
-    args,
+    partial_args: tuple[
+        np.ndarray,
+        dict[int, list[dict[str, Any]]],
+        dict[int, dict[str, Any]],
+        dict[str, list[int]],
+        int,
+        Any,
+        list[float],
+        int,
+    ],
+    get_mode_partial_args: tuple[
+        list[str],
+        tuple[
+            float, float, float, float, float, float, float, float, float, float, float
+        ],
+    ],
+    p_home: int,
+    p_home_region: int,
+    p_work: int,
+    p_work_region: int,
+    p_profile: dict[str, Any],
+    modes: list[
+        Union[Literal["H"], Literal["W"], Literal["E"], Literal["O"], Literal["+"]]
+    ],
+    p_mode: list[float],
+    seed: int,
 ):
-    global region2aoi, aoi_map, aoi_type2ids
-    n_region, projector, departure_prob, LEN_OD_TIMES = args
+    (
+        O,
+        region2aoi,
+        aoi_map,
+        aoi_type2ids,
+        n_region,
+        projector,
+        departure_prob,
+        LEN_OD_TIMES,
+    ) = partial_args
     OD_TIME_INTERVAL = 24 / LEN_OD_TIMES  # (hour)
 
     def choose_aoi_with_type(
@@ -292,7 +417,7 @@ def _fill_sch_unit(
                 return region2aoi[region_id][0]
             popu = np.zeros(len(region_aois))
             for i, id in enumerate(region_aois):
-                popu[i] = aoi_map[id]["external"]["population"]
+                popu[i] = aoi_map[id]["external"]["population"]  # type:ignore
             if sum(popu) == 0:
                 idx = rng.choice(len(region_aois))
                 return region_aois[idx]
@@ -349,7 +474,9 @@ def _fill_sch_unit(
         lon2, lat2 = aoi_map[next_aoi]["geo"][0][:2]
         p1 = projector(longitude=lon1, latitude=lat1)
         p2 = projector(longitude=lon2, latitude=lat2)
-        trip_modes.append(_get_mode_with_distribution(p1, p2, p_profile, seed))
+        trip_modes.append(
+            _get_mode_with_distribution(get_mode_partial_args, p1, p2, p_profile, seed)
+        )
 
     # determine activity
     activities = []
@@ -366,8 +493,49 @@ def _fill_sch_unit(
     )
 
 
-def _fill_person_schedule_unit(args, d):
-    global other_od
+def _fill_person_schedule_unit(
+    partial_args_tuple: tuple[
+        tuple[
+            np.ndarray,
+            dict[int, list[dict[str, Any]]],
+            dict[int, dict[str, Any]],
+            dict[str, list[int]],
+            int,
+            Any,
+            list[float],
+            int,
+        ],
+        tuple[
+            list[str],
+            tuple[
+                float,
+                float,
+                float,
+                float,
+                float,
+                float,
+                float,
+                float,
+                float,
+                float,
+                float,
+            ],
+        ],
+    ],
+    arg: tuple[
+        int,
+        int,
+        int,
+        int,
+        int,
+        dict[str, Any],
+        list[
+            Union[Literal["H"], Literal["W"], Literal["E"], Literal["O"], Literal["+"]]
+        ],
+        list[float],
+        int,
+    ],
+):
     (
         p_id,
         p_home,
@@ -378,9 +546,11 @@ def _fill_person_schedule_unit(args, d):
         modes,
         p_mode,
         seed,
-    ) = d
+    ) = arg
+    partial_args, get_mode_partial_args = partial_args_tuple
     return _fill_sch_unit(
-        other_od,
+        partial_args,
+        get_mode_partial_args,
         p_home,
         p_home_region,
         p_work,
@@ -389,7 +559,6 @@ def _fill_person_schedule_unit(args, d):
         modes,
         p_mode,
         seed,
-        args,
     )
 
 
@@ -443,7 +612,6 @@ class TripGenerator:
         - multiprocessing_chunk_size (int): the maximum size of each multiprocessing chunk
         - workers (int): number of workers.
         """
-        global SUBWAY_EXPENSE, BUS_EXPENSE, DRIVING_SPEED, DRIVING_PENALTY, SUBWAY_SPEED, SUBWAY_PENALTY, BUS_SPEED, BUS_PENALTY, BIKE_SPEED, BIKE_PENALTY, PARKING_FEE
         SUBWAY_EXPENSE, BUS_EXPENSE = subway_expense, bus_expense
         DRIVING_SPEED, DRIVING_PENALTY, PARKING_FEE = (
             driving_speed,
@@ -453,15 +621,27 @@ class TripGenerator:
         SUBWAY_SPEED, SUBWAY_PENALTY = subway_speed, subway_penalty
         BUS_SPEED, BUS_PENALTY = bus_speed, bus_penalty
         BIKE_SPEED, BIKE_PENALTY = bike_speed, bike_penalty
+        self._trip_mode_cost_partial_args = (
+            SUBWAY_EXPENSE,
+            BUS_EXPENSE,
+            DRIVING_SPEED,
+            DRIVING_PENALTY,
+            SUBWAY_SPEED,
+            SUBWAY_PENALTY,
+            BUS_SPEED,
+            BUS_PENALTY,
+            BIKE_SPEED,
+            BIKE_PENALTY,
+            PARKING_FEE,
+        )
         self.m = m
         self.pop_tif_path = pop_tif_path
         self.add_pop = add_pop
         self.projector = pyproj.Proj(m.header.projection)
+        self.max_chunk_size = multiprocessing_chunk_size
         self.workers = workers
         self.template = template_func
         self.persons = []
-        global MAX_CHUNK_SIZE
-        MAX_CHUNK_SIZE = multiprocessing_chunk_size
         # activity proportion
         if activity_distributions is not None:
             ori_modes_stat = {
@@ -591,18 +771,18 @@ class TripGenerator:
         self.od_prob = od_prob
 
     def _match_aoi2region(self):
-        global shapes
-        shapes = self.area_shapes
         aois = self.aois
         results = []
-        _match_aoi_unit_with_arg = partial(_match_aoi_unit, self.projector)
+        _match_aoi_unit_with_arg = partial(_match_aoi_unit, (self.area_shapes,))
         for i in range(0, len(aois), MAX_BATCH_SIZE):
             aois_batch = aois[i : i + MAX_BATCH_SIZE]
             with Pool(processes=self.workers) as pool:
                 results += pool.map(
                     _match_aoi_unit_with_arg,
                     aois_batch,
-                    chunksize=min(ceil(len(aois_batch) / self.workers), MAX_CHUNK_SIZE),
+                    chunksize=min(
+                        ceil(len(aois_batch) / self.workers), self.max_chunk_size
+                    ),
                 )
         results = [r for r in results if r is not None]
         for r in results:
@@ -617,13 +797,15 @@ class TripGenerator:
         area_pops: Optional[list] = None,
         person_profiles: Optional[list] = None,
         seed: int = 0,
+        max_chunk_size: int = 500,
     ):
-        global region2aoi, aoi_map, aoi_type2ids
-        global home_dist, work_od, other_od, educate_od
-        global available_trip_modes
         available_trip_modes = self.available_trip_modes
         if "bus" in available_trip_modes and "subway" in available_trip_modes:
             available_trip_modes.append("bus_subway")
+        get_mode_partial_args = (
+            available_trip_modes,
+            self._trip_mode_cost_partial_args,
+        )
         region2aoi = self.region2aoi
         aoi_map = {d["id"]: d for d in self.aois}
         n_region = len(self.regions)
@@ -650,7 +832,7 @@ class TripGenerator:
         if person_profiles is not None:
             a_profiles = person_profiles
         else:
-            a_profiles = gen_profiles(agent_num, self.workers, MAX_CHUNK_SIZE)
+            a_profiles = gen_profiles(agent_num, self.workers, max_chunk_size)
         a_modes = [self.modes for _ in range(agent_num)]
         a_p_modes = [self.p_mode for _ in range(agent_num)]
         for i, (a_home_region, a_profile, a_mode, a_p_mode) in enumerate(
@@ -667,12 +849,21 @@ class TripGenerator:
                 )
             )
         partial_args = (
+            home_dist,
+            work_od,
+            educate_od,
+            other_od,
+            region2aoi,
+            aoi_map,
+            aoi_type2ids,
             len(self.regions),
             self.projector,
             self.departure_prob,
             self.LEN_OD_TIMES,
         )
-        _process_agent_unit_with_arg = partial(_process_agent_unit, partial_args)
+        _process_agent_unit_with_arg = partial(
+            _process_agent_unit, (partial_args, get_mode_partial_args)  # type:ignore
+        )
         raw_persons = []
         for i in range(0, len(agent_args), MAX_BATCH_SIZE):
             agent_args_batch = agent_args[i : i + MAX_BATCH_SIZE]
@@ -681,7 +872,7 @@ class TripGenerator:
                     _process_agent_unit_with_arg,
                     agent_args_batch,
                     chunksize=min(
-                        ceil(len(agent_args_batch) / self.workers), MAX_CHUNK_SIZE
+                        ceil(len(agent_args_batch) / self.workers), max_chunk_size
                     ),
                 )
         raw_persons = [r for r in raw_persons]
@@ -725,32 +916,32 @@ class TripGenerator:
         self,
         od_matrix: np.ndarray,
         areas: GeoDataFrame,
-        available_trip_modes: List[str] = ["drive", "walk", "bus", "subway", "taxi"],
+        available_trip_modes: list[str] = ["drive", "walk", "bus", "subway", "taxi"],
         departure_time_curve: Optional[list[float]] = None,
         area_pops: Optional[list] = None,
         person_profiles: Optional[list[dict]] = None,
         seed: int = 0,
         agent_num: Optional[int] = None,
-    ) -> List[Person]:
+    ) -> list[Person]:
         """
         Args:
         - od_matrix (numpy.ndarray): The OD matrix.
         - areas (GeoDataFrame): The area data. Must contain a 'geometry' column with geometric information and a defined `crs` string.
         - available_trip_modes (list[str]): available trip modes for person schedules.
-        - departure_time_curve (Optional[List[float]]): The departure time of a day (24h). The resolution must >=1h.
+        - departure_time_curve (Optional[list[float]]): The departure time of a day (24h). The resolution must >=1h.
         - area_pops (list): list of populations in each area. If is not None, # of the persons departs from each home position is exactly equal to the given pop num.
-        - person_profiles (Optional[List[dict]]): list of profiles in dict format.
+        - person_profiles (Optional[list[dict]]): list of profiles in dict format.
         - seed (int): The random seed.
         - agent_num (int): number of agents to generate.
 
         Returns:
-        - List[Person]: The generated person objects.
+        - list[Person]: The generated person objects.
         """
         # init
         self.area_shapes = []
         self.aoi2region = defaultdict(list)
-        self.region2aoi = defaultdict(list)
-        self.aoi_type2ids = defaultdict(list)
+        self.region2aoi: dict[int, list[dict[str, Any]]] = defaultdict(list)
+        self.aoi_type2ids: dict[str, list[int]] = defaultdict(list)
         self.persons = []
         # user input time curve
         if departure_time_curve is not None:
@@ -773,10 +964,12 @@ class TripGenerator:
         if not agent_num >= 1:
             logging.warning("agent_num should >=1")
             return []
-        self._generate_mobi(agent_num, area_pops, person_profiles, seed)
+        self._generate_mobi(
+            agent_num, area_pops, person_profiles, seed, self.max_chunk_size
+        )
         return self.persons
 
-    def _get_driving_pos_dict(self) -> Dict[Tuple[int, int], LanePosition]:
+    def _get_driving_pos_dict(self) -> dict[tuple[int, int], LanePosition]:
         road_aoi_id2d_pos = {}
         road_id2d_lane_ids = {}
         lane_id2parent_road_id = {}
@@ -812,7 +1005,7 @@ class TripGenerator:
         template_func: Optional[Callable[[], Person]] = None,
         stop_duration_time: float = 30.0,
         seed: int = 0,
-    ) -> List[Person]:
+    ) -> list[Person]:
         """
         Args:
         - template_func (Optional[Callable[[],Person]]): The template function of generated person object, whose `schedules`, `home` will be replaced and others will be copied. If not provided, the `temp_func` provided in `__init__` will be utilized.
@@ -820,7 +1013,7 @@ class TripGenerator:
         - seed (int): The random seed.
 
         Returns:
-        - List[Person]: The generated driver objects.
+        - list[Person]: The generated driver objects.
         """
         self.persons = []
         road_aoi_id2d_pos = self._get_driving_pos_dict()
@@ -841,10 +1034,7 @@ class TripGenerator:
             self.persons.extend(generated_drivers)
         return self.persons
 
-    def _generate_schedules(self, input_persons: List[Person], seed: int):
-        global region2aoi, aoi_map, aoi_type2ids
-        global home_dist, work_od, other_od, educate_od
-        global available_trip_modes
+    def _generate_schedules(self, input_persons: list[Person], seed: int):
         available_trip_modes = self.available_trip_modes
         if "bus" in available_trip_modes and "subway" in available_trip_modes:
             available_trip_modes.append("bus_subway")
@@ -901,7 +1091,15 @@ class TripGenerator:
         no_process_persons = [
             p for idx, p in enumerate(orig_persons) if idx in bad_person_indexes
         ]
+        get_mode_partial_args = (
+            available_trip_modes,
+            self._trip_mode_cost_partial_args,
+        )
         partial_args = (
+            other_od,
+            region2aoi,
+            aoi_map,
+            self.aoi_type2ids,
             len(self.regions),
             self.projector,
             self.departure_prob,
@@ -909,8 +1107,10 @@ class TripGenerator:
         )
         filled_schedules = []
         _fill_person_schedule_unit_with_arg = partial(
-            _fill_person_schedule_unit, partial_args
+            _fill_person_schedule_unit,
+            (partial_args, get_mode_partial_args),  # type:ignore
         )
+
         for i in range(0, len(person_args), MAX_BATCH_SIZE):
             person_args_batch = person_args[i : i + MAX_BATCH_SIZE]
             with Pool(processes=self.workers) as pool:
@@ -918,7 +1118,7 @@ class TripGenerator:
                     _fill_person_schedule_unit_with_arg,
                     person_args_batch,
                     chunksize=min(
-                        ceil(len(person_args_batch) / self.workers), MAX_CHUNK_SIZE
+                        ceil(len(person_args_batch) / self.workers), self.max_chunk_size
                     ),
                 )
         for (
@@ -961,26 +1161,26 @@ class TripGenerator:
 
     def fill_person_schedules(
         self,
-        input_persons: List[Person],
+        input_persons: list[Person],
         od_matrix: np.ndarray,
         areas: GeoDataFrame,
-        available_trip_modes: List[str] = ["drive", "walk", "bus", "subway", "taxi"],
+        available_trip_modes: list[str] = ["drive", "walk", "bus", "subway", "taxi"],
         departure_time_curve: Optional[list[float]] = None,
         seed: int = 0,
-    ) -> List[Person]:
+    ) -> list[Person]:
         """
         Generate person schedules.
 
         Args:
-        - input_persons (List[Person]): Input Person objects.
+        - input_persons (list[Person]): Input Person objects.
         - od_matrix (numpy.ndarray): The OD matrix.
         - areas (GeoDataFrame): The area data. Must contain a 'geometry' column with geometric information and a defined `crs` string.
-        - available_trip_modes (Optional[List[str]]): available trip modes for person schedules.
-        - departure_time_curve (Optional[List[float]]): The departure time of a day (24h). The resolution must >=1h.
+        - available_trip_modes (Optional[list[str]]): available trip modes for person schedules.
+        - departure_time_curve (Optional[list[float]]): The departure time of a day (24h). The resolution must >=1h.
         - seed (int): The random seed.
 
         Returns:
-        - List[Person]: The person objects with generated schedules.
+        - list[Person]: The person objects with generated schedules.
         """
         # init
         self.area_shapes = []
@@ -1011,19 +1211,19 @@ class TripGenerator:
     def generate_taxi_drivers(
         self,
         template_func: Optional[Callable[[], Person]] = None,
-        parking_positions: Optional[List[Union[LanePosition, AoiPosition]]] = None,
+        parking_positions: Optional[list[Union[LanePosition, AoiPosition]]] = None,
         agent_num: Optional[int] = None,
         seed: int = 0,
-    ) -> List[Person]:
+    ) -> list[Person]:
         """
         Args:
         - template_func (Optional[Callable[[],Person]]): The template function of generated person object, whose `schedules`, `home` will be replaced and others will be copied. If not provided, the `temp_func` provided in `__init__` will be utilized.
-        - parking_positions (Optional[List[Union[LanePosition,AoiPosition]]]): The parking positions of each taxi.
+        - parking_positions (Optional[list[Union[LanePosition,AoiPosition]]]): The parking positions of each taxi.
         - agent_num (Optional[int]): The taxi driver num.
         - seed (int): The random seed.
 
         Returns:
-        - List[Person]: The generated driver objects.
+        - list[Person]: The generated driver objects.
         """
         self.persons = []
         person_id = TAXI_START_ID

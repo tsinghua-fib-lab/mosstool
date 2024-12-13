@@ -1,8 +1,11 @@
-from typing import Awaitable, cast
+from collections.abc import Awaitable
+from typing import cast
 
 import grpc
+from pycityproto.city.routing.v2 import \
+    routing_service_pb2_grpc as routing_grpc
+
 from ...type import GetRouteRequest, GetRouteResponse
-from pycityproto.city.routing.v2 import routing_service_pb2_grpc as routing_grpc
 
 __all__ = [
     "RoutingClient",

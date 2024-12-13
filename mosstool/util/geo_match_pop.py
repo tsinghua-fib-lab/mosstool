@@ -7,13 +7,14 @@ from copy import deepcopy
 from functools import partial
 from math import asin, ceil, cos, floor, radians, sin, sqrt
 from multiprocessing import Pool, cpu_count
-from typing import List, Optional, Tuple, Union, cast
+from typing import Any, Literal, Optional, Union, cast
 
 import numpy as np
 import rasterio
 from geojson import FeatureCollection
 from geopandas.geodataframe import GeoDataFrame
 from shapely.geometry import MultiPolygon, Point, Polygon
+
 from ..map._map_util.const import *
 
 __all__ = ["geo2pop"]
@@ -32,8 +33,8 @@ def geo_coords(geo):
 
 
 def _gps_distance(
-    LON1: Union[float, Tuple[float, float]],
-    LAT1: Union[float, Tuple[float, float]],
+    LON1: Union[float, tuple[float, float]],
+    LAT1: Union[float, tuple[float, float]],
     LON2: Optional[float] = None,
     LAT2: Optional[float] = None,
 ):
@@ -41,8 +42,8 @@ def _gps_distance(
     GPS distance
     """
     if LON2 == None:  # input is [lon1,lat1], [lon2,lat2]
-        lon1, lat1 = cast(Tuple[float, float], LON1)
-        lon2, lat2 = cast(Tuple[float, float], LAT1)
+        lon1, lat1 = cast(tuple[float, float], LON1)
+        lon2, lat2 = cast(tuple[float, float], LAT1)
     else:  # input is lon1, lat1, lon2, lat2
         assert LAT2 != None, "LON2 and LAT2 should be both None or both not None"
         LON1 = cast(float, LON1)
@@ -55,7 +56,14 @@ def _gps_distance(
     return float(2 * asin(sqrt(a)) * 6371393)
 
 
-def _get_idx_range_in_bbox(min_x, max_x, min_y, max_y, xy_bound, mode="loose"):
+def _get_idx_range_in_bbox(
+    min_x: float,
+    max_x: float,
+    min_y: float,
+    max_y: float,
+    xy_bound: tuple[float, float, float, float],
+    mode: Union[Literal["loose"], Literal["tight"]] = "loose",
+):
     """
     Get all pixel_idx in a longitude and latitude bbox. For processing at the boundary, there are two modes: "loose" and "tight"
     """
@@ -79,7 +87,15 @@ def _get_idx_range_in_bbox(min_x, max_x, min_y, max_y, xy_bound, mode="loose"):
     return i_min, i_max, j_min, j_max
 
 
-def _get_pixel_info(band, x_left, y_upper, x_step, y_step, bbox, padding=20):
+def _get_pixel_info(
+    band,
+    x_left: float,
+    y_upper: float,
+    x_step: float,
+    y_step: float,
+    bbox: tuple[float, float, float, float],
+    padding: int = 20,
+):
     """
     Get the information of each WorldPop_pixel within the latitude and longitude range: {idx(i,j) : (Point(lon, lat), population)}
     Original data pixel size: lon_step: 0.0008333333, lat_step: -0.0008333333, ~ 100m * 100m
@@ -111,12 +127,15 @@ def _get_pixel_info(band, x_left, y_upper, x_step, y_step, bbox, padding=20):
     }
 
 
-def _upsample_pixels_unit(arg):
+def _upsample_pixels_unit(
+    partial_args: tuple[list[Any],],
+    arg: tuple[tuple[int, float, float], tuple[tuple[int, int], tuple[Point, int]]],
+):
     """
     The original pixel is about 100 * 100, now it is divided equally into (100/n) * (100/n)
     The population is not evenly distributed among all cells, but is evenly divided by the cells covered by aoi.
     """
-    global all_geos
+    (all_geos,) = partial_args
     (n_upsample, x_step, y_step), ((i, j), (point, pop)) = arg
     ni, nj = n_upsample * i, n_upsample * j
     x, y = point.x, point.y
@@ -167,20 +186,31 @@ def _upsample_pixels_idiot_unit(arg):
     ]
 
 
-def _get_poly_pop_unit(arg, geo_item):
+def _get_poly_pop_unit(
+    partial_args: tuple[
+        dict[tuple[int, int], tuple[Point, int]],
+        float,
+        float,
+        float,
+        float,
+        float,
+        float,
+    ],
+    geo_item: tuple[int, tuple[Any, tuple[float, float, float, float]]],
+):
     """
     Estimate the polygonal box: take the population sum of the pixels falling inside it
     If aoi is too small so that no pixel falls within it, take the population of the pixel where it is located and multiply it by the area ratio of aoi to pixel.
     """
-    global pixel_idx2point_pop
     (
+        pixel_idx2point_pop,
         x_left,
         y_upper,
         x_step,
         y_step,
         xy_gps_scale2,
         pixel_area,
-    ) = arg
+    ) = partial_args
     idx, (poly, (min_x, min_y, max_x, max_y)) = geo_item
     i_min, i_max, j_min, j_max = _get_idx_range_in_bbox(
         min_x=min_x,
@@ -223,16 +253,19 @@ def _get_poly_pop_unit(arg, geo_item):
 
 def _get_geo_pop(
     geos,
-    workers,
-    x_left,
-    y_upper,
-    x_step,
-    y_step,
-    xy_gps_scale2,
-    pixel_area,
+    pixel_idx2point_pop: dict[tuple[int, int], tuple[Point, int]],
+    workers: int,
+    x_left: float,
+    y_upper: float,
+    x_step: float,
+    y_step: float,
+    xy_gps_scale2: float,
+    pixel_area: float,
+    max_chunk_size: int,
 ):
     geos_dict = {i: d for i, d in enumerate(geos)}
-    arg = (
+    partial_args = (
+        pixel_idx2point_pop,
         x_left,
         y_upper,
         x_step,
@@ -240,7 +273,7 @@ def _get_geo_pop(
         xy_gps_scale2,
         pixel_area,
     )
-    _get_poly_pop_unit_with_arg = partial(_get_poly_pop_unit, arg)
+    _get_poly_pop_unit_with_arg = partial(_get_poly_pop_unit, partial_args)
     result = []
     list_geos_items = list(geos_dict.items())
     for i in range(0, len(list_geos_items), MAX_BATCH_SIZE):
@@ -250,7 +283,7 @@ def _get_geo_pop(
                 _get_poly_pop_unit_with_arg,
                 list_geos_items_batch,
                 chunksize=min(
-                    ceil(len(list_geos_items_batch) / workers), MAX_CHUNK_SIZE
+                    ceil(len(list_geos_items_batch) / workers), max_chunk_size
                 ),
             )
 
@@ -276,15 +309,11 @@ def geo2pop(
     Returns:
     - geo_data (GeoDataFrame | FeatureCollection): geo files with population.
     """
-
-    global pixel_idx2point_pop, all_geos
     geo_data = deepcopy(geo_data)
     orig_geo_data = deepcopy(geo_data)
     geo_type = type(geo_data)
     all_geos = []
     all_coords_lonlat = []
-    global MAX_CHUNK_SIZE
-    MAX_CHUNK_SIZE = multiprocessing_chunk_size
     if not geo_type in [GeoDataFrame, FeatureCollection]:
         logging.warning(f"Unsupported data type {geo_type}")
         return geo_data
@@ -353,15 +382,16 @@ def geo2pop(
     logging.info(f"Up-sampling pixel: {n_upsample} cut the pixel length")
     list_pixel2pop = list(pixel_idx2point_pop.items())
     results = []
+    partial_upsample_pixels_unit = partial(_upsample_pixels_unit, (all_geos,))
     for i in range(0, len(list_pixel2pop), MAX_BATCH_SIZE):
         list_pixel2pop_batch = list_pixel2pop[i : i + MAX_BATCH_SIZE]
         with Pool(processes=workers) as pool:
             results += pool.map(
-                _upsample_pixels_unit,
+                partial_upsample_pixels_unit,
                 [((n_upsample, x_step, y_step), d) for d in list_pixel2pop_batch],
                 chunksize=min(
                     ceil(len(list_pixel2pop_batch) / workers),
-                    MAX_CHUNK_SIZE,
+                    multiprocessing_chunk_size,
                 ),
             )
     pixel_idx2point_pop = {k: v for x in results for k, v in x}
@@ -381,13 +411,14 @@ def geo2pop(
                 [((n_upsample, x_step, y_step), d) for d in list_pixel2pop_batch],
                 chunksize=min(
                     ceil(len(list_pixel2pop_batch) / workers),
-                    MAX_CHUNK_SIZE,
+                    multiprocessing_chunk_size,
                 ),
             )
     pixel_idx2point_pop = {k: v for x in results for k, v in x}
     logging.info(f"Adding populations")
     idx2pop = _get_geo_pop(
         all_geos,
+        pixel_idx2point_pop,
         workers,
         x_left,
         y_upper,
@@ -395,6 +426,7 @@ def geo2pop(
         y_step,
         xy_gps_scale2,
         pixel_area,
+        multiprocessing_chunk_size,
     )
     geo_total_pop = sum(idx2pop.values())
     # Post-processing, multiply by the proportional coefficient so that the total population within aoi is total_pop * pop_in_aoi_factor

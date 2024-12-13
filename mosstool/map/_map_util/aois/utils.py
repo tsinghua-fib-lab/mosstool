@@ -1,6 +1,8 @@
 import logging
+from functools import partial
 from math import ceil
 from multiprocessing import Pool
+from typing import Any
 
 import shapely.ops as ops
 from shapely.affinity import scale
@@ -51,7 +53,7 @@ def _fix_polygon(input_poly: Polygon):
         return polygon
 
 
-def _fix_aois_poly(input_aois: list) -> list:
+def _fix_aois_poly(input_aois: list) -> list[dict[str, Any]]:
     aois = []
     for aoi in input_aois:
         coords = aoi["coords"]
@@ -62,11 +64,11 @@ def _fix_aois_poly(input_aois: list) -> list:
     return aois
 
 
-def _connect_aoi_unit1(poly):
+def _connect_aoi_unit1(partial_args: tuple[list[dict[str, Any]],], poly: Polygon):
     """
     Find the children aoi of each poly in the merged geometry
     """
-    global aois_small
+    (aois_small,) = partial_args
     x, y = geo_coords(poly.centroid)[0]
     length = poly.length
     children = []
@@ -83,7 +85,7 @@ def _connect_aoi_unit1(poly):
         return
 
 
-def _connect_aoi_unit2(arg):
+def _connect_aoi_unit2(arg: tuple[Any, list[dict[str, Any]]]):
     """
     Remove the redundant shapes caused by amplification of the connected aoi (not exceeding the closed convex hull formed by all the vertices of the original small aoi)
     """
@@ -133,10 +135,13 @@ def _connect_aoi_unit2(arg):
         }
 
 
-def _find_aoi_parent_unit(i_aoi):
+def _find_aoi_parent_unit(
+    partial_args: tuple[list[dict[str, Any]],], i_aoi: tuple[int, dict[str, Any]]
+):
     """
     Find out when aoi is contained by other aoi
     """
+    (aois_to_merge,) = partial_args
     i, aoi = i_aoi
     aoi["duplicate"] = set()
     aoi["has_parent"] = False
@@ -171,7 +176,12 @@ def _find_aoi_parent_unit(i_aoi):
     return aoi
 
 
-def _merge_aoi(input_aois: list, merge_aoi: bool = False, workers: int = 32):
+def _merge_aoi(
+    input_aois: list,
+    max_chunk_size: int,
+    merge_aoi: bool = False,
+    workers: int = 32,
+):
     """
     Integrate the contained small aoi into the large aoi
     """
@@ -192,16 +202,15 @@ def _merge_aoi(input_aois: list, merge_aoi: bool = False, workers: int = 32):
         return aois
     logging.info("Merging aoi")
     # Parallelization: Find aoi that are not contained by any aoi
-    global aois_to_merge
     aois_to_merge = aois
     logging.info(f"Multiprocessing for merging aoi")
-
+    partial_find_aoi_parent_unit = partial(_find_aoi_parent_unit, (aois_to_merge,))
     aois = [(i, a) for i, a in enumerate(aois)]
     with Pool(processes=workers) as pool:
         aois = pool.map(
-            _find_aoi_parent_unit,
+            partial_find_aoi_parent_unit,
             aois,
-            chunksize=min(ceil(len(aois) / workers), MAX_CHUNK_SIZE),
+            chunksize=min(ceil(len(aois) / workers), max_chunk_size),
         )
 
     aois_ancestor = []
@@ -221,7 +230,9 @@ def _merge_aoi(input_aois: list, merge_aoi: bool = False, workers: int = 32):
 
 
 # Connect small and nearby aoi groups
-def _connect_aoi(input_aois: list, merge_aoi: bool = False, workers: int = 32):
+def _connect_aoi(
+    input_aois: list, max_chunk_size: int, merge_aoi: bool = False, workers: int = 32
+):
     """
     Connecting piles of small houses into a residential area
     """
@@ -242,22 +253,21 @@ def _connect_aoi(input_aois: list, merge_aoi: bool = False, workers: int = 32):
         return aois
     logging.info("Connecting aoi")
     # Take the aoi with smaller area
-    global aois_small
     aois_small = [aoi for aoi in aois if aoi["area"] < SMALL_GATE]
     aois_other = [aoi for aoi in aois if aoi["area"] >= SMALL_GATE]
     logging.info("aois_small:", len(aois_small))
     logging.info("aois_other:", len(aois_other))
-
     # Magnify to a certain proportion and merge intersecting graphics
     polys = [aoi["geo"] for aoi in aois_small]
     polys_scale = [scale(p, xfact=SCALE, yfact=SCALE, origin="centroid") for p in polys]
     geo_scale_connect = ops.unary_union(polys_scale)
     args = list(geo_scale_connect.geoms)  # type: ignore
+    partial_connect_aoi_unit1 = partial(_connect_aoi_unit1, (aois_small,))
     with Pool(processes=workers) as pool:
         results = pool.map(
-            _connect_aoi_unit1,
+            partial_connect_aoi_unit1,
             args,
-            chunksize=max(min(ceil(len(args) / workers), MAX_CHUNK_SIZE), 1),
+            chunksize=max(min(ceil(len(args) / workers), max_chunk_size), 1),
         )
     results = [x for x in results if x]
     clusters = [x[:2] for x in results]
@@ -270,27 +280,24 @@ def _connect_aoi(input_aois: list, merge_aoi: bool = False, workers: int = 32):
         results = pool.map(
             _connect_aoi_unit2,
             clusters,
-            chunksize=max(min(ceil(len(clusters) / workers), MAX_CHUNK_SIZE), 1),
+            chunksize=max(min(ceil(len(clusters) / workers), max_chunk_size), 1),
         )
     aois_connect = [x for x in results if isinstance(x, dict)]
     aois_other += sum([x for x in results if isinstance(x, list)], [])
     return aois_other + aois_connect
 
 
-def _match_poi_unit(poi):
+def _match_poi_unit(partial_args: tuple[list[dict[str, Any]]], poi: dict[str, Any]):
     """
     Match the poi to the aoi that directly covers it or is the closest and less than the threshold
     """
-
-    global aois_to_match_poi
-    global iso_poi_set
-    iso_poi_set = ISOLATED_POI_CATG
+    (aois_to_match_poi,) = partial_args
     x, y = poi["coords"][0]
     point = Point(x, y)
     poi["point"] = point
 
     for c in poi["external"]["catg"].split("|"):
-        if c in iso_poi_set:
+        if c in ISOLATED_POI_CATG:
             return (poi, THIS_IS_ISOLATE_POI)
 
     # parents = []
@@ -345,26 +352,30 @@ def _process_stops(stops):
     return stops
 
 
-def _match_poi_to_aoi(aois, pois, workers):
+def _match_poi_to_aoi(
+    aois: list[dict[str, Any]],
+    pois: list[dict[str, Any]],
+    workers: int,
+    max_chunk_size: int,
+):
     """
     poi matches aoi:
     Directly dependent items covered by existing aoi go in
     Those that are not covered, such as bus stations, become new aoi; non-bus stations are subordinate to the nearest aoi within a certain distance; those that are too far away from the existing aoi become new aoi
     """
-    global aois_to_match_poi
-    aois_to_match_poi = aois  # global variable!
-
     # Calculate whether each poi is covered. If not, calculate the projection onto the nearest aoi.
     logging.info(f"Multiprocessing for matching poi({len(pois)}) to aoi({len(aois)})")
     results = []
+    aois_to_match_poi = aois
+    partial_match_poi_unit = partial(_match_poi_unit, (aois_to_match_poi,))
     for i in range(0, len(pois), MAX_BATCH_SIZE):
         pois_batch = pois[i : i + MAX_BATCH_SIZE]
         with Pool(processes=workers) as pool:
             results += pool.map(
-                _match_poi_unit,
+                partial_match_poi_unit,
                 pois_batch,
                 chunksize=max(
-                    min(ceil(len(pois_batch) / workers), MAX_CHUNK_SIZE),
+                    min(ceil(len(pois_batch) / workers), max_chunk_size),
                     1,
                 ),
             )
@@ -420,17 +431,17 @@ def generate_aoi_poi(
     workers: int = 32,
     multiprocessing_chunk_size: int = 500,
 ):
-    global MAX_CHUNK_SIZE
-    MAX_CHUNK_SIZE = multiprocessing_chunk_size
     merge_aoi = False
     input_aois = _fix_aois_poly(input_aois)
     # Process covered AOI
-    input_aois = _merge_aoi(input_aois, merge_aoi, workers)
+    input_aois = _merge_aoi(input_aois, multiprocessing_chunk_size, merge_aoi, workers)
     # Connect small and nearby aoi groups
-    input_aois = _connect_aoi(input_aois, merge_aoi, workers)
+    input_aois = _connect_aoi(
+        input_aois, multiprocessing_chunk_size, merge_aoi, workers
+    )
     # Process and join poi: belong to aoi or become an independent aoi
     aois_add_poi, pois_isolate, pois_output = _match_poi_to_aoi(
-        input_aois, input_pois, workers
+        input_aois, input_pois, workers, multiprocessing_chunk_size
     )
     # Convert format to output
     aois_output = _post_compute_aoi_poi(aois_add_poi, pois_isolate)
@@ -446,13 +457,13 @@ def generate_sumo_aoi_poi(
     merge_aoi: bool = False,
     multiprocessing_chunk_size: int = 500,
 ):
-    global MAX_CHUNK_SIZE
-    MAX_CHUNK_SIZE = multiprocessing_chunk_size
     input_aois = _fix_aois_poly(input_aois)
-    input_aois = _merge_aoi(input_aois, merge_aoi, workers)
-    input_aois = _connect_aoi(input_aois, merge_aoi, workers)
+    input_aois = _merge_aoi(input_aois, multiprocessing_chunk_size, merge_aoi, workers)
+    input_aois = _connect_aoi(
+        input_aois, multiprocessing_chunk_size, merge_aoi, workers
+    )
     aois_add_poi, pois_isolate, pois_output = _match_poi_to_aoi(
-        input_aois, input_pois, workers
+        input_aois, input_pois, workers, multiprocessing_chunk_size
     )
     aois_output = _post_compute_aoi_poi(aois_add_poi, pois_isolate)
     stops_output = _process_stops(input_stops)

@@ -1,5 +1,6 @@
+from collections.abc import Callable
 from enum import Enum
-from typing import Callable, List, Literal, Optional, Tuple, Union, cast
+from typing import Optional, Union, cast
 
 import numpy as np
 from pycityproto.city.geo.v2.geo_pb2 import AoiPosition, LanePosition, Position
@@ -27,14 +28,14 @@ class RandomGenerator:
     def __init__(
         self,
         m: Map,
-        position_modes: List[PositionMode],
+        position_modes: list[PositionMode],
         trip_mode: TripMode,
         template_func: Callable[[], Person] = default_person_template_generator,
     ):
         """
         Args:
         - m (Map): The Map.
-        - position_modes (List[PositionMode]): The schedules generated will follow the position modes in this list. For example, if the list is [PositionMode.AOI, PositionMode.LANE, PositionMode.AOI], the generated person will start from an AOI, then go to a lane, and finally go to an AOI.
+        - position_modes (list[PositionMode]): The schedules generated will follow the position modes in this list. For example, if the list is [PositionMode.AOI, PositionMode.LANE, PositionMode.AOI], the generated person will start from an AOI, then go to a lane, and finally go to an AOI.
         - trip_mode (TripMode): The target trip mode.
         - template_func (Callable[[],Person]): The template function of generated person object, whose `schedules`, `home` will be replaced and others will be copied.
         """
@@ -64,7 +65,7 @@ class RandomGenerator:
         if PositionMode.LANE in position_modes and len(self._lane_candidates) == 0:
             raise ValueError("No available lane")
 
-    def _rand_position(self, candidates: Union[List[Aoi], List[Lane]]):
+    def _rand_position(self, candidates: Union[list[Aoi], list[Lane]]):
         index = np.random.randint(0, len(candidates))
         candidate = candidates[index]
         if isinstance(candidate, Aoi):
@@ -79,23 +80,23 @@ class RandomGenerator:
     def uniform(
         self,
         num: int,
-        first_departure_time_range: Tuple[float, float],
-        schedule_interval_range: Tuple[float, float],
+        first_departure_time_range: tuple[float, float],
+        schedule_interval_range: tuple[float, float],
         seed: Optional[int] = None,
         start_id: Optional[int] = None,
-    ) -> List[Person]:
+    ) -> list[Person]:
         """
         Generate a person object by uniform random sampling
 
         Args:
         - num (int): The number of person objects to generate.
-        - first_departure_time_range (Tuple[float, float]): The range of the first departure time (uniform random sampling).
-        - schedule_interval_range (Tuple[float, float]): The range of the interval between schedules (uniform random sampling).
+        - first_departure_time_range (tuple[float, float]): The range of the first departure time (uniform random sampling).
+        - schedule_interval_range (tuple[float, float]): The range of the interval between schedules (uniform random sampling).
         - seed (Optional[int], optional): The random seed. Defaults to None.
         - start_id (Optional[int], optional): The start id of the generated person objects. Defaults to None. If None, the `id` will be NOT set.
 
         Returns:
-        - List[Person]: The generated person objects.
+        - list[Person]: The generated person objects.
         """
         if seed is not None:
             np.random.seed(seed)

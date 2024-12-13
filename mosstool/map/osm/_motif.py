@@ -1,11 +1,11 @@
-from typing import FrozenSet, List, Optional, Set
+from typing import Optional
 
 import networkx as nx
 
 __all__ = ["close_nodes", "suc_is_close_by_other_way", "motif_H"]
 
 
-def close_nodes(G: nx.DiGraph) -> Set[FrozenSet[int]]:
+def close_nodes(G: nx.DiGraph) -> set[frozenset[int]]:
     """
     For a node [within an junction], if its successor node can [easily] return to this node, then the aggregation
     Generally, it is a "□"-shaped structure or a "△" structure in the junction.
@@ -54,7 +54,7 @@ def close_nodes(G: nx.DiGraph) -> Set[FrozenSet[int]]:
     return group
 
 
-def suc_is_close_by_other_way(G: nx.DiGraph) -> Set[FrozenSet[int]]:
+def suc_is_close_by_other_way(G: nx.DiGraph) -> set[frozenset[int]]:
     r"""
     If there is another path (very short) that can reach my successor, merge it
     including but not limited to
@@ -91,7 +91,7 @@ def suc_is_close_by_other_way(G: nx.DiGraph) -> Set[FrozenSet[int]]:
 
     def get_good_path(
         G: nx.DiGraph, n1: int, n2: int, max_length: float
-    ) -> Optional[List[int]]:
+    ) -> Optional[list[int]]:
         """
         Check if there is a short path from n1 to n2
         """
@@ -133,7 +133,7 @@ def suc_is_close_by_other_way(G: nx.DiGraph) -> Set[FrozenSet[int]]:
     return group
 
 
-def motif_H(G: nx.DiGraph) -> Set[FrozenSet[int]]:
+def motif_H(G: nx.DiGraph) -> set[frozenset[int]]:
     """
     Identify motif as below
          |    |

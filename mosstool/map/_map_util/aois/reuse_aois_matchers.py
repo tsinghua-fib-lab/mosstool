@@ -2,8 +2,10 @@
 match aois from map.pb
 """
 
+from functools import partial
 from math import ceil
 from multiprocessing import Pool
+from typing import Any
 
 from shapely.geometry import Polygon
 from shapely.strtree import STRtree
@@ -20,11 +22,8 @@ def _map_aoi2geo(aoi: dict) -> Polygon:
     return Polygon(coords)
 
 
-def _add_aoi_unit(aoi):
-    global d_matcher, w_matcher
-    global D_DIS_GATE, D_HUGE_GATE
-    global W_DIS_GATE, W_HUGE_GATE
-    global d_tree, w_tree
+def _add_aoi_unit(partial_args:tuple[list[dict[str,Any]],list[dict[str,Any]],float,float,float,float,STRtree,STRtree],aoi:dict[str,Any]):
+    d_matcher, w_matcher, D_DIS_GATE, D_HUGE_GATE,W_DIS_GATE, W_HUGE_GATE,  d_tree, w_tree=partial_args
     geo = _map_aoi2geo(aoi)
     # d_matched = _matcher_unit(geo, d_matcher, D_DIS_GATE, D_HUGE_GATE)
     # w_matched = _matcher_unit(geo, w_matcher, W_DIS_GATE, W_HUGE_GATE)
@@ -44,8 +43,6 @@ def match_map_aois(
     dis_gate: float = 30.0,
     multiprocessing_chunk_size: int = 500,
 ):
-    global d_matcher, w_matcher, D_DIS_GATE, W_DIS_GATE, MAX_CHUNK_SIZE
-    global d_tree, w_tree
     W_DIS_GATE = dis_gate
     MAX_CHUNK_SIZE = multiprocessing_chunk_size
     D_DIS_GATE = W_DIS_GATE + EXTRA_DIS_GATE
@@ -59,11 +56,13 @@ def match_map_aois(
     d_tree = STRtree([l["geo"] for l in d_matcher])
     w_tree = STRtree([l["geo"] for l in w_matcher])
     results_aois = []
+    partial_args = (d_matcher, w_matcher, D_DIS_GATE, D_HUGE_GATE,W_DIS_GATE, W_HUGE_GATE,  d_tree, w_tree)
+    partial_add_aoi_unit = partial(_add_aoi_unit,partial_args)
     for i in range(0, len(orig_aois), MAX_BATCH_SIZE):
         args_batch = orig_aois[i : i + MAX_BATCH_SIZE]
         with Pool(processes=workers) as pool:
             results_aois += pool.map(
-                _add_aoi_unit,
+                partial_add_aoi_unit,
                 args_batch,
                 chunksize=min(ceil(len(args_batch) / workers), MAX_CHUNK_SIZE),
             )
