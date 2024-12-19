@@ -4460,7 +4460,7 @@ class Builder:
             "junctions": list(self.output_junctions.values()),
             "aois": list(self.output_aois.values()),
             "pois": list(self.output_pois.values()),
-            "public_transport": list(self.output_public_transport.values()),
+            "sublines": list(self.output_public_transport.values()),
         }
         return output_map
 

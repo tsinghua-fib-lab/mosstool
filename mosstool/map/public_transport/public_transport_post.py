@@ -238,7 +238,6 @@ async def _fill_public_lines(m: dict, server_address: str):
         for pos in aoi["walking_positions"]:
             lanes[pos["lane_id"]]["aoi_ids"].append(aoi_id)
     # add public transportation lines
-    del m["public_transport"]
     m["sublines"] = sublines_data
     return m
 
