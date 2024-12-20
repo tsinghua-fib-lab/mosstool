@@ -400,6 +400,7 @@ def gen_bus_drivers(
         p.bus_attribute.CopyFrom(p_bus_attr)
         p.home.CopyFrom(Position(aoi_position=AoiPosition(aoi_id=home_aoi_id)))
         person_id += 1
+        sl_drivers.append(p)
 
     return (person_id, sl_drivers)
 

@@ -4291,7 +4291,7 @@ class Builder:
             self.output_aois[uid] = d
         # output public transport
         self.output_public_transport = {}
-        if self.dict_sublines_list is None:
+        if not self.dict_sublines_list:
             # If public transportation simulation is required, the map needs to be post-processed
             logging.info("Making output public transport")
             for line_type, lines in public_lines.items():
@@ -4460,7 +4460,7 @@ class Builder:
             "junctions": list(self.output_junctions.values()),
             "aois": list(self.output_aois.values()),
             "pois": list(self.output_pois.values()),
-            "sublines": list(self.output_public_transport.values()),
+            "_sublines": list(self.output_public_transport.values()),
         }
         return output_map
 

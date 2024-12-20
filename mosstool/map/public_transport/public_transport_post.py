@@ -65,7 +65,7 @@ async def _fill_public_lines(m: dict, server_address: str):
         return res
 
     # Filter sublines that are reachable in the map
-    for subline in m["sublines"]:
+    for subline in m.get("_sublines", []):
         if subline["type"] == mapv2.SUBLINE_TYPE_BUS:
             aoi_ids = subline["aoi_ids"]
             aoi_ids = [
