@@ -87,7 +87,7 @@ async def pre_route(
                 )
             )
             if res is None or len(res.journeys) == 0:
-                logging.warning("No route found")
+                logging.warning(f"No route found. start: {start} end: {trip.end} mode: {trip.mode} departure_time: {departure_time}")
                 departure_time = last_departure_time
             else:
                 # append directly
