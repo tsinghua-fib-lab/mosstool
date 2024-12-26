@@ -4308,7 +4308,7 @@ class Builder:
                 _line = self.map_lanes[nearest_lane_pos["lane_id"]]
                 _line_z = (_line.coords[-1][2] - _line.coords[0][2]) * (
                     nearest_lane_pos["s"] / _line.length
-                )
+                ) + _line.coords[0][2]
             else:
                 _line_z = 0
             # posistion
