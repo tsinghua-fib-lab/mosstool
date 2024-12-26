@@ -4288,6 +4288,38 @@ class Builder:
                 d["name"] = sta["name"]
                 if not "duration" in external:
                     external["duration"] = DEFAULT_STATION_DURATION[station_type]
+            # z-axis
+            _all_gates = d.get("driving_gates", []) + d.get("walking_gates", [])
+            _all_lane_pos = d.get("driving_positions", []) + d.get(
+                "walking_positions", []
+            )
+            _all_dis = external.get("driving_distances", []) + external.get(
+                "walking_distances", []
+            )
+            if len(_all_dis) > 0:
+                assert len(_all_dis) == len(_all_gates) == len(_all_lane_pos)
+                nearest_lane_pos, _ = min(
+                    [
+                        (lane_pos, dis)
+                        for (lane_pos, dis) in zip(_all_lane_pos, _all_dis)
+                    ],
+                    key=lambda x: x[1],
+                )
+                _line = self.map_lanes[nearest_lane_pos["lane_id"]]
+                _line_z = (_line.coords[-1][2] - _line.coords[0][2]) * (
+                    nearest_lane_pos["s"] / _line.length
+                )
+            else:
+                _line_z = 0
+            # posistion
+            for pos in d["positions"]:
+                pos["z"] = _line_z
+            # driving and walking gates
+            for pos in _all_gates:
+                pos["z"] = _line_z
+            # pois
+            for pid in d.get("poi_ids", []):
+                self.map_pois[pid]["position"]["z"] = _line_z
             self.output_aois[uid] = d
         # output public transport
         self.output_public_transport = {}
