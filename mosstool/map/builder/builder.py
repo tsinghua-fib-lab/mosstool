@@ -72,6 +72,8 @@ class Builder:
         strict_mode: bool = False,
         merge_aoi: bool = True,
         aoi_matching_distance_threshold: float = 30.0,
+        pt_station_matching_distance_threshold: float = 30.0,
+        pt_station_matching_distance_relaxation_threshold: float = 30.0,
         output_lane_length_check: bool = False,
         workers: int = cpu_count(),
     ):
@@ -97,6 +99,8 @@ class Builder:
         - strict_mode (bool): when enabled, causes the program to exit whenever a warning occurs
         - merge_aoi (bool): merge nearby aois
         - aoi_matching_distance_threshold (float): Only AOIs whose distance to the road network is less than this value will be added to the map.
+        - pt_station_matching_distance_threshold (float): Only stations whose distance to the road network is less than this value will be added to the map.
+        - pt_station_matching_distance_relaxation_threshold (float): The relaxation distance threshold for stations whose distance to road network is larger than `pt_station_matching_distance_threshold`.
         - output_lane_length_check (bool): when enabled, will do value checks lane lengths in output map
         - yellow_time (float): yellow time
         - workers (int): number of workers
@@ -125,6 +129,12 @@ class Builder:
         self.strict_mode = strict_mode
         self.merge_aoi = merge_aoi
         self.aoi_matching_distance_threshold = aoi_matching_distance_threshold
+        self.pt_station_matching_distance_threshold = (
+            pt_station_matching_distance_threshold
+        )
+        self.pt_station_matching_distance_relaxation_threshold = (
+            pt_station_matching_distance_relaxation_threshold
+        )
         self.multiprocessing_chunk_size = multiprocessing_chunk_size
         self.output_lane_length_check = output_lane_length_check
         self.workers = workers
@@ -4167,6 +4177,8 @@ class Builder:
             bbox=(self.min_lat, self.min_lon, self.max_lat, self.max_lon),
             merge_aoi=self.merge_aoi,
             dis_gate=self.aoi_matching_distance_threshold,
+            station_dis_gate=self.pt_station_matching_distance_threshold,
+            station_huge_gate=self.pt_station_matching_distance_relaxation_threshold,
             projstr=self.proj_str,
             shp_path=self.landuse_shp_path,
             multiprocessing_chunk_size=self.multiprocessing_chunk_size,

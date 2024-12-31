@@ -1632,6 +1632,8 @@ def _add_aoi(
     aoi_uid: int,
     d_dis_gate: float,
     w_dis_gate: float,
+    stop_dis_gate: float,
+    stop_huge_gate: float,
     merge_aoi: bool = False,
 ) -> dict[int, dict]:
     """
@@ -1745,8 +1747,8 @@ def _add_aoi(
         w_matcher,
         d_tree,
         w_tree,
-        STOP_DIS_GATE,
-        STOP_HUGE_GATE,
+        stop_dis_gate,
+        stop_huge_gate,
         w_dis_gate,
         W_HUGE_GATE,
         AOI_GATE_OFFSET,
@@ -1803,6 +1805,8 @@ def add_aoi_to_map(
     bbox: tuple[float, float, float, float],
     merge_aoi: bool,
     dis_gate: float = 30.0,
+    station_dis_gate: float = 30.0,
+    station_huge_gate: float = 50.0,
     multiprocessing_chunk_size: int = 500,
     projstr: Optional[str] = None,
     shp_path: Optional[str] = None,
@@ -1820,6 +1824,8 @@ def add_aoi_to_map(
         aoi_uid=AOI_START_ID,
         d_dis_gate=dis_gate + EXTRA_DIS_GATE,
         w_dis_gate=dis_gate,
+        stop_dis_gate=station_dis_gate,
+        stop_huge_gate=station_huge_gate,
         max_chunk_size=multiprocessing_chunk_size,
         merge_aoi=merge_aoi,
     )
@@ -1843,6 +1849,8 @@ def add_sumo_aoi_to_map(
     input_stops: list,
     merge_aoi: bool,
     dis_gate: float = 30.0,
+    station_dis_gate: float = 30.0,
+    station_huge_gate: float = 50.0,
     multiprocessing_chunk_size: int = 500,
     workers: int = 32,
 ):
@@ -1866,6 +1874,8 @@ def add_sumo_aoi_to_map(
         aoi_uid=AOI_START_ID,
         d_dis_gate=dis_gate + EXTRA_DIS_GATE,
         w_dis_gate=dis_gate,
+        stop_dis_gate=station_dis_gate,
+        stop_huge_gate=station_huge_gate,
         max_chunk_size=multiprocessing_chunk_size,
         merge_aoi=merge_aoi,
     )
