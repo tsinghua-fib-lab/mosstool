@@ -33,6 +33,7 @@ class MapConverter:
         traffic_light_path: Optional[str] = None,
         traffic_light_min_direction_group: int = 3,
         merge_aoi: bool = False,
+        enable_tqdm: bool = False,
         multiprocessing_chunk_size: int = 500,
         workers: int = cpu_count(),
     ):
@@ -47,6 +48,7 @@ class MapConverter:
         - traffic_light_path (str): The path to the SUMO traffic-light file.
         - traffic_light_min_direction_group (int): minimum number of lane directions for traffic-light generation
         - merge_aoi (bool): merge nearby aois
+        - enable_tqdm (bool): when enabled, use tqdm to show the progress bars
         - multiprocessing_chunk_size (int): the maximum size of each multiprocessing chunk
         - workers (int): number of workers
         """
@@ -59,6 +61,7 @@ class MapConverter:
         self._traffic_light_min_direction_group = traffic_light_min_direction_group
         self._merge_aoi = merge_aoi
         self.multiprocessing_chunk_size = multiprocessing_chunk_size
+        self._enable_tqdm = enable_tqdm
         self._workers = workers
         logging.info(f"Reading net file from {net_path}")
         dom_tree = parse(net_path)
@@ -650,12 +653,13 @@ class MapConverter:
             map_lanes=self._map_lanes,
         )
         aois, stops, pois = generate_sumo_aoi_poi(
-            aois,
-            pois,
-            stops,
-            self._workers,
-            self._merge_aoi,
-            self.multiprocessing_chunk_size,
+            input_aois=aois,
+            input_pois=pois,
+            input_stops=stops,
+            enable_tqdm=self._enable_tqdm,
+            workers=self._workers,
+            merge_aoi=self._merge_aoi,
+            multiprocessing_chunk_size=self.multiprocessing_chunk_size,
         )
         d_matcher = []
         road_lane_matcher = []
@@ -720,6 +724,7 @@ class MapConverter:
             input_stops=stops,
             workers=self._workers,
             merge_aoi=self._merge_aoi,
+            enable_tqdm=self._enable_tqdm,
             multiprocessing_chunk_size=self.multiprocessing_chunk_size,
         )
 

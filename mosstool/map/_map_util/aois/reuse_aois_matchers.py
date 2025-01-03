@@ -9,6 +9,7 @@ from typing import Any
 
 from shapely.geometry import Polygon
 from shapely.strtree import STRtree
+from tqdm import tqdm
 
 from ....type import Map
 from ....util.format_converter import pb2dict
@@ -22,8 +23,29 @@ def _map_aoi2geo(aoi: dict) -> Polygon:
     return Polygon(coords)
 
 
-def _add_aoi_unit(partial_args:tuple[list[dict[str,Any]],list[dict[str,Any]],float,float,float,float,STRtree,STRtree],aoi:dict[str,Any]):
-    d_matcher, w_matcher, D_DIS_GATE, D_HUGE_GATE,W_DIS_GATE, W_HUGE_GATE,  d_tree, w_tree=partial_args
+def _add_aoi_unit(
+    partial_args: tuple[
+        list[dict[str, Any]],
+        list[dict[str, Any]],
+        float,
+        float,
+        float,
+        float,
+        STRtree,
+        STRtree,
+    ],
+    aoi: dict[str, Any],
+):
+    (
+        d_matcher,
+        w_matcher,
+        D_DIS_GATE,
+        D_HUGE_GATE,
+        W_DIS_GATE,
+        W_HUGE_GATE,
+        d_tree,
+        w_tree,
+    ) = partial_args
     geo = _map_aoi2geo(aoi)
     # d_matched = _matcher_unit(geo, d_matcher, D_DIS_GATE, D_HUGE_GATE)
     # w_matched = _matcher_unit(geo, w_matcher, W_DIS_GATE, W_HUGE_GATE)
@@ -40,6 +62,7 @@ def match_map_aois(
     net: Map,
     matchers: dict,
     workers: int,
+    enable_tqdm: bool,
     dis_gate: float = 30.0,
     multiprocessing_chunk_size: int = 500,
 ):
@@ -56,9 +79,18 @@ def match_map_aois(
     d_tree = STRtree([l["geo"] for l in d_matcher])
     w_tree = STRtree([l["geo"] for l in w_matcher])
     results_aois = []
-    partial_args = (d_matcher, w_matcher, D_DIS_GATE, D_HUGE_GATE,W_DIS_GATE, W_HUGE_GATE,  d_tree, w_tree)
-    partial_add_aoi_unit = partial(_add_aoi_unit,partial_args)
-    for i in range(0, len(orig_aois), MAX_BATCH_SIZE):
+    partial_args = (
+        d_matcher,
+        w_matcher,
+        D_DIS_GATE,
+        D_HUGE_GATE,
+        W_DIS_GATE,
+        W_HUGE_GATE,
+        d_tree,
+        w_tree,
+    )
+    partial_add_aoi_unit = partial(_add_aoi_unit, partial_args)
+    for i in tqdm(range(0, len(orig_aois), MAX_BATCH_SIZE), disable=not enable_tqdm):
         args_batch = orig_aois[i : i + MAX_BATCH_SIZE]
         with Pool(processes=workers) as pool:
             results_aois += pool.map(

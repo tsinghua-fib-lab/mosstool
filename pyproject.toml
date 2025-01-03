@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "mosstool"
-version = "1.2.6"
+version = "1.2.7"
 description = "MObility Simulation System toolbox "
 authors = ["Jun Zhang <zhangjun990222@qq.com>","Junbo Yan <yanjb20thu@gmali.com>"]
 license = "MIT"
@@ -30,6 +30,7 @@ matplotlib = "^3.8.3"
 generate-od = "^0.1"
 path4gmns = "^0.9.8"
 pycityproto = "^2.0.7"
+tqdm = "^4.67.1"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.1.1"

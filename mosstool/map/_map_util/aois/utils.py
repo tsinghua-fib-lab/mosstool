@@ -7,6 +7,7 @@ from typing import Any
 import shapely.ops as ops
 from shapely.affinity import scale
 from shapely.geometry import MultiPoint, MultiPolygon, Point, Polygon
+from tqdm import tqdm
 
 from ..const import *
 
@@ -355,6 +356,7 @@ def _process_stops(stops):
 def _match_poi_to_aoi(
     aois: list[dict[str, Any]],
     pois: list[dict[str, Any]],
+    enable_tqdm: bool,
     workers: int,
     max_chunk_size: int,
 ):
@@ -368,7 +370,7 @@ def _match_poi_to_aoi(
     results = []
     aois_to_match_poi = aois
     partial_match_poi_unit = partial(_match_poi_unit, (aois_to_match_poi,))
-    for i in range(0, len(pois), MAX_BATCH_SIZE):
+    for i in tqdm(range(0, len(pois), MAX_BATCH_SIZE), disable=not enable_tqdm):
         pois_batch = pois[i : i + MAX_BATCH_SIZE]
         with Pool(processes=workers) as pool:
             results += pool.map(
@@ -428,6 +430,7 @@ def generate_aoi_poi(
     input_aois,
     input_pois,
     input_stops,
+    enable_tqdm: bool,
     workers: int = 32,
     multiprocessing_chunk_size: int = 500,
 ):
@@ -441,7 +444,11 @@ def generate_aoi_poi(
     )
     # Process and join poi: belong to aoi or become an independent aoi
     aois_add_poi, pois_isolate, pois_output = _match_poi_to_aoi(
-        input_aois, input_pois, workers, multiprocessing_chunk_size
+        aois=input_aois,
+        pois=input_pois,
+        workers=workers,
+        enable_tqdm=enable_tqdm,
+        max_chunk_size=multiprocessing_chunk_size,
     )
     # Convert format to output
     aois_output = _post_compute_aoi_poi(aois_add_poi, pois_isolate)
@@ -453,6 +460,7 @@ def generate_sumo_aoi_poi(
     input_aois,
     input_pois,
     input_stops,
+    enable_tqdm: bool,
     workers: int = 32,
     merge_aoi: bool = False,
     multiprocessing_chunk_size: int = 500,
@@ -463,7 +471,11 @@ def generate_sumo_aoi_poi(
         input_aois, multiprocessing_chunk_size, merge_aoi, workers
     )
     aois_add_poi, pois_isolate, pois_output = _match_poi_to_aoi(
-        input_aois, input_pois, workers, multiprocessing_chunk_size
+        aois=input_aois,
+        pois=input_pois,
+        enable_tqdm=enable_tqdm,
+        workers=workers,
+        max_chunk_size=multiprocessing_chunk_size,
     )
     aois_output = _post_compute_aoi_poi(aois_add_poi, pois_isolate)
     stops_output = _process_stops(input_stops)

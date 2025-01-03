@@ -7,6 +7,7 @@ from typing import Any, Literal, Optional, Union, cast
 import pyproj
 import rasterio
 from shapely.geometry import MultiPolygon, Point, Polygon
+from tqdm import tqdm
 
 from ..const import *
 from .utils import geo_coords
@@ -280,6 +281,7 @@ def _get_aoi_pop(
     y_step: float,
     xy_gps_scale2: float,
     pixel_area: float,
+    enable_tqdm: bool,
     workers: int,
     max_chunk_size: int,
 ):
@@ -293,7 +295,7 @@ def _get_aoi_pop(
         pixel_area,
     )
     partial_get_aoi_point_pop_unit = partial(_get_aoi_point_pop_unit, partial_args)
-    for i in range(0, len(aois_point), MAX_BATCH_SIZE):
+    for i in tqdm(range(0, len(aois_point), MAX_BATCH_SIZE), disable=not enable_tqdm):
         aois_point_batch = aois_point[i : i + MAX_BATCH_SIZE]
         with Pool(processes=workers) as pool:
             aois_point_result += pool.map(
@@ -312,7 +314,7 @@ def _get_aoi_pop(
         pixel_area,
     )
     partial_get_aoi_poly_pop_unit = partial(_get_aoi_poly_pop_unit, partial_args)
-    for i in range(0, len(aois_poly), MAX_BATCH_SIZE):
+    for i in tqdm(range(0, len(aois_poly), MAX_BATCH_SIZE), disable=not enable_tqdm):
         aois_poly_batch = aois_poly[i : i + MAX_BATCH_SIZE]
         with Pool(processes=workers) as pool:
             aois_poly_result_with_flag += pool.map(
@@ -351,6 +353,7 @@ def add_aoi_pop(
     max_latitude: float,
     min_latitude: float,
     proj_str: str,
+    enable_tqdm: bool = False,
     multiprocessing_chunk_size: int = 500,
     upsample_factor: int = 4,
     workers: int = 32,
@@ -446,7 +449,9 @@ def add_aoi_pop(
     results = []
     partial_args = (aois_poly_global, n_upsample, x_step, y_step)
     partial_upsample_pixels_unit = partial(_upsample_pixels_unit, partial_args)
-    for i in range(0, len(list_pixel2pop), MAX_BATCH_SIZE):
+    for i in tqdm(
+        range(0, len(list_pixel2pop), MAX_BATCH_SIZE), disable=not enable_tqdm
+    ):
         list_pixel2pop_batch = list_pixel2pop[i : i + MAX_BATCH_SIZE]
         with Pool(processes=workers) as pool:
             results += pool.map(
@@ -474,7 +479,9 @@ def add_aoi_pop(
     partial_upsample_pixels_idiot_unit = partial(
         _upsample_pixels_idiot_unit, partial_args
     )
-    for i in range(0, len(list_pixel2pop), MAX_BATCH_SIZE):
+    for i in tqdm(
+        range(0, len(list_pixel2pop), MAX_BATCH_SIZE), disable=not enable_tqdm
+    ):
         list_pixel2pop_batch = list_pixel2pop[i : i + MAX_BATCH_SIZE]
         with Pool(processes=workers) as pool:
             results += pool.map(
@@ -499,6 +506,7 @@ def add_aoi_pop(
         y_step=y_step,
         xy_gps_scale2=xy_gps_scale2,
         pixel_area=pixel_area,
+        enable_tqdm=enable_tqdm,
         workers=workers,
         max_chunk_size=multiprocessing_chunk_size,
     )

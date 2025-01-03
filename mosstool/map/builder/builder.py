@@ -25,17 +25,25 @@ from .._map_util.aois import add_aoi_pop, add_aoi_to_map, generate_aoi_poi
 from .._map_util.aois.convert_aoi_poi import convert_aoi, convert_poi
 from .._map_util.aois.reuse_aois_matchers import match_map_aois
 from .._map_util.const import *
-from .._map_util.format_checker import (geojson_format_check,
-                                        output_format_check)
-from .._map_util.junctions import (add_driving_groups, add_overlaps,
-                                   check_1_n_available_turns,
-                                   check_n_n_available_turns,
-                                   classify_main_auxiliary_wid,
-                                   generate_traffic_light)
+from .._map_util.format_checker import geojson_format_check, output_format_check
+from .._map_util.junctions import (
+    add_driving_groups,
+    add_overlaps,
+    check_1_n_available_turns,
+    check_n_n_available_turns,
+    classify_main_auxiliary_wid,
+    generate_traffic_light,
+)
 from .._util.angle import abs_delta_angle, delta_angle
-from .._util.line import (align_line, connect_line_string, get_line_angle,
-                          line_extend, line_max_curvature,
-                          merge_line_start_end, offset_lane)
+from .._util.line import (
+    align_line,
+    connect_line_string,
+    get_line_angle,
+    line_extend,
+    line_max_curvature,
+    merge_line_start_end,
+    offset_lane,
+)
 
 __all__ = ["Builder"]
 
@@ -75,6 +83,7 @@ class Builder:
         pt_station_matching_distance_threshold: float = 30.0,
         pt_station_matching_distance_relaxation_threshold: float = 30.0,
         output_lane_length_check: bool = False,
+        enable_tqdm: bool = False,
         workers: int = cpu_count(),
     ):
         """
@@ -96,13 +105,14 @@ class Builder:
         - traffic_light_mode (str): fixed time traffic-light generation mode. `green_red` means only green and red light will be generated, `green_yellow_red` means there will be yellow light between green and red light, `green_yellow_clear_red` add extra pedestrian clear red light.
         - multiprocessing_chunk_size (int): the maximum size of each multiprocessing chunk
         - green_time (float): green time
+        - yellow_time (float): yellow time
         - strict_mode (bool): when enabled, causes the program to exit whenever a warning occurs
         - merge_aoi (bool): merge nearby aois
         - aoi_matching_distance_threshold (float): Only AOIs whose distance to the road network is less than this value will be added to the map.
         - pt_station_matching_distance_threshold (float): Only stations whose distance to the road network is less than this value will be added to the map.
         - pt_station_matching_distance_relaxation_threshold (float): The relaxation distance threshold for stations whose distance to road network is larger than `pt_station_matching_distance_threshold`.
-        - output_lane_length_check (bool): when enabled, will do value checks lane lengths in output map
-        - yellow_time (float): yellow time
+        - output_lane_length_check (bool): when enabled, will do value checks lane lengths in output map.
+        - enable_tqdm (bool): when enabled, use tqdm to show the progress bars.
         - workers (int): number of workers
         """
         net_type = type(net)
@@ -137,6 +147,7 @@ class Builder:
         )
         self.multiprocessing_chunk_size = multiprocessing_chunk_size
         self.output_lane_length_check = output_lane_length_check
+        self.enable_tqdm = enable_tqdm
         self.workers = workers
         self.traffic_light_mode: Union[
             Literal["green_red"],
@@ -4101,6 +4112,7 @@ class Builder:
             (reuse_aois, reuse_pois) = match_map_aois(
                 net=self.net,
                 matchers=matchers,
+                enable_tqdm=self.enable_tqdm,
                 workers=self.workers,
                 multiprocessing_chunk_size=self.multiprocessing_chunk_size,
             )
@@ -4114,7 +4126,12 @@ class Builder:
         )
         pois = convert_poi(self.raw_pois, self.proj_str)
         aois, stops, pois = generate_aoi_poi(
-            aois, pois, stops, self.workers, self.multiprocessing_chunk_size
+            input_aois=aois,
+            input_pois=pois,
+            input_stops=stops,
+            enable_tqdm=self.enable_tqdm,
+            workers=self.workers,
+            multiprocessing_chunk_size=self.multiprocessing_chunk_size,
         )
         d_right_lanes = [
             w["lanes"][-1]
@@ -4176,6 +4193,7 @@ class Builder:
             input_stops=stops,
             bbox=(self.min_lat, self.min_lon, self.max_lat, self.max_lon),
             merge_aoi=self.merge_aoi,
+            enable_tqdm=self.enable_tqdm,
             dis_gate=self.aoi_matching_distance_threshold,
             station_dis_gate=self.pt_station_matching_distance_threshold,
             station_huge_gate=self.pt_station_matching_distance_relaxation_threshold,
@@ -4190,6 +4208,7 @@ class Builder:
         #     min_latitude=self.min_lat,
         #     min_longitude=self.min_lon,
         #     proj_str=self.proj_str,
+        #     enable_tqdm=self.enable_tqdm,
         #     upsample_factor=UPSAMPLE_FACTOR,
         #     workers=self.workers,
         #     tif_path=self.pop_tif_path,

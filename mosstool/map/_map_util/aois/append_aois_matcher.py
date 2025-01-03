@@ -14,6 +14,7 @@ from shapely.affinity import scale
 from shapely.geometry import (LineString, MultiLineString, MultiPoint,
                               MultiPolygon, Point, Polygon)
 from shapely.strtree import STRtree
+from tqdm import tqdm
 
 from ....type import AoiType
 from ..._util.angle import abs_delta_angle
@@ -1517,7 +1518,9 @@ def _add_pois(aois, pois):
     return aois, out_pois
 
 
-def _merge_covered_aoi(aois: list, workers: int, max_chunk_size: int):
+def _merge_covered_aoi(
+    aois: list, workers: int, max_chunk_size: int, enable_tqdm: bool
+):
     """
     Blend the contained small poly aoi into the large poly aoi
     At the same time, cut off the overlapping parts between aoi
@@ -1535,7 +1538,7 @@ def _merge_covered_aoi(aois: list, workers: int, max_chunk_size: int):
     partial_find_aoi_parent_unit = partial(_find_aoi_parent_unit, (aois_to_merge,))
     aois = [(i, a) for i, a in enumerate(aois)]
     aois_result = []
-    for i in range(0, len(aois), MAX_BATCH_SIZE):
+    for i in tqdm(range(0, len(aois), MAX_BATCH_SIZE), disable=not enable_tqdm):
         aois_batch = aois[i : i + MAX_BATCH_SIZE]
         with Pool(processes=workers) as pool:
             aois_result += pool.map(
@@ -1576,7 +1579,7 @@ def _merge_covered_aoi(aois: list, workers: int, max_chunk_size: int):
     aois_result = []
     partial_args = (aois_with_overlap,)
     partial_find_aoi_overlap_unit = partial(_find_aoi_overlap_unit, partial_args)
-    for i in range(0, len(aois), MAX_BATCH_SIZE):
+    for i in tqdm(range(0, len(aois), MAX_BATCH_SIZE), disable=not enable_tqdm):
         aois_batch = aois[i : i + MAX_BATCH_SIZE]
         with Pool(processes=workers) as pool:
             aois_result += pool.map(
@@ -1635,6 +1638,7 @@ def _add_aoi(
     stop_dis_gate: float,
     stop_huge_gate: float,
     merge_aoi: bool = False,
+    enable_tqdm: bool = False,
 ) -> dict[int, dict]:
     """
     aois matches the rightmost lane
@@ -1724,7 +1728,7 @@ def _add_aoi(
     aois_poly.extend(aois_poi)
 
     if merge_aoi:
-        aois_poly = _merge_covered_aoi(aois_poly, workers, max_chunk_size)
+        aois_poly = _merge_covered_aoi(aois_poly, workers, max_chunk_size, enable_tqdm)
     # The convex hull may fail, check it
     for a in aois_poly:
         assert isinstance(a["geo"], Polygon)
@@ -1754,7 +1758,7 @@ def _add_aoi(
         AOI_GATE_OFFSET,
     )
     partial_add_aoi_stop_unit = partial(_add_aoi_stop_unit, partial_args)
-    for i in range(0, len(args), MAX_BATCH_SIZE):
+    for i in tqdm(range(0, len(args), MAX_BATCH_SIZE), disable=not enable_tqdm):
         args_batch = args[i : i + MAX_BATCH_SIZE]
         with Pool(processes=workers) as pool:
             results_stop += pool.map(
@@ -1777,7 +1781,7 @@ def _add_aoi(
         W_HUGE_GATE,
     )
     partial_add_poly_aoi_unit = partial(_add_poly_aoi_unit, partial_args)
-    for i in range(0, len(args), MAX_BATCH_SIZE):
+    for i in tqdm(range(0, len(args), MAX_BATCH_SIZE), disable=not enable_tqdm):
         args_batch = args[i : i + MAX_BATCH_SIZE]
         with Pool(processes=workers) as pool:
             results_poly += pool.map(
@@ -1804,6 +1808,7 @@ def add_aoi_to_map(
     input_stops: list,
     bbox: tuple[float, float, float, float],
     merge_aoi: bool,
+    enable_tqdm: bool,
     dis_gate: float = 30.0,
     station_dis_gate: float = 30.0,
     station_huge_gate: float = 50.0,
@@ -1828,6 +1833,7 @@ def add_aoi_to_map(
         stop_huge_gate=station_huge_gate,
         max_chunk_size=multiprocessing_chunk_size,
         merge_aoi=merge_aoi,
+        enable_tqdm=enable_tqdm,
     )
     added_input_poi = []
     for _, aoi in aois.items():
@@ -1848,6 +1854,7 @@ def add_sumo_aoi_to_map(
     input_pois: list,
     input_stops: list,
     merge_aoi: bool,
+    enable_tqdm: bool,
     dis_gate: float = 30.0,
     station_dis_gate: float = 30.0,
     station_huge_gate: float = 50.0,
@@ -1878,6 +1885,7 @@ def add_sumo_aoi_to_map(
         stop_huge_gate=station_huge_gate,
         max_chunk_size=multiprocessing_chunk_size,
         merge_aoi=merge_aoi,
+        enable_tqdm=enable_tqdm,
     )
     added_ex_pois = []
     for _, aoi in aois.items():
