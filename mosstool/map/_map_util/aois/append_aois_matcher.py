@@ -130,14 +130,14 @@ def _split_merged_poi_unit(partial_args: tuple[list[dict],], points: list[dict])
     return (res_aoi, res_poi)
 
 
-def _find_aoi_parent_unit(partial_args: tuple[list[dict],], i_aoi: tuple[int, dict]):
+def _find_aoi_parent_unit(partial_args: tuple[list[dict],], aoi: dict):
     """
     Find out when aoi is contained by other aoi
     """
     (aois_to_merge,) = partial_args
     SQRT2 = 2**0.5
     COVER_GATE = 0.8  # aoi whose area is covered beyond this por
-    i, aoi = i_aoi
+    i = aoi["idx"]
     aoi["has_parent"] = False
     aoi["parent"] = -1
     x, y = aoi["point"][:2]
@@ -145,7 +145,8 @@ def _find_aoi_parent_unit(partial_args: tuple[list[dict],], i_aoi: tuple[int, di
     area = aoi["area"]
     if not aoi["valid"]:
         return aoi
-    for j, aoi2 in enumerate(aois_to_merge):
+    for aoi2 in aois_to_merge:
+        j = aoi2["idx"]
         if j != i and aoi["grid_idx"] == aoi2["grid_idx"]:
             if (
                 aoi2["area"] > area and aoi2["valid"]
@@ -1527,26 +1528,31 @@ def _merge_covered_aoi(
     """
     logging.info("Merging Covered Aoi")
     # Pre-compute geometric properties
-    for aoi in aois:
+    grid_idx_2_aois: dict[tuple, list[dict]] = defaultdict(list)
+    for idx, aoi in enumerate(aois):
         geo = aoi["geo"]
         aoi["point"] = geo_coords(geo.centroid)[0]  # Geometric center
         aoi["length"] = geo.length  # Perimeter
         aoi["area"] = geo.area  # area
         aoi["valid"] = geo.is_valid
-        aoi["grid_idx"] = tuple(x // AOI_MERGE_GRID for x in aoi["point"])
-    aois_to_merge = aois
-    partial_find_aoi_parent_unit = partial(_find_aoi_parent_unit, (aois_to_merge,))
-    aois = [(i, a) for i, a in enumerate(aois)]
+        aoi["idx"] = idx
+        grid_idx = tuple(x // AOI_MERGE_GRID for x in aoi["point"])
+        aoi["grid_idx"] = grid_idx
+        grid_idx_2_aois[grid_idx].append(aoi)
+
     aois_result = []
-    for i in tqdm(range(0, len(aois), MAX_BATCH_SIZE), disable=not enable_tqdm):
-        aois_batch = aois[i : i + MAX_BATCH_SIZE]
-        with Pool(processes=workers) as pool:
-            aois_result += pool.map(
-                partial_find_aoi_parent_unit,
-                aois_batch,
-                chunksize=min(ceil(len(aois_batch) / workers), max_chunk_size),
-            )
-    aois = aois_result
+    for grid_idx, _aois in tqdm(grid_idx_2_aois.items(), disable=not enable_tqdm):
+        aois_to_merge: list[dict] = _aois
+        partial_find_aoi_parent_unit = partial(_find_aoi_parent_unit, (aois_to_merge,))
+        for i in tqdm(range(0, len(_aois), MAX_BATCH_SIZE), disable=not enable_tqdm):
+            aois_batch = _aois[i : i + MAX_BATCH_SIZE]
+            with Pool(processes=workers) as pool:
+                aois_result += pool.map(
+                    partial_find_aoi_parent_unit,
+                    aois_batch,
+                    chunksize=min(ceil(len(aois_batch) / workers), max_chunk_size),
+                )
+    aois = sorted(aois_result, key=lambda aoi: aoi["idx"])
     parent2children = defaultdict(list)
     child2parent = {}
     for i, aoi in enumerate(aois):
