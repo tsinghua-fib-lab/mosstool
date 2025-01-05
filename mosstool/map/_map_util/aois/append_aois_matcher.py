@@ -164,13 +164,13 @@ def _find_aoi_parent_unit(partial_args: tuple[list[dict],], aoi: dict):
     return aoi
 
 
-def _find_aoi_overlap_unit(partial_args: tuple[list[dict],], i_aoi: tuple[int, dict]):
+def _find_aoi_overlap_unit(partial_args: tuple[list[dict],], aoi: dict):
     """
     Find out where aoi overlap
     """
     (aois_with_overlap,) = partial_args
     SQRT2 = 2**0.5
-    i, aoi = i_aoi
+    i = aoi["idx"]
     aoi["overlaps"] = []
     x, y = aoi["point"][:2]
     geo = aoi["geo"]
@@ -178,7 +178,8 @@ def _find_aoi_overlap_unit(partial_args: tuple[list[dict],], i_aoi: tuple[int, d
     area = aoi["area"]
     if not aoi["valid"]:
         return aoi
-    for j, aoi2 in enumerate(aois_with_overlap):
+    for aoi2 in aois_with_overlap:
+        j = aoi2["idx"]
         if j != i and aoi["grid_idx"] == aoi2["grid_idx"]:
             if (
                 aoi2["area"] > area and aoi2["valid"]
@@ -1544,7 +1545,7 @@ def _merge_covered_aoi(
     for grid_idx, _aois in tqdm(grid_idx_2_aois.items(), disable=not enable_tqdm):
         aois_to_merge: list[dict] = _aois
         partial_find_aoi_parent_unit = partial(_find_aoi_parent_unit, (aois_to_merge,))
-        for i in tqdm(range(0, len(_aois), MAX_BATCH_SIZE), disable=not enable_tqdm):
+        for i in range(0, len(_aois), MAX_BATCH_SIZE):
             aois_batch = _aois[i : i + MAX_BATCH_SIZE]
             with Pool(processes=workers) as pool:
                 aois_result += pool.map(
@@ -1580,22 +1581,26 @@ def _merge_covered_aoi(
             for child_name, area in child_names.items():
                 external["names"][child_name] += area
     aois = [a for a in aois if not a["has_parent"]]
-    aois_with_overlap = aois
-    aois = [(i, a) for i, a in enumerate(aois)]
+    grid_idx_2_aois: dict[tuple, list[dict]] = defaultdict(list)
+    for idx, aoi in enumerate(aois):
+        aoi["idx"] = idx
+        grid_idx_2_aois[aoi["grid_idx"]].append(aoi)
     aois_result = []
-    partial_args = (aois_with_overlap,)
-    partial_find_aoi_overlap_unit = partial(_find_aoi_overlap_unit, partial_args)
-    for i in tqdm(range(0, len(aois), MAX_BATCH_SIZE), disable=not enable_tqdm):
-        aois_batch = aois[i : i + MAX_BATCH_SIZE]
-        with Pool(processes=workers) as pool:
-            aois_result += pool.map(
-                partial_find_aoi_overlap_unit,
-                aois_batch,
-                chunksize=max(
-                    min(ceil(len(aois_batch) / workers), max_chunk_size),
-                    1,
-                ),
-            )
+    for grid_idx, _aois in tqdm(grid_idx_2_aois.items(), disable=not enable_tqdm):
+        aois_with_overlap: list[dict] = _aois
+        partial_args = (aois_with_overlap,)
+        partial_find_aoi_overlap_unit = partial(_find_aoi_overlap_unit, partial_args)
+        for i in range(0, len(_aois), MAX_BATCH_SIZE):
+            aois_batch = _aois[i : i + MAX_BATCH_SIZE]
+            with Pool(processes=workers) as pool:
+                aois_result += pool.map(
+                    partial_find_aoi_overlap_unit,
+                    aois_batch,
+                    chunksize=max(
+                        min(ceil(len(aois_batch) / workers), max_chunk_size),
+                        1,
+                    ),
+                )
     aois = aois_result
     # get difference set of larger aoi
     has_overlap_aids = defaultdict(list)
