@@ -2,7 +2,7 @@ import logging
 import time
 from collections import defaultdict
 from multiprocessing import cpu_count
-from typing import Optional
+from typing import Literal, Optional, Union
 from xml.dom.minidom import parse
 
 import numpy as np
@@ -35,6 +35,11 @@ class MapConverter:
         merge_aoi: bool = False,
         enable_tqdm: bool = False,
         multiprocessing_chunk_size: int = 500,
+        traffic_light_mode: Union[
+            Literal["green_red"],
+            Literal["green_yellow_red"],
+            Literal["green_yellow_clear_red"],
+        ] = "green_yellow_clear_red",
         workers: int = cpu_count(),
     ):
         """
@@ -50,6 +55,7 @@ class MapConverter:
         - merge_aoi (bool): merge nearby aois
         - enable_tqdm (bool): when enabled, use tqdm to show the progress bars
         - multiprocessing_chunk_size (int): the maximum size of each multiprocessing chunk
+        - traffic_light_mode (str): fixed time traffic-light generation mode. `green_red` means only green and red light will be generated, `green_yellow_red` means there will be yellow light between green and red light, `green_yellow_clear_red` add extra pedestrian clear red light.
         - workers (int): number of workers
         """
         self._lane_width = default_lane_width
@@ -62,6 +68,7 @@ class MapConverter:
         self._merge_aoi = merge_aoi
         self.multiprocessing_chunk_size = multiprocessing_chunk_size
         self._enable_tqdm = enable_tqdm
+        self._traffic_light_mode = traffic_light_mode
         self._workers = workers
         logging.info(f"Reading net file from {net_path}")
         dom_tree = parse(net_path)
@@ -470,14 +477,15 @@ class MapConverter:
         roads = {rid: d for rid, d in self._output_roads.items()}
         juncs = {jid: d for jid, d in self._output_junctions.items()}
         convert_traffic_light(
-            lanes,
-            roads,
-            juncs,
-            self._id2uid,
-            self._green_time,
-            self._yellow_time,
-            self._traffic_light_min_direction_group,
-            self._traffic_light_path,
+            lanes=lanes,
+            roads=roads,
+            juncs=juncs,
+            id_mapping=self._id2uid,
+            green_time=self._green_time,
+            yellow_time=self._yellow_time,
+            min_direction_group=self._traffic_light_min_direction_group,
+            traffic_light_mode=self._traffic_light_mode,  # type:ignore
+            traffic_light_path=self._traffic_light_path,
         )
 
     def _get_output_map(self):

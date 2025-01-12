@@ -213,7 +213,7 @@ def _gen_fixed_program(
         Literal["green_red"],
         Literal["green_yellow_red"],
         Literal["green_yellow_clear_red"],
-    ] = "green_yellow_clear_red",
+    ],
 ):
     """
     Generate fixed program traffic-light
@@ -370,6 +370,11 @@ def _convert_fixed_program(
     yellow_time: float,
     id_mapping: dict,
     traffic_light_path: Optional[str],
+    traffic_light_mode: Union[
+        Literal["green_red"],
+        Literal["green_yellow_red"],
+        Literal["green_yellow_clear_red"],
+    ],
 ):
     for jid, j in juncs.items():
         j["fixed_program"] = {}
@@ -496,7 +501,7 @@ def _convert_fixed_program(
                 "phases": out_phases,
             }
     # Complete the default fixed program traffic-light for all junctions
-    _gen_fixed_program(lanes, roads, juncs, green_time, yellow_time)
+    _gen_fixed_program(lanes, roads, juncs, green_time, yellow_time, traffic_light_mode)
 
 
 def _gen_available_phases(lanes: dict, juncs: dict, min_direction_group: int):
@@ -737,6 +742,11 @@ def convert_traffic_light(
     green_time: float,
     yellow_time: float,
     min_direction_group: int,
+    traffic_light_mode: Union[
+        Literal["green_red"],
+        Literal["green_yellow_red"],
+        Literal["green_yellow_clear_red"],
+    ],
     traffic_light_path: Optional[str] = None,
 ):
     # Generating available phases for MP
@@ -745,5 +755,12 @@ def convert_traffic_light(
     # Generating fixed program traffic-lights or convert SUMO traffic-lights
     logging.info("Generating fixed program")
     _convert_fixed_program(
-        lanes, roads, juncs, green_time, yellow_time, id_mapping, traffic_light_path
+        lanes=lanes,
+        roads=roads,
+        juncs=juncs,
+        green_time=green_time,
+        yellow_time=yellow_time,
+        id_mapping=id_mapping,
+        traffic_light_path=traffic_light_path,
+        traffic_light_mode=traffic_light_mode,
     )
