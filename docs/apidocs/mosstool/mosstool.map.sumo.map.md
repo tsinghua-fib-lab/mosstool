@@ -45,7 +45,7 @@
 
 ````
 
-`````{py:class} MapConverter(net_path: str, default_lane_width: float = 3.2, green_time: float = 60.0, yellow_time: float = 5.0, poly_path: typing.Optional[str] = None, additional_path: typing.Optional[str] = None, traffic_light_path: typing.Optional[str] = None, traffic_light_min_direction_group: int = 3, merge_aoi: bool = False, enable_tqdm: bool = False, multiprocessing_chunk_size: int = 500, workers: int = cpu_count())
+`````{py:class} MapConverter(net_path: str, default_lane_width: float = 3.2, green_time: float = 60.0, yellow_time: float = 5.0, poly_path: typing.Optional[str] = None, additional_path: typing.Optional[str] = None, traffic_light_path: typing.Optional[str] = None, traffic_light_min_direction_group: int = 3, merge_aoi: bool = False, enable_tqdm: bool = False, multiprocessing_chunk_size: int = 500, traffic_light_mode: typing.Union[typing.Literal[green_red], typing.Literal[green_yellow_red], typing.Literal[green_yellow_clear_red]] = 'green_yellow_clear_red', workers: int = cpu_count())
 :canonical: mosstool.map.sumo.map.MapConverter
 
 ```{autodoc2-docstring} mosstool.map.sumo.map.MapConverter

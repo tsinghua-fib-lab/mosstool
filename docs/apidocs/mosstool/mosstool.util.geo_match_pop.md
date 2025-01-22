@@ -126,14 +126,14 @@
 ```
 ````
 
-````{py:function} _get_geo_pop(geos, pixel_idx2point_pop: dict[tuple[int, int], tuple[shapely.geometry.Point, int]], workers: int, x_left: float, y_upper: float, x_step: float, y_step: float, xy_gps_scale2: float, pixel_area: float, max_chunk_size: int)
+````{py:function} _get_geo_pop(geos, pixel_idx2point_pop: dict[tuple[int, int], tuple[shapely.geometry.Point, int]], workers: int, x_left: float, y_upper: float, x_step: float, y_step: float, xy_gps_scale2: float, pixel_area: float, max_chunk_size: int, enable_tqdm: bool)
 :canonical: mosstool.util.geo_match_pop._get_geo_pop
 
 ```{autodoc2-docstring} mosstool.util.geo_match_pop._get_geo_pop
 ```
 ````
 
-````{py:function} geo2pop(geo_data: typing.Union[geopandas.geodataframe.GeoDataFrame, geojson.FeatureCollection], pop_tif_path: str, upsample_factor: int = 4, pop_in_aoi_factor: float = 0.7, multiprocessing_chunk_size: int = 500) -> typing.Union[geopandas.geodataframe.GeoDataFrame, geojson.FeatureCollection]
+````{py:function} geo2pop(geo_data: typing.Union[geopandas.geodataframe.GeoDataFrame, geojson.FeatureCollection], pop_tif_path: str, enable_tqdm: bool = False, upsample_factor: int = 4, pop_in_aoi_factor: float = 0.7, multiprocessing_chunk_size: int = 500) -> typing.Union[geopandas.geodataframe.GeoDataFrame, geojson.FeatureCollection]
 :canonical: mosstool.util.geo_match_pop.geo2pop
 
 ```{autodoc2-docstring} mosstool.util.geo_match_pop.geo2pop

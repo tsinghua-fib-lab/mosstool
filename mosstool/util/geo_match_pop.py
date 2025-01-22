@@ -3,6 +3,7 @@ Geojson/shapefile format matches population
 """
 
 import logging
+from collections import defaultdict
 from copy import deepcopy
 from functools import partial
 from math import asin, ceil, cos, floor, radians, sin, sqrt
@@ -14,6 +15,7 @@ import rasterio
 from geojson import FeatureCollection
 from geopandas.geodataframe import GeoDataFrame
 from shapely.geometry import MultiPolygon, Point, Polygon
+from tqdm import tqdm
 
 from ..map._map_util.const import *
 
@@ -262,8 +264,66 @@ def _get_geo_pop(
     xy_gps_scale2: float,
     pixel_area: float,
     max_chunk_size: int,
+    enable_tqdm: bool,
 ):
     geos_dict = {i: d for i, d in enumerate(geos)}
+
+    result = []
+    list_geos_items = list(geos_dict.items())
+    # # test method
+    # center_ij_2_geo_items = defaultdict(list)
+    # center_ij_2_bounds = defaultdict(list)
+    # for idx, (poly, (min_x, min_y, max_x, max_y)) in tqdm(
+    #     list_geos_items, disable=not enable_tqdm
+    # ):
+    #     min_i, max_i, min_j, max_j = _get_idx_range_in_bbox(
+    #         min_x=min_x,
+    #         min_y=min_y,
+    #         max_x=max_x,
+    #         max_y=max_y,
+    #         xy_bound=(x_left, y_upper, x_step, y_step),
+    #     )
+    #     center_i, center_j = round((min_i + max_i) / 2), round((min_j + max_j) / 2)
+    #     center_ij = (center_i, center_j)
+    #     center_ij_2_geo_items[center_ij].append(
+    #         (idx, (poly, (min_i, min_j, max_i, max_j)))
+    #     )
+    #     center_ij_2_bounds[center_ij].extend(
+    #         [
+    #             (
+    #                 min_i,
+    #                 min_j,
+    #             ),
+    #             (max_i, max_j),
+    #         ]
+    #     )
+    # for center_ij, list_geos_items_batch in tqdm(
+    #     center_ij_2_geo_items.items(), disable=not enable_tqdm
+    # ):
+    #     i_max, j_max = np.max(center_ij_2_bounds[center_ij], axis=0)
+    #     i_min, j_min = np.min(center_ij_2_bounds[center_ij], axis=0)
+    #     batch_pixel_idx2point_pop = {
+    #         (i, j): pixel_idx2point_pop.get((i, j), (Point(), 0))
+    #         for i in range(i_min - 1, i_max + 2)
+    #         for j in range(j_min - 1, j_max + 2)
+    #     }
+    #     partial_args = (
+    #         batch_pixel_idx2point_pop,
+    #         x_left,
+    #         y_upper,
+    #         x_step,
+    #         y_step,
+    #         xy_gps_scale2,
+    #         pixel_area,
+    #     )
+    #     _get_poly_pop_unit_with_arg = partial(_get_poly_pop_unit, partial_args)
+    #     with Pool(processes=workers) as pool:
+    #         result += pool.map(
+    #             _get_poly_pop_unit_with_arg,
+    #             list_geos_items_batch,
+    #             chunksize=min(ceil(len(list_geos_items) / workers), max_chunk_size),
+    #         )
+    # original method
     partial_args = (
         pixel_idx2point_pop,
         x_left,
@@ -276,7 +336,9 @@ def _get_geo_pop(
     _get_poly_pop_unit_with_arg = partial(_get_poly_pop_unit, partial_args)
     result = []
     list_geos_items = list(geos_dict.items())
-    for i in range(0, len(list_geos_items), MAX_BATCH_SIZE):
+    for i in tqdm(
+        range(0, len(list_geos_items), MAX_BATCH_SIZE), disable=not enable_tqdm
+    ):
         list_geos_items_batch = list_geos_items[i : i + MAX_BATCH_SIZE]
         with Pool(processes=workers) as pool:
             result += pool.map(
@@ -294,6 +356,7 @@ def _get_geo_pop(
 def geo2pop(
     geo_data: Union[GeoDataFrame, FeatureCollection],
     pop_tif_path: str,
+    enable_tqdm: bool = False,
     upsample_factor: int = 4,
     pop_in_aoi_factor: float = 0.7,
     multiprocessing_chunk_size: int = 500,
@@ -302,6 +365,7 @@ def geo2pop(
     Args:
     - geo_data (GeoDataFrame | FeatureCollection): polygon geo files.
     - pop_tif_path (str): path to population tif file.
+    - enable_tqdm (bool): when enabled, use tqdm to show the progress bars.
     - upsample_factor (int): scaling factor for dividing the raw population data grid.
     - pop_in_aoi_factor (float): the proportion of the total population within the AOI.
     - multiprocessing_chunk_size (int): the maximum size of each multiprocessing chunk
@@ -383,7 +447,9 @@ def geo2pop(
     list_pixel2pop = list(pixel_idx2point_pop.items())
     results = []
     partial_upsample_pixels_unit = partial(_upsample_pixels_unit, (all_geos,))
-    for i in range(0, len(list_pixel2pop), MAX_BATCH_SIZE):
+    for i in tqdm(
+        range(0, len(list_pixel2pop), MAX_BATCH_SIZE), disable=not enable_tqdm
+    ):
         list_pixel2pop_batch = list_pixel2pop[i : i + MAX_BATCH_SIZE]
         with Pool(processes=workers) as pool:
             results += pool.map(
@@ -403,7 +469,9 @@ def geo2pop(
     logging.info(f"Up-sampling pixel: {n_upsample} cut the pixel length")
     list_pixel2pop = list(pixel_idx2point_pop.items())
     results = []
-    for i in range(0, len(list_pixel2pop), MAX_BATCH_SIZE):
+    for i in tqdm(
+        range(0, len(list_pixel2pop), MAX_BATCH_SIZE), disable=not enable_tqdm
+    ):
         list_pixel2pop_batch = list_pixel2pop[i : i + MAX_BATCH_SIZE]
         with Pool(processes=workers) as pool:
             results += pool.map(
@@ -417,16 +485,17 @@ def geo2pop(
     pixel_idx2point_pop = {k: v for x in results for k, v in x}
     logging.info(f"Adding populations")
     idx2pop = _get_geo_pop(
-        all_geos,
-        pixel_idx2point_pop,
-        workers,
-        x_left,
-        y_upper,
-        x_step,
-        y_step,
-        xy_gps_scale2,
-        pixel_area,
-        multiprocessing_chunk_size,
+        geos=all_geos,
+        pixel_idx2point_pop=pixel_idx2point_pop,
+        workers=workers,
+        x_left=x_left,
+        y_upper=y_upper,
+        x_step=x_step,
+        y_step=y_step,
+        xy_gps_scale2=xy_gps_scale2,
+        pixel_area=pixel_area,
+        max_chunk_size=multiprocessing_chunk_size,
+        enable_tqdm=enable_tqdm,
     )
     geo_total_pop = sum(idx2pop.values())
     # Post-processing, multiply by the proportional coefficient so that the total population within aoi is total_pop * pop_in_aoi_factor

@@ -103,28 +103,28 @@
 ```
 ````
 
-````{py:function} _generate_unit(partial_args: tuple[numpy.ndarray, numpy.ndarray, numpy.ndarray, numpy.ndarray, dict[int, list[dict[str, typing.Any]]], dict[int, dict[str, typing.Any]], dict[str, list[int]], int, typing.Any, list[float], int], get_mode_partial_args: tuple[list[str], tuple[float, float, float, float, float, float, float, float, float, float, float]], a_home_region: int, a_profile: dict[str, typing.Any], modes: list[typing.Union[typing.Literal[mosstool.trip.generator.generate_from_od._generate_unit.H], typing.Literal[mosstool.trip.generator.generate_from_od._generate_unit.W], typing.Literal[mosstool.trip.generator.generate_from_od._generate_unit.E], typing.Literal[mosstool.trip.generator.generate_from_od._generate_unit.O], typing.Literal[+]]], p_mode: list[float], seed: int)
+````{py:function} _generate_unit(partial_args: tuple[mosstool.trip.generator._util.const.np.ndarray, mosstool.trip.generator._util.const.np.ndarray, mosstool.trip.generator._util.const.np.ndarray, mosstool.trip.generator._util.const.np.ndarray, dict[int, list[dict[str, typing.Any]]], dict[int, dict[str, typing.Any]], dict[str, list[int]], int, typing.Any, list[float], int], get_mode_partial_args: tuple[list[str], tuple[float, float, float, float, float, float, float, float, float, float, float]], a_home_region: int, a_profile: dict[str, typing.Any], modes: list[typing.Union[typing.Literal[mosstool.trip.generator.generate_from_od._generate_unit.H], typing.Literal[mosstool.trip.generator.generate_from_od._generate_unit.W], typing.Literal[mosstool.trip.generator.generate_from_od._generate_unit.E], typing.Literal[mosstool.trip.generator.generate_from_od._generate_unit.O], typing.Literal[+]]], p_mode: list[float], seed: int)
 :canonical: mosstool.trip.generator.generate_from_od._generate_unit
 
 ```{autodoc2-docstring} mosstool.trip.generator.generate_from_od._generate_unit
 ```
 ````
 
-````{py:function} _process_agent_unit(partial_args_tuple: tuple[tuple[numpy.ndarray, numpy.ndarray, numpy.ndarray, numpy.ndarray, dict[int, list[dict[str, typing.Any]]], dict[int, dict[str, typing.Any]], dict[str, list[int]], int, typing.Any, list[float], int], tuple[list[str], tuple[float, float, float, float, float, float, float, float, float, float, float]]], arg: tuple[int, int, int, dict[str, typing.Any], list[typing.Union[typing.Literal[H], typing.Literal[W], typing.Literal[E], typing.Literal[O], typing.Literal[+]]], list[float]])
+````{py:function} _process_agent_unit(partial_args_tuple: tuple[tuple[mosstool.trip.generator._util.const.np.ndarray, mosstool.trip.generator._util.const.np.ndarray, mosstool.trip.generator._util.const.np.ndarray, mosstool.trip.generator._util.const.np.ndarray, dict[int, list[dict[str, typing.Any]]], dict[int, dict[str, typing.Any]], dict[str, list[int]], int, typing.Any, list[float], int], tuple[list[str], tuple[float, float, float, float, float, float, float, float, float, float, float]]], arg: tuple[int, int, int, dict[str, typing.Any], list[typing.Union[typing.Literal[H], typing.Literal[W], typing.Literal[E], typing.Literal[O], typing.Literal[+]]], list[float]])
 :canonical: mosstool.trip.generator.generate_from_od._process_agent_unit
 
 ```{autodoc2-docstring} mosstool.trip.generator.generate_from_od._process_agent_unit
 ```
 ````
 
-````{py:function} _fill_sch_unit(partial_args: tuple[numpy.ndarray, dict[int, list[dict[str, typing.Any]]], dict[int, dict[str, typing.Any]], dict[str, list[int]], int, typing.Any, list[float], int], get_mode_partial_args: tuple[list[str], tuple[float, float, float, float, float, float, float, float, float, float, float]], p_home: int, p_home_region: int, p_work: int, p_work_region: int, p_profile: dict[str, typing.Any], modes: list[typing.Union[typing.Literal[H], typing.Literal[W], typing.Literal[E], typing.Literal[mosstool.trip.generator.generate_from_od._fill_sch_unit.O], typing.Literal[+]]], p_mode: list[float], seed: int)
+````{py:function} _fill_sch_unit(partial_args: tuple[mosstool.trip.generator._util.const.np.ndarray, dict[int, list[dict[str, typing.Any]]], dict[int, dict[str, typing.Any]], dict[str, list[int]], int, typing.Any, list[float], int], get_mode_partial_args: tuple[list[str], tuple[float, float, float, float, float, float, float, float, float, float, float]], p_home: int, p_home_region: int, p_work: int, p_work_region: int, p_profile: dict[str, typing.Any], modes: list[typing.Union[typing.Literal[H], typing.Literal[W], typing.Literal[E], typing.Literal[mosstool.trip.generator.generate_from_od._fill_sch_unit.O], typing.Literal[+]]], p_mode: list[float], seed: int)
 :canonical: mosstool.trip.generator.generate_from_od._fill_sch_unit
 
 ```{autodoc2-docstring} mosstool.trip.generator.generate_from_od._fill_sch_unit
 ```
 ````
 
-````{py:function} _fill_person_schedule_unit(partial_args_tuple: tuple[tuple[numpy.ndarray, dict[int, list[dict[str, typing.Any]]], dict[int, dict[str, typing.Any]], dict[str, list[int]], int, typing.Any, list[float], int], tuple[list[str], tuple[float, float, float, float, float, float, float, float, float, float, float]]], arg: tuple[int, int, int, int, int, dict[str, typing.Any], list[typing.Union[typing.Literal[H], typing.Literal[W], typing.Literal[E], typing.Literal[O], typing.Literal[+]]], list[float], int])
+````{py:function} _fill_person_schedule_unit(partial_args_tuple: tuple[tuple[mosstool.trip.generator._util.const.np.ndarray, dict[int, list[dict[str, typing.Any]]], dict[int, dict[str, typing.Any]], dict[str, list[int]], int, typing.Any, list[float], int], tuple[list[str], tuple[float, float, float, float, float, float, float, float, float, float, float]]], arg: tuple[int, int, int, int, int, dict[str, typing.Any], list[typing.Union[typing.Literal[H], typing.Literal[W], typing.Literal[E], typing.Literal[O], typing.Literal[+]]], list[float], int])
 :canonical: mosstool.trip.generator.generate_from_od._fill_person_schedule_unit
 
 ```{autodoc2-docstring} mosstool.trip.generator.generate_from_od._fill_person_schedule_unit
@@ -193,7 +193,7 @@
 
 ````
 
-````{py:method} generate_persons(od_matrix: numpy.ndarray, areas: geopandas.geodataframe.GeoDataFrame, available_trip_modes: list[str] = ['drive', 'walk', 'bus', 'subway', 'taxi'], departure_time_curve: typing.Optional[list[float]] = None, area_pops: typing.Optional[list] = None, person_profiles: typing.Optional[list[dict]] = None, seed: int = 0, agent_num: typing.Optional[int] = None) -> list[mosstool.type.Person]
+````{py:method} generate_persons(od_matrix: mosstool.trip.generator._util.const.np.ndarray, areas: geopandas.geodataframe.GeoDataFrame, available_trip_modes: list[str] = ['drive', 'walk', 'bus', 'subway', 'taxi'], departure_time_curve: typing.Optional[list[float]] = None, area_pops: typing.Optional[list] = None, person_profiles: typing.Optional[list[dict]] = None, seed: int = 0, agent_num: typing.Optional[int] = None) -> list[mosstool.type.Person]
 :canonical: mosstool.trip.generator.generate_from_od.TripGenerator.generate_persons
 
 ```{autodoc2-docstring} mosstool.trip.generator.generate_from_od.TripGenerator.generate_persons
@@ -225,7 +225,7 @@
 
 ````
 
-````{py:method} fill_person_schedules(input_persons: list[mosstool.type.Person], od_matrix: numpy.ndarray, areas: geopandas.geodataframe.GeoDataFrame, available_trip_modes: list[str] = ['drive', 'walk', 'bus', 'subway', 'taxi'], departure_time_curve: typing.Optional[list[float]] = None, seed: int = 0) -> list[mosstool.type.Person]
+````{py:method} fill_person_schedules(input_persons: list[mosstool.type.Person], od_matrix: mosstool.trip.generator._util.const.np.ndarray, areas: geopandas.geodataframe.GeoDataFrame, available_trip_modes: list[str] = ['drive', 'walk', 'bus', 'subway', 'taxi'], departure_time_curve: typing.Optional[list[float]] = None, seed: int = 0) -> list[mosstool.type.Person]
 :canonical: mosstool.trip.generator.generate_from_od.TripGenerator.fill_person_schedules
 
 ```{autodoc2-docstring} mosstool.trip.generator.generate_from_od.TripGenerator.fill_person_schedules
