@@ -25,25 +25,17 @@ from .._map_util.aois import add_aoi_pop, add_aoi_to_map, generate_aoi_poi
 from .._map_util.aois.convert_aoi_poi import convert_aoi, convert_poi
 from .._map_util.aois.reuse_aois_matchers import match_map_aois
 from .._map_util.const import *
-from .._map_util.format_checker import geojson_format_check, output_format_check
-from .._map_util.junctions import (
-    add_driving_groups,
-    add_overlaps,
-    check_1_n_available_turns,
-    check_n_n_available_turns,
-    classify_main_auxiliary_wid,
-    generate_traffic_light,
-)
+from .._map_util.format_checker import (geojson_format_check,
+                                        output_format_check)
+from .._map_util.junctions import (add_driving_groups, add_overlaps,
+                                   check_1_n_available_turns,
+                                   check_n_n_available_turns,
+                                   classify_main_auxiliary_wid,
+                                   generate_traffic_light)
 from .._util.angle import abs_delta_angle, delta_angle
-from .._util.line import (
-    align_line,
-    connect_line_string,
-    get_line_angle,
-    line_extend,
-    line_max_curvature,
-    merge_line_start_end,
-    offset_lane,
-)
+from .._util.line import (align_line, connect_line_string, get_line_angle,
+                          line_extend, line_max_curvature,
+                          merge_line_start_end, offset_lane)
 
 __all__ = ["Builder"]
 
@@ -3913,13 +3905,14 @@ class Builder:
                         line, line.length / 3, line.length - line.length / 3
                     )
                 lane = cast(LineString, lane)
-                lane = offset_lane(lane, -0.495 * lane_width)
+                for i in range(15):
+                    lane = offset_lane(lane, -(0.495 + i * 0.001) * lane_width)
+                    if lane not in self.lane2data:
+                        break
+                else:
+                    raise ValueError(f"Duplicated lane at geos:{geos}, lines:{lines}")
                 cur_matcher = {
-                    "id": (
-                        self.lane_uid
-                        if lane not in self.lane2data
-                        else self.lane2data[lane]["uid"]
-                    ),
+                    "id": (self.lane_uid),
                     "geo": lane,
                     # midpoint of polyline
                     "point": lane.interpolate(0.5, normalized=True).coords[:][0],
