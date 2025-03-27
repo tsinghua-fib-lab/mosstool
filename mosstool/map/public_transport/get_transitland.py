@@ -3,8 +3,9 @@
 import logging
 import random
 from collections import defaultdict
+from datetime import datetime
 from math import asin, cos, radians, sin, sqrt
-from typing import Optional, Union, cast
+from typing import Any, Optional, Union, cast
 
 import numpy as np
 import pyproj
@@ -30,6 +31,53 @@ def geo_coords(geo):
         return all_coords
     else:
         return list(geo.coords)
+
+
+def extract_schedules_from_tags(tags: dict[str, Any]) -> list[float]:
+    # Extract schedules from tags
+    if not "interval" in tags:
+        return []
+    if not "opening_hours" in tags:
+        return []
+
+    def get_schedules(opening_hours: str, interval: str) -> list[float]:
+        def _date_time_to_seconds(date_time) -> float:
+            return date_time.hour * 3600 + date_time.minute * 60
+
+        list_opening_hours = opening_hours.split(" ")[-1].split(",")
+        schedules: list[float] = []
+        for time_format in ["%H:%M:%S", "%H:%M", "%M"]:
+            try:
+                time_interval = _date_time_to_seconds(
+                    datetime.strptime(interval, time_format)
+                )
+                break
+            except:
+                pass
+        else:
+            return []
+        time_interval = max(1, time_interval)
+        for oh in list_opening_hours:
+            for time_format in ["%H:%M:%S", "%H:%M", "%M"]:
+                try:
+                    start, end = oh.split("-")
+                    # special case
+                    if start == "24:00":
+                        start = "23:59"
+                    if end == "24:00":
+                        end = "23:59"
+                    start = _date_time_to_seconds(datetime.strptime(start, time_format))
+                    end = _date_time_to_seconds(datetime.strptime(end, time_format))
+                    # start-end with time interval
+                    while start < end:
+                        schedules.append(start)
+                        start += time_interval
+                    break
+                except:
+                    pass
+        return schedules
+
+    return get_schedules(tags["opening_hours"], tags["interval"])
 
 
 def _get_headers(referer_url):
@@ -473,7 +521,6 @@ class TransitlandPublicTransport:
         # relations
         for d in _osm_dict["relation"]:
             rel_way_ids = [mm["ref"] for mm in d["members"] if mm["type"] == "way"]
-
             rel_node_ids = [mm["ref"] for mm in d["members"] if mm["type"] == "node"]
             d_id = d["id"]
             d_tags = d.get("tags", {})
@@ -569,6 +616,7 @@ class TransitlandPublicTransport:
             route_coords = [rel_coords]
             if ref_id is None:
                 route_coords += [rel_coords[::-1]]
+            # store schedules in route
             route = {
                 "route_type": route_type,
                 "route_long_name": rel["name"],
@@ -576,6 +624,7 @@ class TransitlandPublicTransport:
                 "geometry": {
                     "coordinates": route_coords,
                 },
+                "schedules": extract_schedules_from_tags(rel.get("tags", {})),
                 "route_stops": [
                     {
                         "stop": {
@@ -590,14 +639,22 @@ class TransitlandPublicTransport:
                 ],
             }
             if ref_id is None:
-                GTFS_format_data[rel_id] = {"routes": [route]}
+                GTFS_format_data[rel_id] = {
+                    "routes": [route],
+                    "schedules": route.get("schedules", []),
+                }
             else:
                 ref_id2routes[ref_id].append(route)
         for ref_id, routes in ref_id2routes.items():
             main_route = routes[0]
             for r in routes[1:]:
                 main_route["geometry"]["coordinates"] += r["geometry"]["coordinates"]
-            GTFS_format_data[ref_id] = {"routes": [main_route]}
+            route_schedules = [r.get("schedules", []) for r in routes]
+            route_schedules = [r for r in route_schedules if r]
+            GTFS_format_data[ref_id] = {
+                "routes": [main_route],
+                "schedules": route_schedules[0] if route_schedules else [],
+            }
         self.GTFS_route_id2route_info = GTFS_format_data
 
     def _fetch_raw_stops(self):
@@ -736,9 +793,9 @@ class TransitlandPublicTransport:
                 "short_name": short_name,
                 "stops": list(set(rstops)),
                 "route_type": route_type,
+                "schedules": v.get("schedules", []),
             }
         split_routes = {}
-        test_geos = []
         for gtfs_route_id, gtfs_route in all_routes.items():
             try:
                 geo_xy = gtfs_route["geo_xy"]
@@ -817,20 +874,11 @@ class TransitlandPublicTransport:
                                 "split_geo": split_geo,
                             }
                         )
-                        test_geos.append(
-                            (
-                                split_geo,
-                                LineString(coords_lonlat),
-                                [
-                                    Point(*stops_from_routes[k]["geo"][0])
-                                    for k in subline_stops
-                                ],
-                            )
-                        )
                 if len(sublines) >= 1:
                     split_routes[gtfs_route_id] = {
                         "sublines": sublines,
                         "route_type": gtfs_route["route_type"],
+                        "schedules": gtfs_route.get("schedules", []),
                     }
             except:
                 continue
@@ -977,7 +1025,7 @@ class TransitlandPublicTransport:
                             all_sta_key2int_id[(old_key2new_key[i], "SUBWAY")]
                             for i in sl["stops"]
                         ],
-                        "schedules": [],
+                        "schedules": v.get("schedules", []),
                     }
                 )
                 for kk in sl["stops"]:
@@ -1003,7 +1051,7 @@ class TransitlandPublicTransport:
                             all_sta_key2int_id[(old_key2new_key[i], "BUS")]
                             for i in sl["stops"]
                         ],
-                        "schedules": [],
+                        "schedules": v.get("schedules", []),
                     }
                 )
                 for kk in sl["stops"]:
