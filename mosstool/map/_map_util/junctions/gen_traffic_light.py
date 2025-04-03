@@ -6,6 +6,10 @@ from typing import Literal, Optional, Union
 from xml.dom.minidom import parse
 
 import numpy as np
+from ..const import (
+    WALKING_SPEED_FOR_TRAFFIC_LIGHT,
+    WALKING_SPEED_FACTOR_FOR_TRAFFIC_LIGHT,
+)
 import pycityproto.city.map.v2.light_pb2 as lightv2
 import pycityproto.city.map.v2.map_pb2 as mapv2
 from shapely.geometry import LineString
@@ -207,13 +211,14 @@ def _gen_fixed_program(
     lanes: dict,
     roads: dict,
     juncs: dict,
-    green_time: float,
-    yellow_time: float,
+    default_green_time: float,
+    default_yellow_time: float,
     traffic_light_mode: Union[
         Literal["green_red"],
         Literal["green_yellow_red"],
         Literal["green_yellow_clear_red"],
     ],
+    correct_green_time: bool = False,
 ):
     """
     Generate fixed program traffic-light
@@ -222,6 +227,24 @@ def _gen_fixed_program(
         phases = j["phases"]  # all available phases
         if "fixed_program" in j and j["fixed_program"]:
             continue
+        # adjust green time and yellow time according to walking lane length
+        green_time = default_green_time
+        yellow_time = default_yellow_time
+        if correct_green_time:
+            walking_lanes_length = []
+            for lane_id in j["lane_ids"]:
+                if lanes[lane_id]["type"] == mapv2.LANE_TYPE_WALKING:
+                    walking_lanes_length.append(lanes[lane_id]["length"])
+            if len(walking_lanes_length) > 0:
+                max_length = max(walking_lanes_length)
+                green_time = max(
+                    green_time,
+                    (
+                        WALKING_SPEED_FACTOR_FOR_TRAFFIC_LIGHT
+                        * max_length
+                        / WALKING_SPEED_FOR_TRAFFIC_LIGHT
+                    ),
+                )
         if traffic_light_mode == "green_yellow_clear_red":
             tl_phases = []
             walk_indexes_set = set()
@@ -725,13 +748,22 @@ def generate_traffic_light(
         Literal["green_yellow_red"],
         Literal["green_yellow_clear_red"],
     ] = "green_yellow_clear_red",
+    correct_green_time: bool = False,
 ):
     # Generating available phases for MP
     logging.info("Generating available phases")
     _gen_available_phases(lanes, juncs, min_direction_group)
     # Generating fixed program traffic-lights
     logging.info("Generating fixed program")
-    _gen_fixed_program(lanes, roads, juncs, green_time, yellow_time, traffic_light_mode)
+    _gen_fixed_program(
+        lanes,
+        roads,
+        juncs,
+        green_time,
+        yellow_time,
+        traffic_light_mode,
+        correct_green_time,
+    )
 
 
 def convert_traffic_light(

@@ -25,17 +25,26 @@ from .._map_util.aois import add_aoi_pop, add_aoi_to_map, generate_aoi_poi
 from .._map_util.aois.convert_aoi_poi import convert_aoi, convert_poi
 from .._map_util.aois.reuse_aois_matchers import match_map_aois
 from .._map_util.const import *
-from .._map_util.format_checker import (geojson_format_check,
-                                        output_format_check)
-from .._map_util.junctions import (add_driving_groups, add_overlaps,
-                                   check_1_n_available_turns,
-                                   check_n_n_available_turns,
-                                   classify_main_auxiliary_wid,
-                                   generate_traffic_light)
+from .._map_util.format_checker import geojson_format_check, output_format_check
+from .._map_util.junctions import (
+    add_driving_groups,
+    add_overlaps,
+    check_1_n_available_turns,
+    check_n_n_available_turns,
+    classify_main_auxiliary_wid,
+    generate_traffic_light,
+)
 from .._util.angle import abs_delta_angle, delta_angle
-from .._util.line import (align_line, connect_line_string, get_line_angle,
-                          line_extend, line_max_curvature,
-                          merge_line_start_end, offset_lane)
+from .._util.line import (
+    align_line,
+    connect_line_string,
+    get_line_angle,
+    line_extend,
+    line_max_curvature,
+    clip_line,
+    merge_line_start_end,
+    offset_lane,
+)
 
 __all__ = ["Builder"]
 
@@ -71,6 +80,9 @@ class Builder:
         yellow_time: float = 5.0,
         strict_mode: bool = False,
         merge_aoi: bool = True,
+        correct_green_time: bool = False,
+        split_too_long_walking_lanes: bool = False,
+        max_walking_lane_length: float = 100.0,
         aoi_matching_distance_threshold: float = 30.0,
         pt_station_matching_distance_threshold: float = 30.0,
         pt_station_matching_distance_relaxation_threshold: float = 30.0,
@@ -100,6 +112,9 @@ class Builder:
         - yellow_time (float): yellow time
         - strict_mode (bool): when enabled, causes the program to exit whenever a warning occurs
         - merge_aoi (bool): merge nearby aois
+        - correct_green_time (bool): whether to correct green time, if true, the green time will be corrected to the minimum green time that satisfies one person to walk across the junction.
+        - split_too_long_walking_lanes (bool): whether to split too long walking lanes
+        - max_walking_lane_length (float): the maximum length of walking lanes, if the length of a walking lane is larger than this value, it will be split into two lanes.
         - aoi_matching_distance_threshold (float): Only AOIs whose distance to the road network is less than this value will be added to the map.
         - pt_station_matching_distance_threshold (float): Only stations whose distance to the road network is less than this value will be added to the map.
         - pt_station_matching_distance_relaxation_threshold (float): The relaxation distance threshold for stations whose distance to road network is larger than `pt_station_matching_distance_threshold`.
@@ -130,6 +145,9 @@ class Builder:
         self.traffic_light_min_direction_group = traffic_light_min_direction_group
         self.strict_mode = strict_mode
         self.merge_aoi = merge_aoi
+        self.correct_green_time = correct_green_time
+        self.split_too_long_walking_lanes = split_too_long_walking_lanes
+        self.max_walking_lane_length = max_walking_lane_length
         self.aoi_matching_distance_threshold = aoi_matching_distance_threshold
         self.pt_station_matching_distance_threshold = (
             pt_station_matching_distance_threshold
@@ -545,7 +563,7 @@ class Builder:
                     new_out_uid = orig_id2new_id[out_uid]
                     lane_conn["id"] = new_out_uid
             new_map_lanes[new_lane_uid] = line
-        self.map_lanes = new_map_lanes
+        self.map_lanes: dict[int, LineString] = new_map_lanes
 
     def draw_junction(self, jid: int, save_path: str, trim_length: float = 50):
         """
@@ -4293,6 +4311,94 @@ class Builder:
                 if curvature > CURVATURE_THRESHOLDS[lane_turn]:
                     max_speed_threshold = max_turn_speed(1 / curvature)
                     l_data["max_speed"] = min(max_speed_threshold, l_data["max_speed"])
+        # split too long walking lanes
+        too_long_walking_lanes: set[tuple[int, LineString]] = set()
+        for jid, j in self.map_junctions.items():
+            if not self.split_too_long_walking_lanes:
+                continue
+            for lane in j["lanes"]:
+                if self.lane2data[lane]["type"] != mapv2.LANE_TYPE_WALKING:
+                    continue
+                if lane.length > self.max_walking_lane_length:
+                    # split into two lanes
+                    too_long_walking_lanes.add((jid, lane))
+        if len(too_long_walking_lanes) > 0:
+            logging.info(
+                f"Splitting {len(too_long_walking_lanes)} too long walking lanes"
+            )
+
+        orig_lane_id_to_new_lane_id_1: dict[int, int] = {}
+        orig_lane_id_to_new_lane_id_2: dict[int, int] = {}
+        for jid, orig_line in too_long_walking_lanes:
+            # delete self.lane2data
+            orig_line_data = self.lane2data[orig_line]
+            lane_id = orig_line_data["uid"]
+            # delete from self.map_junctions
+            j = self.map_junctions[jid]
+            j["lanes"] = [i for i in j["lanes"] if i != orig_line]
+            # delete self.map_lanes
+            del self.map_lanes[lane_id]
+            del self.lane2data[orig_line]
+            # split geo into two lines
+            middle_point_with_z = orig_line.interpolate(0.5, normalized=True)
+            # new lane 1
+            new_line1 = clip_line(
+                orig_line, Point(orig_line.coords[0]), middle_point_with_z
+            )
+            self.map_lanes[self.lane_uid] = new_line1
+            j["lanes"].append(new_line1)
+            self.lane2data[new_line1] = {
+                "uid": self.lane_uid,
+                "in": orig_line_data["in"],
+                "out": [
+                    {
+                        "id": self.lane_uid + 1,
+                        "type": orig_line_data["out"][0]["type"],
+                    }
+                ],
+                "max_speed": orig_line_data["max_speed"],
+                "left_lane_ids": [],
+                "right_lane_ids": [],
+                "parent_id": orig_line_data["parent_id"],
+                "type": orig_line_data["type"],
+                "turn": orig_line_data["turn"],
+                "width": orig_line_data["width"],
+            }
+            orig_lane_id_to_new_lane_id_1[orig_line_data["uid"]] = self.lane_uid
+            self.lane_uid += 1
+            # new lane 2
+            new_line2 = clip_line(
+                orig_line, middle_point_with_z, Point(orig_line.coords[-1])
+            )
+            self.map_lanes[self.lane_uid] = new_line2
+            j["lanes"].append(new_line2)
+            self.lane2data[new_line2] = {
+                "uid": self.lane_uid,
+                "in": [
+                    {
+                        "id": self.lane_uid - 1,
+                        "type": orig_line_data["in"][0]["type"],
+                    }
+                ],
+                "out": orig_line_data["out"],
+                "max_speed": orig_line_data["max_speed"],
+                "left_lane_ids": [],
+                "right_lane_ids": [],
+                "parent_id": orig_line_data["parent_id"],
+                "type": orig_line_data["type"],
+                "turn": orig_line_data["turn"],
+                "width": orig_line_data["width"],
+            }
+            orig_lane_id_to_new_lane_id_2[orig_line_data["uid"]] = self.lane_uid
+            self.lane_uid += 1
+        # correct predecessors
+        for _, lane_data in self.lane2data.items():
+            for in_data in lane_data["in"]:
+                if in_data["id"] in orig_lane_id_to_new_lane_id_1:
+                    in_data["id"] = orig_lane_id_to_new_lane_id_1[in_data["id"]]
+            for out_data in lane_data["out"]:
+                if out_data["id"] in orig_lane_id_to_new_lane_id_2:
+                    out_data["id"] = orig_lane_id_to_new_lane_id_2[out_data["id"]]
 
     def get_output_map(self, name: str):
         """Post-processing converts map data into output format"""
@@ -4330,9 +4436,11 @@ class Builder:
                     key=lambda x: x[1],
                 )
                 _line = self.map_lanes[nearest_lane_pos["lane_id"]]
-                _line_z = (_line.coords[-1][2] - _line.coords[0][2]) * (
-                    nearest_lane_pos["s"] / _line.length
-                ) + _line.coords[0][2]
+                _line_z = (_line.coords[-1][2] - _line.coords[0][2]) * (  # type: ignore
+                    nearest_lane_pos["s"] / _line.length  # type: ignore
+                ) + _line.coords[0][
+                    2
+                ]  # type: ignore
             else:
                 _line_z = 0
             # posistion
@@ -4545,7 +4653,7 @@ class Builder:
             self._create_junction_for_n_n()
             self._create_walking_lanes()
             self._expand_remain_roads()
-            self._post_process()
+        self._post_process()
         self._add_all_aoi()
         output_map = self.get_output_map(name)
         output_format_check(output_map, self.output_lane_length_check)
