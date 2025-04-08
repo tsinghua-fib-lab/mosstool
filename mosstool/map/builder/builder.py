@@ -5,7 +5,7 @@ from collections import defaultdict
 from collections.abc import Callable
 from copy import deepcopy
 from multiprocessing import cpu_count
-from typing import Literal, Optional, Union, cast
+from typing import Any, Literal, Optional, Union, cast
 
 import matplotlib.pyplot as plt
 import networkx as nx
@@ -25,26 +25,17 @@ from .._map_util.aois import add_aoi_pop, add_aoi_to_map, generate_aoi_poi
 from .._map_util.aois.convert_aoi_poi import convert_aoi, convert_poi
 from .._map_util.aois.reuse_aois_matchers import match_map_aois
 from .._map_util.const import *
-from .._map_util.format_checker import geojson_format_check, output_format_check
-from .._map_util.junctions import (
-    add_driving_groups,
-    add_overlaps,
-    check_1_n_available_turns,
-    check_n_n_available_turns,
-    classify_main_auxiliary_wid,
-    generate_traffic_light,
-)
+from .._map_util.format_checker import (geojson_format_check,
+                                        output_format_check)
+from .._map_util.junctions import (add_driving_groups, add_overlaps,
+                                   check_1_n_available_turns,
+                                   check_n_n_available_turns,
+                                   classify_main_auxiliary_wid,
+                                   generate_traffic_light)
 from .._util.angle import abs_delta_angle, delta_angle
-from .._util.line import (
-    align_line,
-    connect_line_string,
-    get_line_angle,
-    line_extend,
-    line_max_curvature,
-    clip_line,
-    merge_line_start_end,
-    offset_lane,
-)
+from .._util.line import (align_line, clip_line, connect_line_string,
+                          get_line_angle, line_extend, line_max_curvature,
+                          merge_line_start_end, offset_lane)
 
 __all__ = ["Builder"]
 
@@ -178,7 +169,7 @@ class Builder:
         """id -> map road data{[]lane shapely(from left to right), highway, max_speed, name}"""
         self.map_junctions = {}
         """id -> map junction data{[]lane shapely}"""
-        self.lane2data = {}
+        self.lane2data: dict[LineString, dict[str, Any]] = {}
         """lane shapely -> map lane shapely(lane_uid, []in_lane uid, []out_lane uid)"""
         self.map_lanes = {}
         """id -> map lane data(lane shapely)"""
@@ -4326,9 +4317,7 @@ class Builder:
             logging.info(
                 f"Splitting {len(too_long_walking_lanes)} too long walking lanes"
             )
-
-        orig_lane_id_to_new_lane_id_1: dict[int, int] = {}
-        orig_lane_id_to_new_lane_id_2: dict[int, int] = {}
+        orig_lane_id_to_new_lane_ids: dict[int, tuple[int, int]] = {}
         for jid, orig_line in too_long_walking_lanes:
             # delete self.lane2data
             orig_line_data = self.lane2data[orig_line]
@@ -4340,11 +4329,10 @@ class Builder:
             del self.map_lanes[lane_id]
             del self.lane2data[orig_line]
             # split geo into two lines
-            middle_point_with_z = orig_line.interpolate(0.5, normalized=True)
+            # middle_point_with_z = orig_line.interpolate(0.5, normalized=True)
             # new lane 1
-            new_line1 = clip_line(
-                orig_line, Point(orig_line.coords[0]), middle_point_with_z
-            )
+            new_line1 = ops.substring(orig_line, 0, orig_line.length / 2)
+            new_line1 = cast(LineString, new_line1)
             self.map_lanes[self.lane_uid] = new_line1
             j["lanes"].append(new_line1)
             self.lane2data[new_line1] = {
@@ -4353,7 +4341,7 @@ class Builder:
                 "out": [
                     {
                         "id": self.lane_uid + 1,
-                        "type": orig_line_data["out"][0]["type"],
+                        "type": mapv2.LANE_CONNECTION_TYPE_HEAD,
                     }
                 ],
                 "max_speed": orig_line_data["max_speed"],
@@ -4364,12 +4352,14 @@ class Builder:
                 "turn": orig_line_data["turn"],
                 "width": orig_line_data["width"],
             }
-            orig_lane_id_to_new_lane_id_1[orig_line_data["uid"]] = self.lane_uid
+            orig_lane_id_to_new_lane_ids[orig_line_data["uid"]] = (
+                self.lane_uid,
+                self.lane_uid + 1,
+            )
             self.lane_uid += 1
             # new lane 2
-            new_line2 = clip_line(
-                orig_line, middle_point_with_z, Point(orig_line.coords[-1])
-            )
+            new_line2 = ops.substring(orig_line, orig_line.length / 2, orig_line.length)
+            new_line2 = cast(LineString, new_line2)
             self.map_lanes[self.lane_uid] = new_line2
             j["lanes"].append(new_line2)
             self.lane2data[new_line2] = {
@@ -4377,7 +4367,7 @@ class Builder:
                 "in": [
                     {
                         "id": self.lane_uid - 1,
-                        "type": orig_line_data["in"][0]["type"],
+                        "type": mapv2.LANE_CONNECTION_TYPE_TAIL,
                     }
                 ],
                 "out": orig_line_data["out"],
@@ -4389,16 +4379,24 @@ class Builder:
                 "turn": orig_line_data["turn"],
                 "width": orig_line_data["width"],
             }
-            orig_lane_id_to_new_lane_id_2[orig_line_data["uid"]] = self.lane_uid
             self.lane_uid += 1
-        # correct predecessors
-        for _, lane_data in self.lane2data.items():
-            for in_data in lane_data["in"]:
-                if in_data["id"] in orig_lane_id_to_new_lane_id_1:
-                    in_data["id"] = orig_lane_id_to_new_lane_id_1[in_data["id"]]
-            for out_data in lane_data["out"]:
-                if out_data["id"] in orig_lane_id_to_new_lane_id_2:
-                    out_data["id"] = orig_lane_id_to_new_lane_id_2[out_data["id"]]
+        # correct predecessors & successors
+        for line, lane_data in self.lane2data.items():
+            for l_data in lane_data["in"] + lane_data["out"]:
+                if l_data["id"] in orig_lane_id_to_new_lane_ids:
+                    splitted_ids = orig_lane_id_to_new_lane_ids[l_data["id"]]
+                    splitted_lines = [self.map_lanes[i] for i in splitted_ids]
+                    for new_id, new_line in zip(splitted_ids, splitted_lines):
+                        if (
+                            new_line.distance(Point(line.coords[-1])) < 1e-6
+                            or new_line.distance(Point(line.coords[0])) < 1e-6
+                        ):
+                            l_data["id"] = new_id
+                            break
+                    else:
+                        raise ValueError(
+                            f"Failed to find the correct new lane id for {l_data['id']}"
+                        )
 
     def get_output_map(self, name: str):
         """Post-processing converts map data into output format"""
