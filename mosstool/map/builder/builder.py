@@ -4386,17 +4386,18 @@ class Builder:
                 if l_data["id"] in orig_lane_id_to_new_lane_ids:
                     splitted_ids = orig_lane_id_to_new_lane_ids[l_data["id"]]
                     splitted_lines = [self.map_lanes[i] for i in splitted_ids]
-                    for new_id, new_line in zip(splitted_ids, splitted_lines):
-                        if (
-                            new_line.distance(Point(line.coords[-1])) < 1e-6
-                            or new_line.distance(Point(line.coords[0])) < 1e-6
-                        ):
-                            l_data["id"] = new_id
-                            break
-                    else:
-                        raise ValueError(
-                            f"Failed to find the correct new lane id for {l_data['id']}"
-                        )
+                    # find the nearest line
+                    new_id, new_line = min(
+                        [
+                            (i, l)
+                            for i, l in zip(splitted_ids, splitted_lines)
+                        ],
+                        key=lambda x: min(
+                            x[1].distance(Point(line.coords[-1])),
+                            x[1].distance(Point(line.coords[0])),
+                        ),
+                    )
+                    l_data["id"] = new_id
 
     def get_output_map(self, name: str):
         """Post-processing converts map data into output format"""
