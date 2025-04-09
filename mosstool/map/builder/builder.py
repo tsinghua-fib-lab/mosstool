@@ -78,6 +78,19 @@ class Builder:
         pt_station_matching_distance_threshold: float = 30.0,
         pt_station_matching_distance_relaxation_threshold: float = 30.0,
         output_lane_length_check: bool = False,
+        default_lane_turn_num_dict: dict[str, int] = {
+            "AUXILIARY_SMALL_LEFT": 1,
+            "AUXILIARY_SMALL_RIGHT": 1,
+            "AUXILIARY_LARGE_LEFT": 1,
+            "AUXILIARY_LARGE_RIGHT": 1,
+            "AUXILIARY_AROUND": 1,
+            "MAIN_AROUND": 1,
+            "MAIN_SMALL_LEFT": 1,
+            "MAIN_LARGE_LEFT": 2,
+            "MAIN_SMALL_RIGHT": 1,
+            "MAIN_LARGE_RIGHT": 2,
+        },
+        min_straight_main_lane_ratio: float = 0.5,
         enable_tqdm: bool = False,
         workers: int = cpu_count(),
     ):
@@ -110,6 +123,8 @@ class Builder:
         - pt_station_matching_distance_threshold (float): Only stations whose distance to the road network is less than this value will be added to the map.
         - pt_station_matching_distance_relaxation_threshold (float): The relaxation distance threshold for stations whose distance to road network is larger than `pt_station_matching_distance_threshold`.
         - output_lane_length_check (bool): when enabled, will do value checks lane lengths in output map.
+        - default_lane_turn_num_dict (dict[str,int]): default lane turn number dictionary.
+        - min_straight_main_lane_ratio (float): the minimum ratio of straight main lanes to total main lanes.
         - enable_tqdm (bool): when enabled, use tqdm to show the progress bars.
         - workers (int): number of workers
         """
@@ -139,6 +154,8 @@ class Builder:
         self.correct_green_time = correct_green_time
         self.split_too_long_walking_lanes = split_too_long_walking_lanes
         self.max_walking_lane_length = max_walking_lane_length
+        self.default_lane_turn_num_dict = default_lane_turn_num_dict
+        self.min_straight_main_lane_ratio = min_straight_main_lane_ratio
         self.aoi_matching_distance_threshold = aoi_matching_distance_threshold
         self.pt_station_matching_distance_threshold = (
             pt_station_matching_distance_threshold
@@ -1589,18 +1606,20 @@ class Builder:
                     # Go straight
                     default_in_straight_main_lanes = in_main_lanes
                     # Around
-                    default_main_around_lane_num = DEFAULT_TURN_NUM["MAIN_AROUND"]
+                    default_main_around_lane_num = self.default_lane_turn_num_dict[
+                        "MAIN_AROUND"
+                    ]
                     # Turn left
                     default_main_left_lane_num = (
-                        DEFAULT_TURN_NUM["MAIN_LARGE_LEFT"]
+                        self.default_lane_turn_num_dict["MAIN_LARGE_LEFT"]
                         if len(in_main_lanes) > LARGE_LANE_NUM_THRESHOLD
-                        else DEFAULT_TURN_NUM["MAIN_SMALL_LEFT"]
+                        else self.default_lane_turn_num_dict["MAIN_SMALL_LEFT"]
                     )
                     # Turn right
                     default_main_right_lane_num = (
-                        DEFAULT_TURN_NUM["MAIN_LARGE_RIGHT"]
+                        self.default_lane_turn_num_dict["MAIN_LARGE_RIGHT"]
                         if len(in_main_lanes) > LARGE_LANE_NUM_THRESHOLD
-                        else DEFAULT_TURN_NUM["MAIN_SMALL_RIGHT"]
+                        else self.default_lane_turn_num_dict["MAIN_SMALL_RIGHT"]
                     )
                     USE_TURN_CONFIG = False
                     # Mark turn according to turn config
@@ -1664,15 +1683,15 @@ class Builder:
                     # Go straight
                     default_in_straight_auxiliary_lanes = in_auxiliary_lanes
                     # Around
-                    default_auxiliary_around_lane_num = DEFAULT_TURN_NUM[
+                    default_auxiliary_around_lane_num = self.default_lane_turn_num_dict[
                         "AUXILIARY_AROUND"
                     ]
                     # Turn left
-                    default_auxiliary_left_lane_num = DEFAULT_TURN_NUM[
+                    default_auxiliary_left_lane_num = self.default_lane_turn_num_dict[
                         "AUXILIARY_SMALL_LEFT"
                     ]
                     # Turn right
-                    default_auxiliary_right_lane_num = DEFAULT_TURN_NUM[
+                    default_auxiliary_right_lane_num = self.default_lane_turn_num_dict[
                         "AUXILIARY_SMALL_RIGHT"
                     ]
                     # Mark turn according to turn config
@@ -2378,15 +2397,19 @@ class Builder:
                         # Turn right
                         default_right_count = 0
                         if len(out_around_groups) > 0:
-                            default_around_count += DEFAULT_TURN_NUM["MAIN_AROUND"]
+                            default_around_count += self.default_lane_turn_num_dict[
+                                "MAIN_AROUND"
+                            ]
                         if len(out_right_groups) > 0:
-                            default_right_count += DEFAULT_TURN_NUM["MAIN_SMALL_RIGHT"]
+                            default_right_count += self.default_lane_turn_num_dict[
+                                "MAIN_SMALL_RIGHT"
+                            ]
                             default_main_count -= default_right_count
                         if len(out_left_groups) > 0:
                             default_left_count += (
-                                DEFAULT_TURN_NUM["MAIN_LARGE_LEFT"]
+                                self.default_lane_turn_num_dict["MAIN_LARGE_LEFT"]
                                 if default_main_count >= LARGE_LANE_NUM_THRESHOLD
-                                else DEFAULT_TURN_NUM["MAIN_SMALL_LEFT"]
+                                else self.default_lane_turn_num_dict["MAIN_SMALL_LEFT"]
                             )
                             # There is a shared road here that turns left and goes straight
                             if default_main_count - default_left_count >= 1:
@@ -2398,6 +2421,18 @@ class Builder:
                                 and out_main_group
                             ):
                                 default_main_count = len(in_main_lanes)
+                            if (
+                                0
+                                < default_main_count
+                                < round(
+                                    len(in_main_lanes)
+                                    * self.min_straight_main_lane_ratio
+                                )
+                            ):
+                                default_main_count = round(
+                                    len(in_main_lanes)
+                                    * self.min_straight_main_lane_ratio
+                                )
                         default_main_out_start, default_main_out_end = (
                             max(default_left_count, 0),
                             max(default_left_count, 0) + default_main_count,
@@ -2589,15 +2624,19 @@ class Builder:
                         # Turn right
                         default_right_count = 0
                         if len(out_around_groups) > 0:
-                            default_around_count += DEFAULT_TURN_NUM["MAIN_AROUND"]
+                            default_around_count += self.default_lane_turn_num_dict[
+                                "MAIN_AROUND"
+                            ]
                         if len(out_right_groups) > 0:
-                            default_right_count += DEFAULT_TURN_NUM["MAIN_SMALL_RIGHT"]
+                            default_right_count += self.default_lane_turn_num_dict[
+                                "MAIN_SMALL_RIGHT"
+                            ]
                             default_main_count -= default_right_count
                         if len(out_left_groups) > 0:
                             default_left_count += (
-                                DEFAULT_TURN_NUM["MAIN_LARGE_LEFT"]
+                                self.default_lane_turn_num_dict["MAIN_LARGE_LEFT"]
                                 if default_main_count >= LARGE_LANE_NUM_THRESHOLD
-                                else DEFAULT_TURN_NUM["MAIN_SMALL_LEFT"]
+                                else self.default_lane_turn_num_dict["MAIN_SMALL_LEFT"]
                             )
                             # There is a shared road that turns left and goes straight.
                             if default_main_count - default_left_count >= 1:
@@ -2694,22 +2733,24 @@ class Builder:
                         # Turn right
                         default_auxiliary_right_count = 0
                         if len(out_around_groups) > 0:
-                            default_auxiliary_around_count += DEFAULT_TURN_NUM[
-                                "AUXILIARY_AROUND"
-                            ]
+                            default_auxiliary_around_count += (
+                                self.default_lane_turn_num_dict["AUXILIARY_AROUND"]
+                            )
                         if len(out_right_groups) > 0:
-                            default_auxiliary_right_count += DEFAULT_TURN_NUM[
-                                "AUXILIARY_SMALL_RIGHT"
-                            ]
+                            default_auxiliary_right_count += (
+                                self.default_lane_turn_num_dict["AUXILIARY_SMALL_RIGHT"]
+                            )
                             default_auxiliary_main_count -= (
                                 default_auxiliary_right_count
                             )
                         if len(out_left_groups) > 0:
                             default_auxiliary_left_count += (
-                                DEFAULT_TURN_NUM["AUXILIARY_LARGE_LEFT"]
+                                self.default_lane_turn_num_dict["AUXILIARY_LARGE_LEFT"]
                                 if default_auxiliary_main_count
                                 >= LARGE_LANE_NUM_THRESHOLD
-                                else DEFAULT_TURN_NUM["AUXILIARY_SMALL_LEFT"]
+                                else self.default_lane_turn_num_dict[
+                                    "AUXILIARY_SMALL_LEFT"
+                                ]
                             )
                             # There is a shared road that turns left and goes straight.
                             if (
@@ -4388,10 +4429,7 @@ class Builder:
                     splitted_lines = [self.map_lanes[i] for i in splitted_ids]
                     # find the nearest line
                     new_id, new_line = min(
-                        [
-                            (i, l)
-                            for i, l in zip(splitted_ids, splitted_lines)
-                        ],
+                        [(i, l) for i, l in zip(splitted_ids, splitted_lines)],
                         key=lambda x: min(
                             x[1].distance(Point(line.coords[-1])),
                             x[1].distance(Point(line.coords[0])),
