@@ -1,3 +1,4 @@
+import random
 from functools import partial
 from math import atan2
 from typing import Optional, cast
@@ -123,7 +124,7 @@ def line_extend(line: LineString, extend_length: float):
     return LineString(start_extend_p + line.coords[:] + end_extend_p)  # type: ignore
 
 
-def line_max_curvature(line: LineString):
+def line_max_curvature(line: LineString) -> float:
     """
     Calculate the maximum curvature of the line.
     """
@@ -133,6 +134,27 @@ def line_max_curvature(line: LineString):
     d2ydx2 = np.gradient(dydx, x)
     curvature = np.abs(d2ydx2) / (1 + dydx**2) ** (3 / 2)
     return max(curvature)
+
+
+def add_random_point_to_linestring(line: LineString, seed: int = 0) -> LineString:
+    coords = list(line.coords)  # type: ignore
+    has_z = all(len(c) == 3 for c in coords)
+    random.seed(seed)
+    idx = random.randint(0, len(coords) - 2)
+    point1 = coords[idx]
+    point2 = coords[idx + 1]
+    t = random.uniform(0, 1)
+    new_x = point1[0] + t * (point2[0] - point1[0])
+    new_y = point1[1] + t * (point2[1] - point1[1])
+    if has_z:
+        new_z = point1[2] + t * (point2[2] - point1[2])  # type: ignore
+        new_point = (new_x, new_y, new_z)
+        coords.insert(idx + 1, new_point)  # type: ignore
+    else:
+        new_point = (new_x, new_y)
+        coords.insert(idx + 1, new_point)
+
+    return LineString(coords)
 
 
 def connect_line_string(line1: LineString, line2: LineString) -> LineString:

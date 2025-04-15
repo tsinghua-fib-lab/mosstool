@@ -33,8 +33,9 @@ from .._map_util.junctions import (add_driving_groups, add_overlaps,
                                    classify_main_auxiliary_wid,
                                    generate_traffic_light)
 from .._util.angle import abs_delta_angle, delta_angle
-from .._util.line import (align_line, clip_line, connect_line_string,
-                          get_line_angle, line_extend, line_max_curvature,
+from .._util.line import (add_random_point_to_linestring, align_line,
+                          clip_line, connect_line_string, get_line_angle,
+                          line_extend, line_max_curvature,
                           merge_line_start_end, offset_lane)
 
 __all__ = ["Builder"]
@@ -278,6 +279,15 @@ class Builder:
             # map_lanes & lane2data
             for l in net.lanes:
                 line = LineString([[n.x, n.y, n.z] for n in l.center_line.nodes])
+                for i in range(MAX_LINE_RETRY_TIMES):
+                    if line not in self.lane2data:
+                        break
+                    else:
+                        line = add_random_point_to_linestring(line, seed=l.id)
+                else:
+                    raise ValueError(
+                        f"Failed to generate unique lane LineString for lane {l.id}"
+                    )
                 l_id = l.id
                 self.map_lanes[l_id] = line
                 pb_lane_uids.add(l_id)
@@ -437,6 +447,18 @@ class Builder:
             else:
                 if conn_lane.length > 1e99:
                     continue
+            # check if the new lane is already in the map_lanes
+            for i in range(MAX_LINE_RETRY_TIMES):
+                if conn_lane not in self.lane2data:
+                    break
+                else:
+                    conn_lane = add_random_point_to_linestring(
+                        conn_lane, seed=self.lane_uid
+                    )
+            else:
+                raise ValueError(
+                    f"Failed to generate unique lane LineString for conn_lane"
+                )
             # Add new lane
             self.map_lanes[self.lane_uid] = conn_lane
             # Add the connection relationship of the new lane
@@ -1034,6 +1056,16 @@ class Builder:
 
             # way["properties"]["lanes"] = lane_num # Update lane number
             for lane in lanes:
+                # check if the new lane is already in the map_lanes
+                for i in range(MAX_LINE_RETRY_TIMES):
+                    if lane not in self.lane2data:
+                        break
+                    else:
+                        lane = add_random_point_to_linestring(lane, seed=self.lane_uid)
+                else:
+                    raise ValueError(
+                        f"Failed to generate unique lane LineString for lane {lane}"
+                    )
                 # Add new lane
                 self.map_lanes[self.lane_uid] = lane
                 # Add the connection relationship of the new lane
@@ -3955,7 +3987,7 @@ class Builder:
                         line, line.length / 3, line.length - line.length / 3
                     )
                 lane = cast(LineString, lane)
-                for i in range(15):
+                for i in range(MAX_LINE_RETRY_TIMES):
                     lane = offset_lane(lane, -(0.495 + i * 0.001) * lane_width)
                     if lane not in self.lane2data:
                         break
