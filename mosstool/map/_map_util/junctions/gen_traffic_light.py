@@ -2,19 +2,17 @@
 
 import logging
 from collections import defaultdict
-from typing import Literal, Optional, Union
+from typing import Any, Literal, Optional, Union
 from xml.dom.minidom import parse
 
 import numpy as np
-from ..const import (
-    WALKING_SPEED_FOR_TRAFFIC_LIGHT,
-    WALKING_SPEED_FACTOR_FOR_TRAFFIC_LIGHT,
-)
 import pycityproto.city.map.v2.light_pb2 as lightv2
 import pycityproto.city.map.v2.map_pb2 as mapv2
 from shapely.geometry import LineString
 
 from ..._util.angle import abs_delta_angle
+from ..const import (WALKING_SPEED_FACTOR_FOR_TRAFFIC_LIGHT,
+                     WALKING_SPEED_FOR_TRAFFIC_LIGHT)
 
 __all__ = ["generate_traffic_light", "convert_traffic_light"]
 
@@ -213,6 +211,7 @@ def _gen_fixed_program(
     juncs: dict,
     default_green_time: float,
     default_yellow_time: float,
+    pedestrian_clear_time: float,
     traffic_light_mode: Union[
         Literal["green_red"],
         Literal["green_yellow_red"],
@@ -224,14 +223,14 @@ def _gen_fixed_program(
     Generate fixed program traffic-light
     """
     for junc_id, j in juncs.items():
-        phases = j["phases"]  # all available phases
+        phases: list[dict[str, Any]] = j["phases"]  # all available phases
         if "fixed_program" in j and j["fixed_program"]:
             continue
         # adjust green time and yellow time according to walking lane length
-        green_time = default_green_time
-        yellow_time = default_yellow_time
+        green_time: float = default_green_time
+        yellow_time: float = default_yellow_time
         if correct_green_time:
-            walking_lanes_length = []
+            walking_lanes_length: list[float] = []
             for lane_id in j["lane_ids"]:
                 if lanes[lane_id]["type"] == mapv2.LANE_TYPE_WALKING:
                     walking_lanes_length.append(lanes[lane_id]["length"])
@@ -246,97 +245,170 @@ def _gen_fixed_program(
                     ),
                 )
         if traffic_light_mode == "green_yellow_clear_red":
-            tl_phases = []
-            walk_indexes_set = set()
+            tl_phases: list[dict[str, Any]] = []
+            walk_indexes_set: set[int] = set()
             for index, lane_id in enumerate(j["lane_ids"]):
                 if lanes[lane_id]["type"] == mapv2.LANE_TYPE_WALKING:
                     walk_indexes_set.add(index)
-            non_transition_phase_indexes = (
-                []
-            )  # index which is not yellow phase or all red phase.
+
+            # dealing with all phases
             for i in range(len(phases)):
                 light_states = phases[i]["states"]
-                yellow_light_states = []
-                all_red_light_states = []
-                has_all_red_phase = False
-                for index_offset, (pre_light, cur_light) in enumerate(
-                    zip(phases[i - 1]["states"], phases[i]["states"])
+                transition_light_states = []
+
+                # creating yellow transition phase
+                for pre_light, cur_light in zip(
+                    phases[i - 1]["states"], phases[i]["states"]
                 ):
                     if (
                         pre_light == lightv2.LIGHT_STATE_GREEN
                         and cur_light == lightv2.LIGHT_STATE_RED
                     ):
-                        yellow_light_states.append(
-                            lightv2.LIGHT_STATE_YELLOW
-                        )  # green➡red, add one yellow phase
+                        transition_light_states.append(lightv2.LIGHT_STATE_YELLOW)
                     else:
-                        if (
-                            pre_light == lightv2.LIGHT_STATE_RED
-                            and cur_light == lightv2.LIGHT_STATE_GREEN
-                            and index_offset not in walk_indexes_set
-                        ):
-                            yellow_light_states.append(lightv2.LIGHT_STATE_RED)
-                        else:
-                            yellow_light_states.append(cur_light)
-                    if (
-                        pre_light == lightv2.LIGHT_STATE_RED
-                        and cur_light == lightv2.LIGHT_STATE_GREEN
-                        and index_offset not in walk_indexes_set
-                    ):
-                        all_red_light_states.append(
-                            lightv2.LIGHT_STATE_RED
-                        )  # red➡green add one all red phase
-                        has_all_red_phase = True
-                    else:
-                        all_red_light_states.append(cur_light)
-                # yellow phase
-                if any(l == lightv2.LIGHT_STATE_YELLOW for l in yellow_light_states):
+                        transition_light_states.append(cur_light)
+
+                # adding yellow transition phase
+                if any(
+                    l == lightv2.LIGHT_STATE_YELLOW for l in transition_light_states
+                ):
                     tl_phases.append(
-                        {"duration": yellow_time, "states": yellow_light_states}
+                        {"duration": yellow_time, "states": transition_light_states}
                     )
-                # all red phase
-                if has_all_red_phase:
-                    tl_phases.append(
-                        {"duration": yellow_time, "states": all_red_light_states}
-                    )
-                non_transition_phase_indexes.append(len(tl_phases))
+
+                # adding green phase
                 tl_phases.append({"duration": green_time, "states": light_states})
-            PEDESTRIAN_CLEAR_RATIO = 0.15  # The proportion of walk lanes advance change time to the entire green phase time
-            index_2_new_phases = defaultdict(list)
-            for index in non_transition_phase_indexes:
-                cur_phase = tl_phases[index]
-                cur_phase_duration = cur_phase["duration"]
-                next_phase = tl_phases[(index + 1) % len(tl_phases)]
-                ped_clear_indexes = set()
-                for i, l in enumerate(next_phase["states"]):
-                    if l == lightv2.LIGHT_STATE_YELLOW and i in walk_indexes_set:
-                        ped_clear_indexes.add(i)
-                # there is no yellow phase walking lanes in next phase, skip
-                if len(ped_clear_indexes) == 0:
-                    index_2_new_phases[index].append(cur_phase)
-                    continue
-                else:
-                    orig_duration = cur_phase_duration * (1 - PEDESTRIAN_CLEAR_RATIO)
-                    index_2_new_phases[index].append(
-                        {"duration": orig_duration, "states": cur_phase["states"]}
+
+                # adding pedestrian clear phase
+                if any(
+                    light_states[idx] == lightv2.LIGHT_STATE_GREEN
+                    for idx in walk_indexes_set
+                ):
+                    # first step: pedestrian clear phase - pedestrian lane become red
+                    pedestrian_clear_states = light_states.copy()
+                    for idx in walk_indexes_set:
+                        if pedestrian_clear_states[idx] == lightv2.LIGHT_STATE_GREEN:
+                            pedestrian_clear_states[idx] = lightv2.LIGHT_STATE_RED
+
+                    tl_phases.append(
+                        {
+                            "duration": pedestrian_clear_time,
+                            "states": pedestrian_clear_states,
+                        }
                     )
-                    clear_duration = cur_phase_duration * PEDESTRIAN_CLEAR_RATIO
-                    clear_states = []
-                    for i, l in enumerate(cur_phase["states"]):
-                        if i not in ped_clear_indexes:
-                            clear_states.append(l)
-                        else:
-                            clear_states.append(lightv2.LIGHT_STATE_YELLOW)
-                    index_2_new_phases[index].append(
-                        {"duration": clear_duration, "states": clear_states}
-                    )
-            output_phases = []
-            for index, phase in enumerate(tl_phases):
-                if index not in index_2_new_phases:
-                    output_phases.append(phase)
-                else:
-                    for new_phase in index_2_new_phases[index]:
-                        output_phases.append(new_phase)
+
+                    # second step: vehicle yellow transition phase - only set yellow for lanes that will become red
+                    vehicle_yellow_states = pedestrian_clear_states.copy()
+
+                    # getting the state of the next phase (circularly)
+                    next_phase_index = (i + 1) % len(phases)
+                    next_phase_states = phases[next_phase_index]["states"]
+
+                    for idx, lane_id in enumerate(j["lane_ids"]):
+                        if idx not in walk_indexes_set:
+                            # checking if the lane is a right turn lane
+                            is_right_turn = (
+                                lanes[lane_id]["type"] == mapv2.LANE_TYPE_DRIVING
+                                and lanes[lane_id]["turn"] == mapv2.LANE_TURN_RIGHT
+                            )
+
+                            if is_right_turn:
+                                # right turn lane keep green
+                                vehicle_yellow_states[idx] = lightv2.LIGHT_STATE_GREEN
+                            elif (
+                                vehicle_yellow_states[idx] == lightv2.LIGHT_STATE_GREEN
+                                and next_phase_states[idx] == lightv2.LIGHT_STATE_RED
+                            ):
+                                # only the lane that is green and the next phase is red will become yellow
+                                vehicle_yellow_states[idx] = lightv2.LIGHT_STATE_YELLOW
+
+                    # only add yellow transition phase when there is yellow state
+                    if any(
+                        l == lightv2.LIGHT_STATE_YELLOW for l in vehicle_yellow_states
+                    ):
+                        tl_phases.append(
+                            {
+                                "duration": yellow_time,
+                                "states": vehicle_yellow_states,
+                            }
+                        )
+
+                    # third step: vehicle red phase - set yellow to red
+                    vehicle_red_states = vehicle_yellow_states.copy()
+                    for idx, lane_id in enumerate(j["lane_ids"]):
+                        if idx not in walk_indexes_set:
+                            # checking if the lane is a right turn lane
+                            is_right_turn = (
+                                lanes[lane_id]["type"] == mapv2.LANE_TYPE_DRIVING
+                                and lanes[lane_id]["turn"] == mapv2.LANE_TURN_RIGHT
+                            )
+
+                            if is_right_turn:
+                                # right turn lane keep green
+                                vehicle_red_states[idx] = lightv2.LIGHT_STATE_GREEN
+                            elif vehicle_red_states[idx] == lightv2.LIGHT_STATE_YELLOW:
+                                # yellow become red
+                                vehicle_red_states[idx] = lightv2.LIGHT_STATE_RED
+
+                    # only add red phase when it is different from the previous state
+                    if vehicle_red_states != vehicle_yellow_states:
+                        tl_phases.append(
+                            {
+                                "duration": pedestrian_clear_time,
+                                "states": vehicle_red_states,
+                            }
+                        )
+            # filtering invalid yellow phases
+            invalid_yellow_indexes: set[int] = set()
+            for idx, phase in enumerate(tl_phases):
+                if lightv2.LIGHT_STATE_YELLOW in phase["states"]:
+                    # yellow lane idx
+                    yellow_lane_idx = [
+                        i
+                        for i, l in enumerate(phase["states"])
+                        if l == lightv2.LIGHT_STATE_YELLOW
+                    ]
+                    # checking previous and next phases
+                    pre_idx = (idx - 1) % len(tl_phases)
+                    next_idx = (idx + 1) % len(tl_phases)
+                    pre_phase = tl_phases[pre_idx]
+                    next_phase = tl_phases[next_idx]
+                    # checking the difference between previous and next phases
+                    # if the lane in the current yellow phase is red in both previous and next phases, then the yellow phase is invalid
+                    pre_light_states_for_yellow_lanes = [
+                        l
+                        for i, l in enumerate(pre_phase["states"])
+                        if i in yellow_lane_idx
+                    ]
+                    next_light_states_for_yellow_lanes = [
+                        l
+                        for i, l in enumerate(next_phase["states"])
+                        if i in yellow_lane_idx
+                    ]
+                    if all(
+                        l == lightv2.LIGHT_STATE_RED
+                        for l in pre_light_states_for_yellow_lanes
+                    ) and all(
+                        l == lightv2.LIGHT_STATE_RED
+                        for l in next_light_states_for_yellow_lanes
+                    ):
+                        invalid_yellow_indexes.add(idx)
+            output_phases = [
+                phase
+                for idx, phase in enumerate(tl_phases)
+                if idx not in invalid_yellow_indexes
+            ]
+            assert (
+                len(output_phases) > 0 or len(phases) == 0
+            ), f"No valid phases for junction {junc_id}"
+
+            # trying to use rule-based traffic light phases
+            rule_based_phases = _rule_based_traffic_light(
+                j, lanes, roads, green_time, yellow_time, traffic_light_mode
+            )
+            if False and rule_based_phases:
+                output_phases = rule_based_phases
+
         elif traffic_light_mode == "green_yellow_red":
             tl_phases = []
             for i in range(len(phases)):
@@ -398,6 +470,7 @@ def _convert_fixed_program(
         Literal["green_yellow_red"],
         Literal["green_yellow_clear_red"],
     ],
+    pedestrian_clear_time: float = 4.5,
 ):
     for jid, j in juncs.items():
         j["fixed_program"] = {}
@@ -524,7 +597,15 @@ def _convert_fixed_program(
                 "phases": out_phases,
             }
     # Complete the default fixed program traffic-light for all junctions
-    _gen_fixed_program(lanes, roads, juncs, green_time, yellow_time, traffic_light_mode)
+    _gen_fixed_program(
+        lanes=lanes,
+        roads=roads,
+        juncs=juncs,
+        default_green_time=green_time,
+        default_yellow_time=yellow_time,
+        traffic_light_mode=traffic_light_mode,
+        pedestrian_clear_time=pedestrian_clear_time,
+    )
 
 
 def _gen_available_phases(lanes: dict, juncs: dict, min_direction_group: int):
@@ -546,19 +627,21 @@ def _gen_available_phases(lanes: dict, juncs: dict, min_direction_group: int):
 
     def is_no_overlap_drive_right(lane_id):
         """if this lane is a right turn lane without overlap"""
-        lane = lanes[lane_id]
-        if (
-            not lane["turn"] == mapv2.LANE_TURN_RIGHT
-            or not lane["type"] == mapv2.LANE_TYPE_DRIVING
-        ):
-            return False
-        else:
-            no_overlap = True
-            for o in lane["overlaps"]:
-                if o["self"]["s"] <= 0.8 * lane["length"]:
-                    no_overlap = False
-                    break
-            return no_overlap
+        # lane = lanes[lane_id]
+        # if (
+        #     not lane["turn"] == mapv2.LANE_TURN_RIGHT
+        #     or not lane["type"] == mapv2.LANE_TYPE_DRIVING
+        # ):
+        #     return False
+        # else:
+        #     no_overlap = True
+        #     for o in lane["overlaps"]:
+        #         if 0.05 * lane["length"] <= o["self"]["s"] <= 0.95 * lane["length"]:
+        #             no_overlap = False
+        #             break
+        #     return no_overlap
+        # ATTENTION: right turn lane is always green
+        return True
 
     def has_independent_left(group):
         """if there is independent left turn lanes in this group"""
@@ -686,13 +769,13 @@ def _gen_available_phases(lanes: dict, juncs: dict, min_direction_group: int):
             for i in walking_overlap_with_driving_index:
                 lane_id = junc_lane_ids[i]
                 lane = lanes[lane_id]
-                conflict_turn_type = mapv2.LANE_TURN_STRAIGHT
+                conflict_turn_types = [mapv2.LANE_TURN_STRAIGHT, mapv2.LANE_TURN_LEFT]
                 for overlap in lane["overlaps"]:
                     other_lane_id = overlap["other"]["lane_id"]
                     other_lane = lanes[other_lane_id]
                     if (
                         other_lane["type"] == mapv2.LANE_TYPE_DRIVING
-                        and other_lane["turn"] == conflict_turn_type
+                        and other_lane["turn"] in conflict_turn_types
                         and phase[lane_id2index[other_lane_id]]
                         == lightv2.LIGHT_STATE_GREEN
                     ):
@@ -748,6 +831,7 @@ def generate_traffic_light(
         Literal["green_yellow_red"],
         Literal["green_yellow_clear_red"],
     ] = "green_yellow_clear_red",
+    pedestrian_clear_time: float = 4.5,
     correct_green_time: bool = False,
 ):
     # Generating available phases for MP
@@ -761,6 +845,7 @@ def generate_traffic_light(
         juncs,
         green_time,
         yellow_time,
+        pedestrian_clear_time,
         traffic_light_mode,
         correct_green_time,
     )
