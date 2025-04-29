@@ -402,6 +402,12 @@ def _gen_fixed_program(
                 len(output_phases) > 0 or len(phases) == 0
             ), f"No valid phases for junction {junc_id}"
 
+            # set yellow light to red for walking lanes
+            for idx, phase in enumerate(output_phases):
+                for i, l in enumerate(phase["states"]):
+                    if i in walk_indexes_set and l == lightv2.LIGHT_STATE_YELLOW:
+                        phase["states"][i] = lightv2.LIGHT_STATE_RED
+
             # trying to use rule-based traffic light phases
             rule_based_phases = _rule_based_traffic_light(
                 j, lanes, roads, green_time, yellow_time, traffic_light_mode
