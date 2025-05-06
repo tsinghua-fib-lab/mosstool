@@ -15,6 +15,7 @@ from shapely.geometry import (LineString, MultiPoint, MultiPolygon, Point,
 
 from .._util.line import (clip_line, connect_split_lines, merge_near_xy_points,
                           offset_lane)
+from .gtfs_converter import convert_gtfs_to_format
 
 __all__ = [
     "TransitlandPublicTransport",
@@ -338,18 +339,20 @@ class TransitlandPublicTransport:
     def __init__(
         self,
         proj_str: str,
-        max_longitude: float,
-        min_longitude: float,
-        max_latitude: float,
-        min_latitude: float,
+        max_longitude: Optional[float] = None,
+        min_longitude: Optional[float] = None,
+        max_latitude: Optional[float] = None,
+        min_latitude: Optional[float] = None,
         transitland_ak: Optional[str] = None,
         proxies: Optional[dict[str, str]] = None,
         wikipedia_name: Optional[str] = None,
         from_osm: bool = False,
+        gtfs_dir: Optional[str] = None,
     ):
         self.proxies = proxies
         self.wikipedia_name = wikipedia_name
         self.from_osm = from_osm
+        self.gtfs_dir = gtfs_dir
         if transitland_ak is None:
             self.from_osm = True
             logging.info("No transitland ak provided! Fetching from OSM")
@@ -365,28 +368,30 @@ class TransitlandPublicTransport:
         )
         self.BUS_SAME_STA_DIS = 30
         MIN_UNIT_NUM = 16  # Minimum number of search blocks
-        self.bbox = (
-            min_latitude,
-            min_longitude,
-            max_latitude,
-            max_longitude,
-        )
-        lon1, lat1 = min_longitude, min_latitude
-        lon2, lat2 = max_longitude, max_latitude
-        self.lon_center = (lon1 + lon2) / 2
-        self.lat_center = (lat1 + lat2) / 2
-        self.ak = transitland_ak
         self.projstr = proj_str
-        self.unit = max(
-            MIN_UNIT_NUM,
-            int(gps_distance(lon1, lat1, lon2, lat2) / self.MAX_SEARCH_RADIUS / 2 + 1),
-        )  # unit-1 * unit-1 large raster
-        self.lon_partition = [
-            round(x, 6) for x in list(np.linspace(lon1, lon2, self.unit))
-        ]  # Used to calculate search radius
-        self.lat_partition = [
-            round(y, 6) for y in list(np.linspace(lat1, lat2, self.unit))
-        ]
+        if not gtfs_dir:
+            assert min_longitude is not None and max_longitude is not None and min_latitude is not None and max_latitude is not None, "min_longitude, max_longitude, min_latitude, max_latitude should be provided if gtfs_dir is not provided"
+            self.bbox = (
+                min_latitude,
+                min_longitude,
+                max_latitude,
+                max_longitude,
+            )
+            lon1, lat1 = min_longitude, min_latitude
+            lon2, lat2 = max_longitude, max_latitude
+            self.lon_center = (lon1 + lon2) / 2
+            self.lat_center = (lat1 + lat2) / 2
+            self.ak = transitland_ak
+            self.unit = max(
+                MIN_UNIT_NUM,
+                int(gps_distance(lon1, lat1, lon2, lat2) / self.MAX_SEARCH_RADIUS / 2 + 1),
+            )  # unit-1 * unit-1 large raster
+            self.lon_partition = [
+                round(x, 6) for x in list(np.linspace(lon1, lon2, self.unit))
+            ]  # Used to calculate search radius
+            self.lat_partition = [
+                round(y, 6) for y in list(np.linspace(lat1, lat2, self.unit))
+            ]
 
     def _query_raw_data_from_osm(self):
         """
@@ -981,12 +986,16 @@ class TransitlandPublicTransport:
         self.merged_bus_stations = merged_bus_stations
 
     def get_output_data(self):
-        if self.from_osm:
-            self._query_raw_data_from_osm()
-            self._process_raw_data_from_osm()
+        if self.gtfs_dir:
+            # from GTFS data
+            self.GTFS_route_id2route_info = convert_gtfs_to_format(self.gtfs_dir)
         else:
-            self._fetch_raw_stops()
-            self._fetch_raw_lines()
+            if self.from_osm:
+                self._query_raw_data_from_osm()
+                self._process_raw_data_from_osm()
+            else:
+                self._fetch_raw_stops()
+                self._fetch_raw_lines()
         self.process_raw_data()
         self.merge_raw_data()
         merged_subway_stations = self.merged_subway_stations
