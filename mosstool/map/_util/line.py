@@ -261,7 +261,7 @@ def offset_lane(line: LineString, distance: float) -> LineString:
     has_z_coords = bool(any(len(c) > 2 for c in line.coords))
     line_xy = LineString([c[:2] for c in line.coords])
     offset_line = line_xy.offset_curve(distance)
-    if offset_line:
+    if offset_line and isinstance(offset_line, LineString):
         if not has_z_coords:
             return offset_line  # type: ignore
         else:
