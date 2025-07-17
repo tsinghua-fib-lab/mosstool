@@ -335,6 +335,11 @@ class Builder:
                     if self.lane2data[l]["type"] == mapv2.LANE_TYPE_WALKING
                 ]
                 r_id = r.id
+                if len(drive_lanes) + len(walk_lanes) == 0:
+                    logging.warning(
+                        f"Public Transport Road {r_id} will be ignored, please use `public_transport` to add public transport roads"
+                    )
+                    continue
                 pb_road_uids.add(r_id)
                 self.map_roads[r_id] = {
                     "lanes": drive_lanes,
@@ -357,6 +362,16 @@ class Builder:
             pb_junc_uids = set()
             for j in net.junctions:
                 junc_lanes = [self.map_lanes[l_id] for l_id in j.lane_ids]
+                public_transport_lanes = [
+                    l
+                    for l in junc_lanes
+                    if self.lane2data[l]["type"] == mapv2.LANE_TYPE_RAIL_TRANSIT
+                ]
+                if len(public_transport_lanes) == len(junc_lanes):
+                    logging.warning(
+                        f"Junction {j.id} will be ignored, please use `public_transport` to add public transport junctions"
+                    )
+                    continue
                 all_junc_lane_coords = []
                 for l in junc_lanes:
                     all_junc_lane_coords.extend(list(l.coords))
