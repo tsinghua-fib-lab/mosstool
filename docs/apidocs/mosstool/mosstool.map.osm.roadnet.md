@@ -45,7 +45,7 @@
 
 ````
 
-`````{py:class} RoadNet(proj_str: typing.Optional[str] = None, max_longitude: typing.Optional[float] = None, min_longitude: typing.Optional[float] = None, max_latitude: typing.Optional[float] = None, min_latitude: typing.Optional[float] = None, wikipedia_name: typing.Optional[str] = None, proxies: typing.Optional[dict[str, str]] = None)
+`````{py:class} RoadNet(proj_str: typing.Optional[str] = None, max_longitude: typing.Optional[float] = None, min_longitude: typing.Optional[float] = None, max_latitude: typing.Optional[float] = None, min_latitude: typing.Optional[float] = None, wikipedia_name: typing.Optional[str] = None, proxies: typing.Optional[dict[str, str]] = None, way_filter: typing.Optional[list[str]] = None)
 :canonical: mosstool.map.osm.roadnet.RoadNet
 
 ```{autodoc2-docstring} mosstool.map.osm.roadnet.RoadNet

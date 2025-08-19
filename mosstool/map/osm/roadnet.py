@@ -33,6 +33,7 @@ class RoadNet:
         min_latitude: Optional[float] = None,
         wikipedia_name: Optional[str] = None,
         proxies: Optional[dict[str, str]] = None,
+        way_filter: Optional[list[str]] = None,
     ):
         """
         Args:
@@ -43,6 +44,7 @@ class RoadNet:
         - min_latitude (Optional[float]): min latitude
         - wikipedia_name (Optional[str]): wikipedia name of the area in OSM.
         - proxies (Optional[dict[str, str]]): proxies for requests, e.g. {'http': 'http://localhost:1080', 'https': 'http://localhost:1080'}
+        - way_filter (Optional[list[str]]): filter for ways when quering OSM
         """
         # configs
         self.proj_parameter = proj_str
@@ -59,7 +61,7 @@ class RoadNet:
             logging.warning("Using osm cache data for input and xy coords for output!")
         self.proxies = proxies
         self.wikipedia_name = wikipedia_name
-        self.way_filter = WAY_FILTER
+        self.way_filter = WAY_FILTER if way_filter is None else way_filter
         # OSM raw data
         self.ways = {}  # way_id -> way
         self.nodes = {}  # node_id -> node

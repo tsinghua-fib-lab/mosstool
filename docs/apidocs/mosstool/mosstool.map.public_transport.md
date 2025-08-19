@@ -16,6 +16,7 @@
 mosstool.map.public_transport.get_bus
 mosstool.map.public_transport.get_transitland
 mosstool.map.public_transport.public_transport_post
+mosstool.map.public_transport.gtfs_converter
 mosstool.map.public_transport.get_subway
 ```
 

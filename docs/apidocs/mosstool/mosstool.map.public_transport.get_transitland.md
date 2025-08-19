@@ -31,6 +31,10 @@
   - ```{autodoc2-docstring} mosstool.map.public_transport.get_transitland.geo_coords
     :summary:
     ```
+* - {py:obj}`extract_schedules_from_tags <mosstool.map.public_transport.get_transitland.extract_schedules_from_tags>`
+  - ```{autodoc2-docstring} mosstool.map.public_transport.get_transitland.extract_schedules_from_tags
+    :summary:
+    ```
 * - {py:obj}`_get_headers <mosstool.map.public_transport.get_transitland._get_headers>`
   - ```{autodoc2-docstring} mosstool.map.public_transport.get_transitland._get_headers
     :summary:
@@ -88,6 +92,13 @@
 ```
 ````
 
+````{py:function} extract_schedules_from_tags(tags: dict[str, typing.Any]) -> list[float]
+:canonical: mosstool.map.public_transport.get_transitland.extract_schedules_from_tags
+
+```{autodoc2-docstring} mosstool.map.public_transport.get_transitland.extract_schedules_from_tags
+```
+````
+
 ````{py:function} _get_headers(referer_url)
 :canonical: mosstool.map.public_transport.get_transitland._get_headers
 
@@ -130,7 +141,7 @@
 ```
 ````
 
-`````{py:class} TransitlandPublicTransport(proj_str: str, max_longitude: float, min_longitude: float, max_latitude: float, min_latitude: float, transitland_ak: typing.Optional[str] = None, proxies: typing.Optional[dict[str, str]] = None, wikipedia_name: typing.Optional[str] = None, from_osm: bool = False)
+`````{py:class} TransitlandPublicTransport(proj_str: str, max_longitude: typing.Optional[float] = None, min_longitude: typing.Optional[float] = None, max_latitude: typing.Optional[float] = None, min_latitude: typing.Optional[float] = None, transitland_ak: typing.Optional[str] = None, proxies: typing.Optional[dict[str, str]] = None, wikipedia_name: typing.Optional[str] = None, from_osm: bool = False, gtfs_dir: typing.Optional[str] = None)
 :canonical: mosstool.map.public_transport.get_transitland.TransitlandPublicTransport
 
 ```{autodoc2-docstring} mosstool.map.public_transport.get_transitland.TransitlandPublicTransport

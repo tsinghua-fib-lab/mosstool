@@ -9,6 +9,8 @@ In this step, we fetch `roadnet` and `aois` data within the area intended for si
 from mosstool.map.osm import RoadNet, Building
 from mosstool.map.builder import Builder
 from mosstool.util.format_converter import dict2pb
+from mosstool.type import Map
+
 rn = RoadNet(
     proj_str="+proj=tmerc +lat_0=22.54095 +lon_0=113.90899",
     max_latitude=39.92,
@@ -30,6 +32,7 @@ builder = Builder(
     aois=aois,
     proj_str="+proj=tmerc +lat_0=22.54095 +lon_0=113.90899",
 )
+m = builder.build("map_name")
 pb = dict2pb(m, Map())
 with open("data/temp/map.pb", "wb") as f:
     f.write(pb.SerializeToString())

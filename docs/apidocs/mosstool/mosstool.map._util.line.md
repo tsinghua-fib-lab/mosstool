@@ -31,6 +31,10 @@
   - ```{autodoc2-docstring} mosstool.map._util.line.line_max_curvature
     :summary:
     ```
+* - {py:obj}`add_random_point_to_linestring <mosstool.map._util.line.add_random_point_to_linestring>`
+  - ```{autodoc2-docstring} mosstool.map._util.line.add_random_point_to_linestring
+    :summary:
+    ```
 * - {py:obj}`connect_line_string <mosstool.map._util.line.connect_line_string>`
   - ```{autodoc2-docstring} mosstool.map._util.line.connect_line_string
     :summary:
@@ -122,10 +126,17 @@
 ```
 ````
 
-````{py:function} line_max_curvature(line: shapely.geometry.LineString)
+````{py:function} line_max_curvature(line: shapely.geometry.LineString) -> float
 :canonical: mosstool.map._util.line.line_max_curvature
 
 ```{autodoc2-docstring} mosstool.map._util.line.line_max_curvature
+```
+````
+
+````{py:function} add_random_point_to_linestring(line: shapely.geometry.LineString, seed: int = 0) -> shapely.geometry.LineString
+:canonical: mosstool.map._util.line.add_random_point_to_linestring
+
+```{autodoc2-docstring} mosstool.map._util.line.add_random_point_to_linestring
 ```
 ````
 
