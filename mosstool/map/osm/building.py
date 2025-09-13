@@ -191,6 +191,9 @@ class Building:
             if nodes[0] != nodes[-1]:  # should be a ring
                 invalid_way_cnt += 1
                 continue
+            if len(nodes) < 3:
+                invalid_way_cnt += 1
+                continue
             geo = sPolygon([nodes_dict[node] for node in nodes])
             if geo.is_valid:
                 self.aois.append(
@@ -232,6 +235,9 @@ class Building:
                 if (
                     nodes_ring and not nodes_line
                 ):  # Multiple ring-forming edges: It may be combined into a polygon by union; it may also be separated into multiple shapes, in which case it will be split into multiple Aoi
+                    if len(nodes_ring) < 3:
+                        invalid_relation_cnt += 1
+                        continue
                     polys = [
                         sPolygon([nodes_dict[node] for node in nodes])
                         for nodes in nodes_ring
