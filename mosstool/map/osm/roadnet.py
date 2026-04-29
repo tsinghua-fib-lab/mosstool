@@ -7,13 +7,13 @@ from typing import Optional
 
 import networkx as nx
 import pyproj
-import requests
 from geojson import Feature, FeatureCollection, LineString, MultiPoint, dump
 from shapely.geometry import LineString as sLineString
 
 from .._map_util.format_checker import osm_format_checker
 from .._map_util.osm_const import *
 from ._motif import close_nodes, motif_H, suc_is_close_by_other_way
+from ._overpass import fetch_overpass
 from ._wayutil import merge_way_nodes, parse_osm_way_tags
 
 __all__ = ["RoadNet"]
@@ -99,10 +99,8 @@ class RoadNet:
         query += f"(way{area}{OVERPASS_FILTER};>;);out;"
         logging.info(query)
         logging.info("Downloading map from OSM")
-        data = requests.get(
-            f"http://overpass-api.de/api/interpreter?data={query}",
-            proxies=self.proxies,
-        ).json()["elements"]
+        payload = fetch_overpass(query, proxies=self.proxies)
+        data = payload["elements"]
         assert all(i["type"] != "way" or "highway" in i["tags"] for i in data)
         return data
 

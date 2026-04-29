@@ -1,10 +1,10 @@
 import logging
 from typing import Optional
 
-import requests
 from geojson import Feature, FeatureCollection, Point, dump
 
 from .._map_util.format_checker import osm_format_checker
+from ._overpass import fetch_overpass
 
 __all__ = ["PointOfInterest"]
 
@@ -82,10 +82,7 @@ class PointOfInterest:
                     query_body = "(" + query_body + ");"
                     query = query_header + query_body + "(._;>;);" + "out body;"
                     logging.info(f"{query}")
-                    osm_data = requests.get(
-                        "http://overpass-api.de/api/interpreter?data=" + query,
-                        proxies=self.proxies,
-                    ).json()["elements"]
+                    osm_data = fetch_overpass(query, proxies=self.proxies)["elements"]
                     break
                 except Exception as e:
                     logging.warning(f"Exception when querying OSM data {e}")
